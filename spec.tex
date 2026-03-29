@@ -1,0 +1,791 @@
+
+\documentclass[conference]{IEEEtran}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\begin{document}
+
+\title{Virtual Test Engineer: AI-Powered Orchestration System for Hardware Testing}
+
+\author{\IEEEauthorblockN{1\textsuperscript{st} Given Name Surname}
+\IEEEauthorblockA{\textit{dept. name of organization} \\
+\textit{name of organization}\\
+City, Country \\
+email address or ORCID}}
+
+\maketitle
+
+\begin{abstract}
+The Virtual Test Engineer is an AI-powered orchestration system designed to bridge the gap between high-level natural language commands and low-level physical hardware testing. It transforms an engineer's intent into executable hardware actions, enabling the control of test benches, execution of complex test sequences, and real-time analysis of results without requiring the user to write manual driver code or low-level scripts. By acting as a ``co-pilot,'' the system reduces the cognitive load on the engineer while maintaining strict hardware safety and reliability standards.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Virtual Test Engineer, Software Defined Test Bench, AI Orchestration, Hardware Testing, LLM
+\end{IEEEkeywords}
+
+\section{System Overview}
+
+\subsection{Purpose}
+The \textbf{Virtual Test Engineer} is an AI-powered orchestration system designed to bridge the gap between high-level natural language commands and low-level physical hardware testing. It transforms an engineer's intent into executable hardware actions, enabling the control of test benches, execution of complex test sequences, and real-time analysis of results without requiring the user to write manual driver code or low-level scripts. By acting as a ``co-pilot,'' the system reduces the cognitive load on the engineer while maintaining strict hardware safety and reliability standards.
+
+\subsection{Core Components}
+The system is built on two primary pillars:
+\begin{itemize}
+    \item \textbf{Software Defined Test Bench (SDT)}: This layer abstracts physical hardware (such as Arduinos or ESP32s) into a unified, software-defined interface. It manages the hardware lifecycle, enforces safety limits, and provides a RESTful API for both single-command execution and high-speed JSONL script streaming.
+    \item \textbf{Agent Framework}: Built using the \textbf{Google ADK (Agent Development Kit)}, this AI layer interprets natural language, retrieves historical context from memory, and generates optimized test plans. It manages the transition between operational modes (Ask, Plan, and Agent) to ensure the user is always in control of complex operations.
+\end{itemize}
+
+\subsection{Use Case \& Physical Environment}
+The system is optimized for a ``one engineer, one desk'' environment, focusing on desktop-level hardware validation.
+\begin{itemize}
+    \item \textbf{Device Under Test (DUT)}: The target hardware (e.g., an Arduino Uno or Nano) running the firmware that needs validation.
+    \item \textbf{Signal Simulator}: A secondary hardware device (e.g., an Arduino Nano) acting as the environment simulator to generate stimuli, mock loads, and test signals for the DUT.
+    \item \textbf{Physical Wiring}: The DUT and Simulator are physically interconnected (e.g., Simulator Pin D11 connected to DUT Pin A0) to allow for closed-loop testing.
+    \item \textbf{Control Interface}: The engineer interacts via a Natural Language interface to trigger tests like ``Measure the brake sensor response to a 2.5V ramp''.
+\end{itemize}
+
+\subsection{Key Features}
+\begin{itemize}
+    \item \textbf{Hardware Abstraction Layer (HAL)}: Enables hardware-agnostic testing where scripts can be reused across different microcontrollers simply by updating configuration files.
+    \item \textbf{High-Speed JSONL Scripting}: Bypasses REST API latency by streaming sequences of commands line-by-line for smooth signal generation.
+    \item \textbf{Three-Tier Operational Modes}: Ask Mode, Plan Mode, and Agent Mode.
+    \item \textbf{Hierarchical Memory System}: Uses a two-tier index system (Markdown-based) to store hardware specs, test history, and user-taught ``fix'' patterns for automated troubleshooting.
+    \item \textbf{Automated Troubleshooting}: The agent analyzes post-test telemetry to identify potential physical issues, such as loose wires or ground loops.
+    \item \textbf{Safety-First Design}: Includes mandatory pre-validation of all scripts, a global emergency stop (E-Stop), and an automatic global teardown to return all pins to a safe state after any run.
+\end{itemize}
+
+\section{Architecture}
+The Virtual Test Engineer architecture is designed for modularity, safety, and high-performance hardware interaction. It follows a layered approach that separates high-level AI reasoning from low-level bit-banging.
+
+\subsection{Layered Component Descriptions}
+\subsubsection{Agent Layer (The ``Brain'')}
+\begin{itemize}
+    \item \textbf{Agent Core (Google ADK)}: The central orchestrator that uses the LLM (Step Flash 3.5) to parse user intent into actionable tool calls.
+    \item \textbf{Operational Modes}: Manages the \textbf{Ask}, \textbf{Plan}, and \textbf{Agent} modes to determine whether a script requires a user preview or auto-execution.
+    \item \textbf{Memory System}: Implements a two-tier Markdown architecture. The \textbf{Index} (\texttt{index.md}) is always loaded to provide a map of knowledge, while specific files are ``lazy-loaded'' on demand to save context tokens.
+    \item \textbf{Script Library}: A persistent store of JSONL scripts generated during ``Plan Mode.'' These can be ``stitched'' together by the agent to create complex, multi-phase test sequences.
+\end{itemize}
+
+\subsubsection{SDT Layer (The ``Nervous System'')}
+\begin{itemize}
+    \item \textbf{FastAPI Wrapper}: Provides a standard REST interface for the agent to communicate with hardware. It includes endpoints for single-pin control and JSONL script uploading.
+    \item \textbf{JSONL Engine}: A high-speed execution core that reads \texttt{.jsonl} files line-by-line. It dispatches commands to the ProtocolHandler immediately to avoid the overhead of large JSON object parsing during live signal generation.
+    \item \textbf{Pin Mapper (3-Layer)}: Separates user-friendly channel names from physical hardware. It enforces \textbf{effective limits} by comparing the Simulator's hardware capabilities with the DUT's electrical tolerances.
+    \item \textbf{Hardware Abstraction Layer (HAL)}: The only component aware of the physical serial port and baud rate. It uses a \textbf{Hardware Mutex} to ensure only one command is sent to a specific Arduino at a time.
+\end{itemize}
+
+\subsubsection{Physical Layer (The ``Hands'')}
+\begin{itemize}
+    \item \textbf{Simulator}: Configured via \texttt{simulator\_config.json}, this device generates the analog/digital signals required to stimulate the DUT.
+    \item \textbf{DUT}: The target device. Its electrical limits are defined in \texttt{dut\_limits.json} to prevent the agent from accidentally applying over-voltage during a test.
+\end{itemize}
+
+\subsection{Component Interaction Flow (JSONL Execution)}
+This flow illustrates the interaction when a user requests a complex signal (e.g., a 10-step ramp) in \textbf{Plan Mode}.
+\begin{enumerate}
+    \item \textbf{Intent Capture}: User asks: ``Generate a 0-5V ramp on the brake simulator''.
+    \item \textbf{Script Generation}: Agent Core generates a 10-line \texttt{input.jsonl} file.
+    \item \textbf{Pre-Validation}: Agent sends the script to the SDT \texttt{/validate} endpoint. The Pin Mapper confirms the 5V target is within DUT and Simulator limits.
+    \item \textbf{User Preview}: If validation passes, the Agent presents a \textbf{Table and ASCII Graph} of the ramp to the user.
+    \item \textbf{Execution}: Upon user ``Go,'' the Agent POSTs the JSONL to the SDT.
+    \item \textbf{Streaming}: The JSONL Engine dispatches each line to the HAL. For every input line, an output line is generated in \texttt{output.jsonl} with captured hardware responses.
+    \item \textbf{Teardown}: Once the last line is executed, the SDT automatically triggers \texttt{global\_teardown.jsonl} to set all pins to 0V/LOW.
+    \item \textbf{Summary}: The Agent parses \texttt{output.jsonl}, summarizes the results, and updates the Test Memory.
+\end{enumerate}
+
+\section{Software Defined Test Bench (SDT)}
+The \textbf{Software Defined Test Bench (SDT)} serves as the physical-to-digital bridge, transforming low-level hardware signals into a high-level, programmable environment. Its primary goal is to make hardware testing as flexible and iterative as software development by abstracting specific pin assignments and electrical constraints into a unified interface.
+
+\subsection{Hardware Abstraction Layer (HAL)}
+The HAL is the foundational software layer and the only module that communicates directly with physical hardware over USB serial.
+\begin{itemize}
+    \item \textbf{Connection Management}: It owns the entire serial lifecycle, including connection, disconnection, and automated recovery after a hardware reset.
+    \item \textbf{Hardware Agnosticism}: Through the use of a ProtocolHandler, the HAL can communicate with Arduinos, ESP32s, or custom hardware without changing the upstream code.
+    \item \textbf{Concurrency Control}: It implements a \textbf{Hardware Mutex} to ensure that only one command is dispatched to a specific serial port at a time, preventing corrupted commands or undefined hardware behavior.
+\end{itemize}
+
+\subsection{Three-Layer Configuration System}
+The SDT utilizes a decoupled configuration strategy to ensure that hardware can be remapped or swapped with zero code changes.
+\subsubsection{Channel Mapping File (\texttt{channel\_mappings.json})}
+\begin{itemize}
+    \item \textbf{Purpose}: Maps user-friendly names to logical pins.
+    \item \textbf{Content}: Defines the human-readable identifier (e.g., \texttt{brake\_temp\_sensor}), its logical pin (e.g., \texttt{sim\_output\_1}), and its unit of measurement (e.g., celsius).
+\end{itemize}
+\subsubsection{Simulator Configuration File (\texttt{simulator\_config.json})}
+\begin{itemize}
+    \item \textbf{Purpose}: Maps logical pins to physical hardware pins on the Simulator.
+    \item \textbf{Content}: Includes physical pin IDs (e.g., D11), capabilities (e.g., PWM, Analog), and the simulator's physical current and voltage limits.
+\end{itemize}
+\subsubsection{DUT Limits File (\texttt{dut\_limits.json})}
+\begin{itemize}
+    \item \textbf{Purpose}: Defines the electrical safety boundaries of the Device Under Test.
+    \item \textbf{Content}: Specifies the maximum voltage the DUT can tolerate on a specific pin (e.g., 3.3V) and the expected normal operating range for signals.
+\end{itemize}
+
+\subsection{JSONL Scripting Engine}
+The \textbf{JSONL Engine} is a high-speed execution core designed to minimize the latency inherent in standard REST API calls.
+\subsubsection{Request Format (\texttt{input.jsonl})}
+The Agent streams a sequence of JSON objects, where each line represents a discrete hardware action.
+\begin{itemize}
+    \item \textbf{Example Actions}: \texttt{write}, \texttt{read}, \texttt{wait}, and \texttt{assert}.
+    \item \textbf{Script Variables}: Supports placeholders (e.g., \texttt{\$TARGET\_V}) that the SDT resolves at runtime, allowing the same script to be reused with different parameters.
+\end{itemize}
+\subsubsection{Response Format (\texttt{output.jsonl})}
+For every line in the input script, the SDT generates a corresponding response line.
+\begin{itemize}
+    \item \textbf{Telemetry}: Each line includes the execution status (OK or ERROR), the value captured from the hardware, and a high-precision timestamp.
+\end{itemize}
+\subsubsection{Pre-Validation (The Safety Scan)}
+Before the first command of a JSONL script is executed, the SDT performs a \textbf{Dry-Run Validation}.
+\begin{itemize}
+    \item \textbf{Full-Scan}: It parses the entire file to check for future violations, such as trying to write to an input pin in step \#100 or exceeding a voltage limit in step \#200.
+    \item \textbf{Blocking}: If any error is found, the entire script is rejected, ensuring the hardware never enters an unsafe state.
+\end{itemize}
+
+\subsection{REST API Endpoints}
+The SDT exposes a FastAPI interface for both real-time interaction and automated testing.
+\begin{itemize}
+    \item \textbf{Hardware Control}: \texttt{POST /connect}, \texttt{POST /disconnect}, \texttt{GET /status}.
+    \item \textbf{Pin Control}: \texttt{GET /pins/\{channel\}/read}, \texttt{POST /pins/\{channel\}/write}.
+    \item \textbf{Script Execution}: \texttt{POST /scripts/execute} (Accepts JSONL files).
+    \item \textbf{Validation}: \texttt{POST /scripts/validate} (Used by the Agent in \textbf{Plan Mode}).
+\end{itemize}
+
+\subsection{Global Teardown \& Fail-Safe}
+Upon the completion of any script or the detection of a failure, the SDT automatically dispatches a \textbf{Global Teardown}.
+\begin{itemize}
+    \item \textbf{Action}: Immediately drives all writable outputs to their predefined ``safe state'' (typically 0V or LOW).
+    \item \textbf{Watchdog}: If the serial connection to the Simulator or DUT is lost, a hardware-level watchdog triggers the teardown to prevent orphaned signals from damaging the equipment.
+\end{itemize}
+
+\section{Agent Framework}
+The \textbf{Agent Framework} is the cognitive layer of the system, responsible for translating high-level human intent into structured hardware commands while maintaining safety and learning from every interaction. Built on the \textbf{Google ADK (Agent Development Kit)} and powered by \textbf{Step Flash 3.5}, it manages the test lifecycle from initial request to final diagnostic reporting.
+
+\subsection{Purpose and Core Capabilities}
+The framework provides an AI-powered interface designed to:
+\begin{itemize}
+    \item \textbf{Interpret Natural Language}: Translate informal engineering requests into precise test plans.
+    \item \textbf{Orchestrate Execution}: Manage the generation and delivery of high-speed JSONL scripts to the SDT.
+    \item \textbf{Perform Result Analysis}: Compare captured data against expected values and calculate timing metrics.
+    \item \textbf{Self-Improvement}: Learn from hardware failures and user-provided ``fixes'' to automate future troubleshooting.
+\end{itemize}
+
+\subsection{Agent Operation Modes}
+The agent operates in three distinct modes to balance engineer oversight with automated efficiency:
+
+\begin{table}[htbp]
+\caption{Agent Operation Modes}
+\begin{center}
+\begin{tabular}{|p{1.5cm}|p{3.5cm}|p{2.5cm}|}
+\hline
+\textbf{Mode} & \textbf{Workflow Logic} & \textbf{Best Use Case} \\
+\hline
+\textbf{Ask Mode} & User Prompt $\rightarrow$ Single SDT Query $\rightarrow$ Direct Value Response & Real-time debugging and simple pin reads. \\
+\hline
+\textbf{Plan Mode} & User Prompt $\rightarrow$ JSONL Generation $\rightarrow$ \textbf{Reviewable Preview} $\rightarrow$ User ``Go'' $\rightarrow$ Execute & Developing new test sequences or high-voltage operations. \\
+\hline
+\textbf{Agent Mode} & User Prompt $\rightarrow$ JSONL Generation $\rightarrow$ \textbf{Auto-Execute} $\rightarrow$ Detailed Result Summary & Repetitive regression testing using trusted scripts. \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+\subsection{The Reasoning and Execution Loop}
+Every interaction follows a structured six-step workflow:
+\begin{enumerate}
+    \item \textbf{Intent Parsing}: Identifies target channels (e.g., \texttt{brake\_sim}) and actions (e.g., ramp).
+    \item \textbf{Memory Retrieval}: Searches the \texttt{index.md} for historical test data, pin configs, and known troubleshooting patterns.
+    \item \textbf{Script Generation}: Builds an \texttt{input.jsonl} file containing the necessary write, read, and wait commands.
+    \item \textbf{Pre-Execution Gate}:
+    \begin{itemize}
+        \item \textbf{In Plan Mode}: Presents a Table and ASCII graph preview.
+        \item \textbf{In Agent Mode}: Performs silent SDT pre-validation before auto-executing.
+    \end{itemize}
+    \item \textbf{SDT Dispatch}: Streams the script to the SDT API and monitors for real-time status updates.
+    \item \textbf{Analysis \& Update}: Parses \texttt{output.jsonl}, summarizes performance, and writes the session log to memory.
+\end{enumerate}
+
+\subsection{Automated Troubleshooting and Auto-Correction}
+The agent acts as an intelligent safety layer, resolving minor issues autonomously while escalating major ones to the user.
+\subsubsection{Minor Auto-Correction}
+If a script requests a value slightly beyond hardware limits (e.g., requesting 3.35V on a 3.3V tolerance pin), the agent applies \textbf{Clamping Logic}. It automatically adjusts the value to the safe maximum and informs the user: \textit{``Capped requested voltage to 3.3V limit''}.
+\subsubsection{Unrecoverable Error Escalation (Down-shifting)}
+If an error is structural---such as attempting to write to a pin configured as an input---the agent performs a \textbf{Safety Down-shift}:
+\begin{enumerate}
+    \item \textbf{Stop}: Execution is blocked immediately.
+    \item \textbf{Switch}: The session switches from \textbf{Agent Mode} to \textbf{Plan Mode}.
+    \item \textbf{Clarify}: The agent presents a \textbf{Multiple-Choice Fix List} (e.g., ``A: Change pin mapping'', ``B: Adjust value'', ``C: Custom input'').
+    \item \textbf{Remember}: Once the user selects a fix, the agent stores the pattern in \texttt{learnings/auto\_corrections.md} for future use.
+\end{enumerate}
+
+\subsection{Visualization (Reviewable Format)}
+For scripts exceeding 10 steps, the agent generates a visual preview to ensure the engineer can verify the signal shape at a glance.
+\subsubsection{ASCII Dual-Trace Graphs}
+The agent renders a simple ASCII chart showing the intended \textbf{Stimulus (Simulator Output)} and the \textbf{Expected/Actual Response (DUT Input)}.
+\subsubsection{Summary Trace View}
+Post-execution summaries include a compact \textbf{Sparkline} representing signal health:
+\begin{itemize}
+    \item \textbf{[Sim Out]} \texttt{\_--\textasciitilde--\_}
+    \item \textbf{[DUT In ]} \texttt{\_..\_..\_}
+    \item \textbf{Status}: PASS (Delta $<$ 5\%)
+\end{itemize}
+
+\subsection{Chained Script Stitching}
+The agent can ``stitch'' multiple saved JSONL files into a single master sequence.
+\begin{itemize}
+    \item \textbf{Variable Consistency}: The agent ensures placeholders like \texttt{\$TARGET\_V} are unified across the entire chain.
+    \item \textbf{Sequential Review}: Before running a chain, the user receives a consolidated \textbf{Variable Table} for final approval.
+    \item \textbf{Stop-on-Fail}: If Script A in a chain fails, the agent aborts the sequence and triggers the \textbf{Global Teardown} to ensure the bench is safe.
+\end{itemize}
+
+\section{Communication Protocol}
+The communication protocol architecture is hardware-agnostic, enabling the \textbf{Virtual Test Engineer} to interface with various microcontrollers via standardized data streams. The primary communication flow moves from the PC (Python) through PySerial to the Simulator (Arduino), which then interacts with the Device Under Test (DUT) via physical wired connections.
+
+\subsection{Overview and Data Flow}
+\begin{itemize}
+    \item \textbf{Physical Layer}: Uses USB Serial communication (PySerial) between the PC and hardware devices.
+    \item \textbf{Abstracted Flow}: PC (Python) $\rightarrow$ PySerial $\rightarrow$ Simulator (Arduino) $\rightarrow$ Wired Physical Connection $\rightarrow$ DUT (Arduino).
+    \item \textbf{Hardware Independence}: The protocol is designed so that swapping an Arduino for another device (e.g., ESP32) only requires updating the specific ProtocolHandler.
+\end{itemize}
+
+\subsection{Arduino Serial Protocol (ASCII)}
+The current implementation utilizes a custom ASCII-based protocol for low-level hardware control.
+\subsubsection{Message Formats}
+\begin{itemize}
+    \item \textbf{Command Format}: \texttt{CMD:ACTION:PARAM1:PARAM2:...:PARAMn\textbackslash n}.
+    \item \textbf{Response Format}: \texttt{STATUS:DATA1:DATA2:...:DATAn\textbackslash n}.
+\end{itemize}
+\subsubsection{Status Codes}
+\begin{itemize}
+    \item \textbf{OK}: Command executed successfully.
+    \item \textbf{ERR}: An error occurred during execution.
+    \item \textbf{TIMEOUT}: The command timed out.
+    \item \textbf{BUSY}: The device is currently busy with another operation.
+\end{itemize}
+
+\subsubsection{Standard Command Set}
+\begin{table}[htbp]
+\caption{Standard Command Set}
+\begin{center}
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{2cm}|p{2cm}|}
+\hline
+\textbf{Command} & \textbf{Format} & \textbf{Description} & \textbf{Example} \\
+\hline
+\textbf{READ\_ANALOG} & \texttt{RA:pin} & Reads analog value (0--1023). & \texttt{RA:A0 $\rightarrow$ OK:512} \\
+\hline
+\textbf{READ\_DIGITAL} & \texttt{RD:pin} & Reads digital value (0 or 1). & \texttt{RD:D7 $\rightarrow$ OK:1} \\
+\hline
+\textbf{WRITE\_ANALOG} & \texttt{WA:pin:value} & Writes analog (PWM) value. & \texttt{WA:D9:128 $\rightarrow$ OK} \\
+\hline
+\textbf{WRITE\_DIGITAL} & \texttt{WD:pin:value} & Writes digital value. & \texttt{WD:D7:1 $\rightarrow$ OK} \\
+\hline
+\textbf{SET\_PWM} & \texttt{PWM:pin:duty} & Sets PWM duty cycle. & \texttt{PWM:D9:50 $\rightarrow$ OK} \\
+\hline
+\textbf{PING} & \texttt{PING} & Connection health check. & \texttt{PING $\rightarrow$ OK:PONG} \\
+\hline
+\textbf{STATUS} & \texttt{STATUS} & Retrieves device readiness state. & \texttt{STATUS $\rightarrow$ OK:READY} \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+\subsection{JSONL Streaming Protocol}
+To handle high-speed signal generation and multi-step tests, the system uses a \textbf{JSONL (JSON Lines)} streaming interface which bypasses the latency of standard REST requests.
+\subsubsection{Input Stream (\texttt{input.jsonl})}
+The Agent generates a sequence of independent JSON objects.
+\begin{itemize}
+    \item \textbf{Structure}: \texttt{\{"action": "write", "channel": "led\_indicator", "value": 1, "timestamp\_offset": 0\}}.
+    \item \textbf{Actions Supported}: \texttt{write}, \texttt{read}, \texttt{wait}, and \texttt{assert}.
+\end{itemize}
+\subsubsection{Output Stream (\texttt{output.jsonl})}
+The SDT responds with a mirrored JSONL file for every input line.
+\begin{itemize}
+    \item \textbf{Structure}: \texttt{\{"step": 1, "status": "OK", "action": "write", "value\_sent": 3.3, "timestamp": "10:45:00.001"\}}.
+    \item \textbf{Error Reporting}: Includes failure reasons and the specific line number where the error occurred.
+\end{itemize}
+
+\subsection{Error Handling and Reliability}
+\begin{itemize}
+    \item \textbf{Retries}: Commands that fail due to ProtocolTimeout are automatically retried up to 3 times before an error is raised.
+    \item \textbf{Missed Pings}: The ConnectionMonitor pings hardware every 5 seconds. If 2 consecutive pings are missed, an E-Stop is triggered.
+    \item \textbf{Stop-on-Fail}: In chained script execution, if any script returns a fail or error status, the SDT halts the entire sequence to prevent cascading hardware issues.
+\end{itemize}
+
+\subsection{Safety \& Hardware Protection}
+Safety is enforced through a \textbf{Three-Layer Architecture}.
+\subsubsection{Layer Enforcement}
+\begin{enumerate}
+    \item \textbf{Agent Layer}: Intent validation and mandatory confirmation gates.
+    \item \textbf{SDT API Layer}: Value range enforcement (\texttt{min\_value}/\texttt{max\_value}) and pin-mode guards.
+    \item \textbf{Protocol Handler}: Command whitelisting and hardware watchdog pings.
+\end{enumerate}
+\subsubsection{Emergency Stop (E-Stop)}
+An E-Stop immediately halts all ongoing hardware activity.
+\begin{itemize}
+    \item \textbf{Triggers}: User ``stop'' commands, test timeouts, 3 consecutive \texttt{ERR} responses, or device disconnection.
+    \item \textbf{Action}: Drives all digital and analog outputs to a safe state (0V/LOW).
+\end{itemize}
+\subsubsection{Global Teardown}
+Every script completion or abort triggers a \texttt{global\_teardown.jsonl} sequence.
+\begin{itemize}
+    \item \textbf{Mandatory Reset}: Ensures all pins are reset to 0V/LOW so the test bench returns to a known ``Zero State'' before the next interaction.
+    \item \textbf{No Partial Resumption}: After a failure, the hardware state is considered unknown; the entire chain must be restarted from the beginning.
+\end{itemize}
+
+\section{API Design}
+The Virtual Test Engineer API is a RESTful interface built with \textbf{FastAPI}, designed to provide a high-performance bridge between the AI Agent and the physical test bench. It supports both synchronous single-command execution and asynchronous high-speed \textbf{JSONL streaming}.
+
+\subsection{API Specification (OpenAPI 3.0)}
+The API follows the OpenAPI 3.0 standard, ensuring compatibility with modern development tools and automated documentation via Swagger/Redoc.
+
+\subsection{Endpoint Categories}
+\subsubsection{Hardware Lifecycle Endpoints}
+\begin{itemize}
+    \item \textbf{POST} \texttt{/hardware/connect}: Initializes the serial connection using the specified port and baud rate.
+    \item \textbf{POST} \texttt{/hardware/disconnect}: Safely closes the serial ports.
+    \item \textbf{GET} \texttt{/hardware/status}: Returns the current connection health and readiness state.
+    \item \textbf{POST} \texttt{/hardware/reset}: Triggers a hardware-level reset of the connected devices.
+\end{itemize}
+
+\subsubsection{Pin \& Channel Management}
+\begin{itemize}
+    \item \textbf{GET} \texttt{/pins/\{channel\_name\}/read}: Captures a single value from the specified channel.
+    \item \textbf{POST} \texttt{/pins/\{channel\_name\}/write}: Dispatches a single value to an output channel after passing \textbf{Safety Guard} validation.
+    \item \textbf{GET} \texttt{/pins/\{channel\_name\}/limits}: Retrieves both hardware (Simulator) and safety (DUT) limits for the channel.
+    \item \textbf{POST} \texttt{/pins/\{channel\_name\}/validate}: Checks if a specific value is within the \textbf{Effective Limits} before execution.
+\end{itemize}
+
+\subsubsection{JSONL Scripting \& Execution}
+\begin{itemize}
+    \item \textbf{POST} \texttt{/scripts/validate}: Performs a \textbf{Dry-Run Validation} of an entire JSONL file. Returns success or a detailed list of error lines for the Agent's \textbf{Error Preview}.
+    \item \textbf{POST} \texttt{/scripts/execute}: Executes a validated JSONL script via streaming. Returns a mirrored \texttt{output.jsonl} with timestamps and captured telemetry.
+\end{itemize}
+
+\subsubsection{Simulator \& Environment Control}
+\begin{itemize}
+    \item \textbf{POST} \texttt{/simulator/configure}: Sets the hardware type and pin modes for the simulator.
+    \item \textbf{POST} \texttt{/simulator/signal/generate}: Triggers continuous signal generation.
+    \item \textbf{POST} \texttt{/simulator/signal/stop}: Halts all active signal generation on the simulator.
+\end{itemize}
+
+\subsection{Authentication \& Security}
+To ensure hardware safety and prevent unauthorized access, the API implements several security layers:
+\begin{itemize}
+    \item \textbf{API Key Authentication}: Required for all production-level hardware interactions.
+    \item \textbf{Input Sanitization}: All incoming JSON parameters are validated via \textbf{Pydantic} models to prevent injection or malformed command errors.
+    \item \textbf{Rate Limiting}: Prevents the Agent or external tools from overwhelming the serial buffer.
+    \item \textbf{Hardware Mutex}: A server-side lock ensures that concurrent API requests targeting the same physical device are queued and executed sequentially.
+\end{itemize}
+
+\subsection{Error Response Format}
+All API errors return a structured JSON response to facilitate the Agent's \textbf{Automated Troubleshooting} logic.
+
+\section{Natural Language Interface}
+The \textbf{Natural Language Interface (NLI)} serves as the primary gateway for the engineer, leveraging the \textbf{Step Flash 3.5} model through the \textbf{Google ADK} to interpret human intent and convert it into structured hardware operations.
+
+\subsection{Supported Command Patterns}
+\subsubsection{Basic Hardware Commands}
+Used for immediate interaction with specific pins or hardware states:
+\begin{itemize}
+    \item ``Read the brake temperature sensor''.
+    \item ``Turn on the LED''.
+    \item ``Set the PWM to 50\%''.
+    \item ``Get hardware status''.
+    \item ``Connect to Arduino on COM3''.
+\end{itemize}
+\subsubsection{Test Execution Commands}
+Used to trigger multi-step sequences or formal validation routines:
+\begin{itemize}
+    \item ``Test the LED blinking function''.
+    \item ``Run a full regression test''.
+    \item ``Validate the button input''.
+    \item ``Measure voltage on pin A0''.
+\end{itemize}
+\subsubsection{Analysis and Diagnostic Commands}
+Used to query test history or troubleshoot failures:
+\begin{itemize}
+    \item ``Analyze the last test results''.
+    \item ``What went wrong with the LED test?''.
+    \item ``Show me the test history''.
+    \item ``Compare current results with baseline''.
+\end{itemize}
+
+\subsection{Intent Recognition}
+The Agent processes input through a specialized parsing pipeline to transform prose into parameters.
+\subsubsection{Intent Categories}
+\begin{itemize}
+    \item \textbf{Hardware Control}: Includes \texttt{read\_sensor}, \texttt{write\_output}, and \texttt{configure} actions.
+    \item \textbf{Test Execution}: Includes \texttt{run\_test}, \texttt{validate}, and \texttt{analyze} actions.
+    \item \textbf{System}: Includes \texttt{status}, \texttt{help}, and \texttt{history} requests.
+\end{itemize}
+\subsubsection{Parameter Extraction}
+The ParameterExtractor isolates key entities required for API calls:
+\begin{itemize}
+    \item \textbf{Channel Name}: Identification of the target (e.g., \texttt{brake\_temp\_sensor}).
+    \item \textbf{Value/Unit}: Extraction of magnitudes and types (e.g., 2.5V, 100Hz).
+    \item \textbf{Duration}: Identifying timing constraints (e.g., wait 500ms).
+\end{itemize}
+
+\subsection{Operation Modes and Feedback}
+The interface behavior dynamically shifts based on the complexity of the command and the current \textbf{Operation Mode}.
+\begin{itemize}
+    \item \textbf{Ask Mode}: The Agent provides a single, direct value with its associated unit (e.g., ``\textbf{A0: 3.28V}'').
+    \item \textbf{Plan Mode}: The Agent provides a comprehensive preview of the generated \textbf{JSONL script} and waits for a ``Go'' or confirmation before sending it to the SDT.
+    \item \textbf{Agent Mode}: The Agent informs the user that execution has started automatically and follows up with a detailed performance summary.
+\end{itemize}
+
+\subsection{Reviewable Format ($>$10 Steps)}
+When a planned script exceeds \textbf{10 steps}, the Agent is required to present the intent in a high-visibility \textbf{Reviewable Format} to prevent ``black box'' execution errors.
+\begin{itemize}
+    \item \textbf{The Step Table}: A summarized view that groups similar actions (e.g., ``Steps 1--50: 0-3.3V Ramp'') to make long JSONL files readable at a glance.
+    \item \textbf{Safety Highlights}: Any steps that trigger \textbf{Auto-Correction} (e.g., clamping a value to the hardware limit) are highlighted in the table.
+    \item \textbf{Mandatory User Gate}: In \textbf{Plan Mode}, the ``Proceed'' action is only enabled after the Agent has displayed this table.
+\end{itemize}
+
+\subsection{Visual Previews (ASCII Graphs)}
+For scripts involving signal generation or time-series data, the Agent generates simple \textbf{ASCII graphs} to provide visual confirmation of the signal shape.
+\subsubsection{Dual-Trace Visualization}
+In \textbf{Plan Mode} previews, the Agent ``draws'' the relationship between the stimulus and the expected response.
+\subsubsection{Summary Sparklines}
+Post-execution reports use compact \textbf{Sparklines} to visualize signal health:
+\begin{itemize}
+    \item \textbf{[Sim Out]}: \texttt{\_--\textasciitilde--\_} (The generated stimulus).
+    \item \textbf{[DUT In]}: \texttt{\_..\_..\_} (The captured response).
+    \item \textbf{Delta Statistics}: Provides a numerical summary of how closely the response matched the target.
+\end{itemize}
+
+\section{Memory System}
+The \textbf{Memory System} is designed to solve the ``context window budget'' challenge inherent in LLMs. It provides a persistent, searchable, and self-improving knowledge base that allows the Agent to learn from every test execution, hardware failure, and user correction.
+
+\subsection{Design Philosophy: Two-Tier Architecture}
+The system utilizes a \textbf{two-tier hierarchical structure} to manage information efficiently without overwhelming the model's context window.
+\begin{itemize}
+    \item \textbf{Tier 1 --- The Index (\texttt{index.md})}: A lightweight table of contents that is \textbf{always loaded} into the Agent's system prompt. It serves as a high-level map of all available knowledge.
+    \item \textbf{Tier 2 --- Memory Files}: Detailed Markdown or JSONL documents that are \textbf{loaded on demand} (lazy-loading) only when the Agent identifies them as relevant via the Index.
+\end{itemize}
+
+\subsection{Memory Directory Structure}
+The memory is organized into logical subdirectories to separate raw logs from long-term learnings and reusable scripts.
+
+\subsection{The Memory Index (\texttt{index.md})}
+The index is the single source of truth for the Agent's ``recall'' ability. It follows a strict format to ensure the Agent can parse it reliably.
+\begin{itemize}
+    \item \textbf{Format}: A Markdown table with columns for \textbf{Topic}, \textbf{Filename}, and \textbf{Tags}.
+    \item \textbf{Content}: Each row represents one memory file.
+    \item \textbf{Update Policy}: The Agent automatically updates this file at the end of every session or whenever a new script is saved.
+\end{itemize}
+
+\subsection{Core Memory File Types}
+\subsubsection{Session Files}
+Created automatically after every conversation.
+\begin{itemize}
+    \item \textbf{Contents}: Summarizes the user's commands, the resulting hardware actions, and any key learnings or failures.
+    \item \textbf{Purpose}: Provides immediate context for the next time the engineer starts a session.
+\end{itemize}
+\subsubsection{Test Memory}
+Per-test files (e.g., \texttt{led\_blink.md}) that track long-term performance.
+\begin{itemize}
+    \item \textbf{Run History}: A table of dates, results (Pass/Fail), and specific metrics like frequency or duty cycle.
+    \item \textbf{Anomaly Tracking}: Notes recurring issues to help identify hardware degradation.
+\end{itemize}
+\subsubsection{Global Learnings (The ``Fix'' Memory)}
+A curated set of rules that govern the Agent's autonomous behavior.
+\begin{itemize}
+    \item \textbf{Auto-Correction Learning}: If a user provides a fix in \textbf{Plan Mode} (e.g., ``Always cap voltage to 3.3V on this pin''), the Agent writes this to \texttt{global/auto\_corrections.md}.
+    \item \textbf{Implementation}: In future \textbf{Agent Mode} runs, the Agent consults this file to apply the fix automatically before execution.
+\end{itemize}
+
+\subsection{The Script Library (\texttt{memory/scripts/})}
+This library stores JSONL files for repeated execution, enabling high-speed automation without manual prompt engineering.
+\begin{itemize}
+    \item \textbf{Script Naming}: The Agent suggests names based on action and target (e.g., \texttt{[Action]\_[Target]\_[Param].jsonl}).
+    \item \textbf{Maintenance \& Expiry}:
+    \begin{itemize}
+        \item When a script is loaded, the Agent performs a \textbf{Hardware Drift Check}.
+        \item If the current \texttt{channel\_mappings.json} differs from the script's original configuration, the Agent down-shifts to \textbf{Plan Mode} to request an update.
+    \end{itemize}
+    \item \textbf{Deduplication}: The Agent suggests overwriting or versioning when a new script is $>$90\% identical to an existing one.
+\end{itemize}
+
+\subsection{Memory Lifecycle and Integration}
+\subsubsection{Phase 1: Startup}
+\begin{itemize}
+    \item The system injects the full \texttt{index.md} into the Agent's base system prompt.
+    \item The Agent scans the index to see if any previous sessions or hardware specs are relevant to the current user query.
+\end{itemize}
+\subsubsection{Phase 2: Lazy-Loading}
+\begin{itemize}
+    \item If the user asks about a specific sensor, the Agent uses the \texttt{search\_memory} tool to pull only that sensor's file from Tier 2.
+    \item \textbf{Constraint}: To protect the context window, the Agent is capped at loading \textbf{4 memory files} per turn.
+\end{itemize}
+\subsubsection{Phase 3: End-of-Session (Auto-Write)}
+\begin{enumerate}
+    \item \textbf{Summarize}: The Agent generates a session summary.
+    \item \textbf{Stitch \& Save}: If the user confirms, JSONL scripts are moved to the Script Library.
+    \item \textbf{Promote}: Critical troubleshooting fixes are moved from session logs to \textbf{Global Learnings}.
+    \item \textbf{Index Update}: The \texttt{index.md} is rewritten to reflect all new and modified files.
+\end{enumerate}
+
+\subsection{Context Budget Guidelines}
+The Memory System maintains a strict budget to ensure the model remains responsive.
+
+\begin{table}[htbp]
+\caption{Context Budget Guidelines}
+\begin{center}
+\begin{tabular}{|p{2cm}|p{3.5cm}|p{2cm}|}
+\hline
+\textbf{Layer} & \textbf{Content} & \textbf{Approx. Tokens} \\
+\hline
+\textbf{Index (Tier 1)} & Full knowledge map (Always loaded) & 300--600 \\
+\hline
+\textbf{Lazy-loaded Files} & Up to 4 relevant Tier 2 files & 1,500--3,000 \\
+\hline
+\textbf{History \& System} & Base prompt + rolling session window & 1,800--2,800 \\
+\hline
+\textbf{Total Usage} & & \textbf{3,600--6,400} \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+\section{Implementation Plan}
+The implementation of the \textbf{Virtual Test Engineer} is divided into four strategic phases, moving from the foundational hardware abstraction to the advanced AI-driven automation library. Each milestone is designed to deliver a testable increment of the system.
+
+\subsection{Phase 1: Software Defined Test Bench (SDT)}
+\textbf{Focus}: Establishing the physical-to-digital bridge and high-speed execution core.
+\subsubsection{Milestone 1.1: Hardware Abstraction \& Protocol}
+\begin{itemize}
+    \item Implement the \textbf{Hardware Abstraction Layer (HAL)} with support for USB Serial communication.
+    \item Develop the \textbf{Arduino Protocol Handler} for ASCII-based command serialization.
+    \item Integrate a \textbf{Hardware Mutex} to prevent concurrent write corruption.
+    \item Build the \textbf{Connection Monitor} for background health pings and disconnect detection.
+\end{itemize}
+\subsubsection{Milestone 1.2: 3-Layer Pin Mapper \& Safety}
+\begin{itemize}
+    \item Create the JSON parsers for \textbf{Channel Mappings}, \textbf{Simulator Config}, and \textbf{DUT Limits}.
+    \item Implement the \textbf{Safety Guard} logic to calculate effective limits across all three layers.
+    \item Add \textbf{Clamping Logic} to provide minor auto-corrections for near-limit values.
+\end{itemize}
+\subsubsection{Milestone 1.3: JSONL Scripting Engine}
+\begin{itemize}
+    \item Develop the \textbf{Line-by-Line Streamer} to execute \texttt{.jsonl} files with minimal latency.
+    \item Implement the \textbf{Pre-Validation Scanner} to perform ``Dry-Run'' safety checks before pin toggling.
+    \item Build the \textbf{Mirrored Response} logic to generate \texttt{output.jsonl} with step-by-step telemetry.
+\end{itemize}
+
+\subsection{Phase 2: Agent Framework \& NLI}
+\textbf{Focus}: Intelligent reasoning, operational modes, and user-centric visualization.
+\subsubsection{Milestone 2.1: Operational Modes \& Transitions}
+\begin{itemize}
+    \item Set up the \textbf{Google ADK} core with Step Flash 3.5.
+    \item Implement the logic for \textbf{Ask}, \textbf{Plan}, and \textbf{Agent} modes.
+    \item Build the \textbf{Mode Switching} engine to handle ``Down-shifting'' during hardware errors.
+\end{itemize}
+\subsubsection{Milestone 2.2: Visualization \& Feedback}
+\begin{itemize}
+    \item Develop the \textbf{ASCII Graph Generator} for dual-trace stimulus/response previews.
+    \item Implement the \textbf{Reviewable Table} format for scripts exceeding 10 steps.
+    \item Create the \textbf{Multiple-Choice Clarification} system for unrecoverable errors.
+\end{itemize}
+\subsubsection{Milestone 2.3: Memory \& Learning}
+\begin{itemize}
+    \item Initialize the \textbf{Two-Tier Index} system (\texttt{index.md} + lazy-load files).
+    \item Implement \textbf{Fix Persistence} to store user-selected corrections in \texttt{auto\_corrections.md}.
+    \item Build the \textbf{Script Library} manager for saving, naming, and deduplicating JSONL files.
+\end{itemize}
+
+\subsection{Phase 3: Advanced Automation \& Safety}
+\textbf{Focus}: Complex test architectures and failsafe reliability.
+\subsubsection{Milestone 3.1: Script Stitching}
+\begin{itemize}
+    \item Develop the \textbf{Pre-Processor} to merge multiple JSONL files into one master sequence.
+    \item Implement \textbf{Variable Conflict Detection} to ensure placeholder consistency across chains.
+    \item Build the \textbf{Merged Variable Review} table for pre-flight user approval.
+\end{itemize}
+\subsubsection{Milestone 3.2: Chained Abort \& Teardown}
+\begin{itemize}
+    \item Implement the \textbf{Stop-on-Fail} logic for chained script sequences.
+    \item Develop the \textbf{Global Teardown} routine to safe all hardware pins upon completion or failure.
+    \item Add the \textbf{Hardware Drift Check} to validate old scripts against current pin mappings.
+\end{itemize}
+
+\subsection{Phase 4: Integration \& Deployment}
+\textbf{Focus}: Full-system validation and field readiness.
+\subsubsection{Milestone 4.1: Firmware \& Hardware Validation}
+\begin{itemize}
+    \item Develop the final \textbf{Simulator Firmware} with support for ASCII and high-speed toggling.
+    \item Create a suite of \textbf{Reference DUT Firmware} for testing common scenarios (Analog, PWM, Serial).
+    \item Perform end-to-end stress testing of the \textbf{JSONL Engine} to measure timing jitter.
+\end{itemize}
+\subsubsection{Milestone 4.2: Documentation \& User Handoff}
+\begin{itemize}
+    \item Write the \textbf{User Guide} focusing on natural language patterns for the three modes.
+    \item Generate full \textbf{OpenAPI/Swagger} documentation for the SDT REST API.
+    \item Conduct final \textbf{User Testing} sessions to refine the ``Auto-Correction'' suggestions.
+\end{itemize}
+
+\section{Technical Stack}
+The \textbf{Virtual Test Engineer} leverages a modern, high-performance stack designed to handle real-time hardware interaction, complex AI reasoning, and scalable data streaming. The choice of technologies ensures low-latency communication between the AI agent and the physical test bench while providing a robust development environment.
+
+\subsection{Software Defined Test Bench (SDT)}
+\begin{itemize}
+    \item \textbf{Language}: \textbf{Python 3.10+}. Python provides the necessary balance of high-level library support for APIs and low-level serial control.
+    \item \textbf{REST API}: \textbf{FastAPI}. Chosen for its high performance, native asynchronous support, and automatic OpenAPI (Swagger) documentation generation.
+    \item \textbf{Script Execution}: \textbf{JSONL (JSON Lines) Streaming}. This format is utilized to bypass standard REST latency by processing test steps as a continuous stream of independent JSON objects.
+    \item \textbf{Serial Communication}: \textbf{PySerial}. Acts as the primary driver for USB-to-TTL communication between the PC and the Arduino-based Simulator/DUT.
+    \item \textbf{Data Validation}: \textbf{Pydantic}. Ensures that all incoming API parameters and JSONL script steps strictly adhere to defined schemas before touching hardware.
+    \item \textbf{Testing}: \textbf{pytest}. Used for unit testing the HAL and Pin Mapper logic to ensure safety guards are functioning as expected.
+\end{itemize}
+
+\subsection{Agent Framework}
+\begin{itemize}
+    \item \textbf{Framework}: \textbf{Google ADK (Agent Development Kit)}. This provides the core orchestration logic, tool registration, and loop management for the agent.
+    \item \textbf{LLM Model}: \textbf{Stepfun/Step Flash 3.5}. A high-speed, large-context model optimized for tool use and structured output (JSONL generation).
+    \item \textbf{Operational Modes}: Custom logic implemented within the ADK to handle transitions between \textbf{Ask}, \textbf{Plan}, and \textbf{Agent} modes.
+    \item \textbf{Memory Architecture}: \textbf{Markdown-based Hierarchical System}.
+    \begin{itemize}
+        \item \textbf{Index}: Lightweight \texttt{index.md} for high-level knowledge mapping.
+        \item \textbf{Storage}: Focused markdown files for session logs and test run histories.
+    \end{itemize}
+    \item \textbf{Vector Search (Optional)}: Support for semantic retrieval to find relevant troubleshooting guides when a simple keyword match fails.
+\end{itemize}
+
+\subsection{Hardware}
+\begin{itemize}
+    \item \textbf{Simulator}: \textbf{Arduino Uno/Nano}. Responsible for generating analog/digital stimulus and reading responses from the DUT.
+    \item \textbf{DUT (Device Under Test)}: \textbf{Arduino Uno/Nano}. The target hardware running the firmware being validated.
+    \item \textbf{Communication Protocol}: \textbf{Custom ASCII-based Protocol}. A lightweight format (e.g., \texttt{WA:pin:value}) designed for low overhead over serial lines.
+    \item \textbf{Physical Interface}: \textbf{USB-to-Serial (TTL)}. Provides the data link and power for the desktop test bench.
+\end{itemize}
+
+\subsection{Development \& Monitoring Tools}
+\begin{itemize}
+    \item \textbf{Version Control}: \textbf{Git}.
+    \item \textbf{IDE}: \textbf{VS Code}.
+    \item \textbf{API Testing}: \textbf{Postman / Thunder Client}. Used for validating the FastAPI endpoints and testing JSONL upload payloads.
+    \item \textbf{Visualization}: \textbf{ASCII Graphics Engine}. Integrated into the Agent for rendering signal previews directly in the terminal/UI.
+    \item \textbf{Monitoring}: \textbf{Python Logging} + optional \textbf{Grafana}. Captures hardware telemetry from \texttt{output.jsonl} to visualize signal stability and timing jitter.
+\end{itemize}
+
+\section{Hardware Wiring}
+The physical layer of the \textbf{Virtual Test Engineer} is designed to be simple yet robust, allowing for rapid desktop prototyping while maintaining the integrity of high-speed signals. By standardizing the physical connections between the \textbf{Simulator} and the \textbf{DUT}, the system ensures that the \textbf{Software Defined Test Bench (SDT)} can accurately map logical intent to electrical stimulus.
+
+\subsection{Physical Topology}
+The current setup utilizes a direct point-to-point wiring configuration between two microcontrollers connected to a host PC via independent USB channels.
+
+\subsubsection{Current Wiring Map}
+In the standard reference setup, the following physical pins are interconnected:
+\begin{itemize}
+    \item \textbf{Simulator Pin D11} $\rightarrow$ \textbf{DUT Pin A0}: Primary analog stimulus path.
+    \item \textbf{Simulator Pin D12} $\rightarrow$ \textbf{DUT Pin D7}: Primary digital stimulus/trigger path.
+    \item \textbf{GND} $\rightarrow$ \textbf{GND}: Mandatory common ground reference to prevent floating voltages and signal noise.
+\end{itemize}
+
+\subsection{Signal Flow and Execution}
+The execution of a hardware test follows a deterministic path from high-level intent to physical electron movement:
+\begin{enumerate}
+    \item \textbf{PC} $\rightarrow$ \textbf{Simulator}: The SDT dispatches a command (e.g., \texttt{WA:11:512}) via PySerial to the Simulator.
+    \item \textbf{Simulator} $\rightarrow$ \textbf{DUT}: The Simulator generates a physical signal (e.g., 2.5V PWM) on pin D11.
+    \item \textbf{DUT Internal}: The DUT reads the incoming signal on pin A0 and processes it according to its internal firmware logic.
+    \item \textbf{Feedback (Optional)}: If the DUT is wired to send a response back to the Simulator, the Simulator captures this and returns the data to the PC via the \texttt{output.jsonl} stream.
+\end{enumerate}
+
+\subsection{Grounding and Electrical Integrity}
+Electrical reliability is handled at the wiring level to support the \textbf{Agent's Automated Troubleshooting} logic:
+\begin{itemize}
+    \item \textbf{Common Ground}: A failure to connect the Simulator and DUT grounds is the most common cause of ``floating'' sensor readings. The Agent is programmed to detect this signature (unstable oscillations) and suggest a ground check in \textbf{Plan Mode}.
+    \item \textbf{Voltage Isolation}: While the current setup uses 5V logic for both devices, the \textbf{Pin Mapper} enforces a 3.3V software cap if the \texttt{dut\_limits.json} indicates the DUT is not 5V tolerant, preventing physical damage during execution.
+\end{itemize}
+
+\subsection{Configuration Example (The Three-Layer Mapping)}
+To translate these physical wires into something the Agent understands, the system uses three distinct configuration files:
+\subsubsection{Layer 1: Channel Mapping (\texttt{channel\_mappings.json})}
+Defines the human-friendly name for the wire.
+\subsubsection{Layer 2: Simulator Config (\texttt{simulator\_config.json})}
+Defines where the wire is plugged into the Simulator.
+\subsubsection{Layer 3: DUT Limits (\texttt{dut\_limits.json})}
+Defines what the target wire can safely handle.
+\textbf{Result}: Even though the Simulator \textit{can} output 5V on D11, the SDT will \textbf{Auto-Correct} or block any command over 3.3V because the DUT's physical A0 pin is restricted in Layer 3.
+
+\section{Glossary}
+To ensure clear communication between engineers and the \textbf{Virtual Test Engineer}, this section defines the technical terminology used throughout the specification.
+
+\begin{table}[htbp]
+\caption{Glossary of Terms}
+\begin{center}
+\begin{tabular}{|p{2.5cm}|p{5cm}|}
+\hline
+\textbf{Term} & \textbf{Definition} \\
+\hline
+\textbf{ADK} & The Google-provided framework used to build the Agent Core, manage tool registrations, and handle the reasoning loop. \\
+\hline
+\textbf{Agent Mode} & An operational state where the Agent generates and automatically executes JSONL scripts without a manual user preview. \\
+\hline
+\textbf{Ask Mode} & A restricted operational state for point-in-time queries; the Agent returns only current values and units for specific pins. \\
+\hline
+\textbf{Channel Name} & A human-readable identifier mapped to a physical hardware pin through the configuration layers. \\
+\hline
+\textbf{DUT} & The target microcontroller running the specific firmware intended for validation. \\
+\hline
+\textbf{E-Stop} & A critical safety mechanism that immediately halts all hardware activity and drives outputs to a safe state (0V/LOW). \\
+\hline
+\textbf{Global Teardown} & A mandatory sequence executed after every test to return all pins to a known ``Zero State''. \\
+\hline
+\textbf{HAL} & The software module that manages low-level serial communication and hides hardware-specific details. \\
+\hline
+\textbf{Intent} & The structured interpretation of a user's natural language command, identifying the target, action, and parameters. \\
+\hline
+\textbf{JSONL} & A data format where each line is a valid JSON object, used for high-speed streaming of test steps. \\
+\hline
+\textbf{Memory} & The hierarchical markdown-based storage system used to persist hardware specs, test history, and learned troubleshooting patterns. \\
+\hline
+\textbf{Pin Mapper} & The component responsible for translating logical channel names into physical pin assignments while enforcing safety limits. \\
+\hline
+\textbf{Plan Mode} & An operational state where the Agent prepares a JSONL script and requires user approval after showing a table and ASCII graph preview. \\
+\hline
+\textbf{Protocol} & The custom ASCII-based communication format used to talk to the Arduino Simulator. \\
+\hline
+\textbf{Safety Guard} & The logic layer that validates all hardware writes against the effective limits defined by the Simulator and DUT. \\
+\hline
+\textbf{SDT} & The software layer that abstracts physical hardware into a programmable, API-driven interface. \\
+\hline
+\textbf{Simulator} & A secondary microcontroller used to generate signals, stimuli, and mock loads for the Device Under Test. \\
+\hline
+\textbf{Stitching} & The process where the Agent merges multiple saved JSONL files into a single master sequence for atomic execution. \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+\section{Code Reference}
+This section serves as the technical implementation blueprint for the \textbf{Virtual Test Engineer}. It contains the core Python classes, logic structures, and data models required to build the system as specified in the preceding sections.
+
+\subsection{Hardware Abstraction Layer (HAL)}
+The HAL manages the lifecycle of physical serial connections and provides a thread-safe interface for command dispatch.
+
+\subsection{Three-Layer Pin Mapper}
+The Pin Mapper enforces safety by reconciling channel names with both simulator capabilities and DUT tolerances.
+
+\subsection{Protocol Handlers}
+Encapsulates the wire format for different hardware types.
+
+\subsection{JSONL Scripting Engine (SDT Side)}
+Executes streamed command sequences with pre-validation and line-by-line responses.
+
+\subsection{Safety Guard (Auto-Correction)}
+Enforces bounds and applies clamping to near-limit values.
+
+\subsection{Emergency Stop \& Global Teardown}
+Drives hardware to a ``Zero State'' during emergencies or at the end of every test.
+
+\subsection{Agent Safety Rules (Mode \& Preview Logic)}
+System instructions for the AI to govern its own behavior.
+
+\subsection{Memory Manager (Two-Tier Index)}
+Handles the persistence of sessions, scripts, and learned corrections.
+
+\end{document}
