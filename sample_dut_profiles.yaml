@@ -1,0 +1,444 @@
+# Sample DUT Profile Configuration
+# This file demonstrates how to add a new DUT profile to the Virtual Test Engineer
+
+dut_profiles:
+  # Basic Arduino ECU (already exists in main config)
+  - id: "arduino_ecu"
+    name: "Arduino Throttle ECU"
+    description: "Simple ECU with analog throttle input and PWM engine speed output"
+    channels:
+      - id: "throttle_position"
+        required: true
+        direction: "input"
+      - id: "engine_speed"
+        required: true
+        direction: "output"
+      - id: "eco_mode"
+        required: false
+        direction: "input"
+    buses:
+      - can_bus
+
+  # Advanced Automotive ECU
+  - id: "advanced_ecu"
+    name: "Advanced Automotive ECU"
+    description: "Complex ECU with multiple sensors and actuators for comprehensive testing"
+    channels:
+      - id: "throttle_position"
+        required: true
+        direction: "input"
+        description: "Throttle pedal position sensor"
+      - id: "engine_speed"
+        required: true
+        direction: "output"
+        description: "Engine speed output (RPM)"
+      - id: "vehicle_speed"
+        required: true
+        direction: "input"
+        description: "Vehicle speed sensor"
+      - id: "brake_pressure"
+        required: true
+        direction: "input"
+        description: "Brake pressure sensor"
+      - id: "fuel_injection"
+        required: true
+        direction: "output"
+        description: "Fuel injection control"
+      - id: "ignition_coil"
+        required: true
+        direction: "output"
+        description: "Ignition coil control"
+      - id: "diagnostic_led"
+        required: false
+        direction: "output"
+        description: "Diagnostic status LED"
+      - id: "coolant_temp"
+        required: false
+        direction: "input"
+        description: "Engine coolant temperature"
+      - id: "oil_pressure"
+        required: false
+        direction: "input"
+        description: "Engine oil pressure"
+    buses:
+      - can_bus
+      - diagnostic_bus
+
+  # Electric Vehicle Controller
+  - id: "ev_controller"
+    name: "Electric Vehicle Controller"
+    description: "Controller for electric vehicle powertrain and battery management"
+    channels:
+      - id: "accelerator_pedal"
+        required: true
+        direction: "input"
+        description: "Accelerator pedal position"
+      - id: "brake_pedal"
+        required: true
+        direction: "input"
+        description: "Brake pedal position"
+      - id: "motor_speed"
+        required: true
+        direction: "output"
+        description: "Electric motor speed control"
+      - id: "motor_torque"
+        required: true
+        direction: "output"
+        description: "Electric motor torque control"
+      - id: "battery_voltage"
+        required: true
+        direction: "input"
+        description: "Battery pack voltage"
+      - id: "battery_current"
+        required: true
+        direction: "input"
+        description: "Battery pack current"
+      - id: "battery_soc"
+        required: true
+        direction: "input"
+        description: "Battery state of charge"
+      - id: "regenerative_braking"
+        required: false
+        direction: "output"
+        description: "Regenerative braking control"
+      - id: "thermal_management"
+        required: false
+        direction: "output"
+        description: "Battery thermal management"
+    buses:
+      - can_bus
+      - ev_bus
+
+  # Transmission Control Unit
+  - id: "tcu"
+    name: "Transmission Control Unit"
+    description: "Automatic transmission control with gear selection and torque converter lockup"
+    channels:
+      - id: "engine_torque"
+        required: true
+        direction: "input"
+        description: "Engine torque input"
+      - id: "vehicle_speed"
+        required: true
+        direction: "input"
+        description: "Vehicle speed for shift scheduling"
+      - id: "throttle_position"
+        required: true
+        direction: "input"
+        description: "Throttle position for shift feel"
+      - id: "gear_position"
+        required: true
+        direction: "output"
+        description: "Current gear position indicator"
+      - id: "shift_solenoid_1"
+        required: true
+        direction: "output"
+        description: "Shift solenoid control"
+      - id: "shift_solenoid_2"
+        required: true
+        direction: "output"
+        description: "Shift solenoid control"
+      - id: "torque_converter_clutch"
+        required: true
+        direction: "output"
+        description: "Torque converter lockup clutch"
+      - id: "transmission_temp"
+        required: false
+        direction: "input"
+        description: "Transmission fluid temperature"
+      - id: "shift_lever"
+        required: false
+        direction: "input"
+        description: "PRNDL position sensor"
+    buses:
+      - can_bus
+
+  # Body Control Module
+  - id: "bcm"
+    name: "Body Control Module"
+    description: "Controls vehicle body electronics including lights, locks, and comfort systems"
+    channels:
+      - id: "headlights"
+        required: true
+        direction: "output"
+        description: "Headlight control"
+      - id: "brake_lights"
+        required: true
+        direction: "output"
+        description: "Brake light control"
+      - id: "turn_signals"
+        required: true
+        direction: "output"
+        description: "Turn signal control"
+      - id: "horn"
+        required: true
+        direction: "output"
+        description: "Horn control"
+      - id: "door_locks"
+        required: true
+        direction: "output"
+        description: "Central door locking"
+      - id: "window_motors"
+        required: false
+        direction: "output"
+        description: "Power window motors"
+      - id: "wiper_motor"
+        required: false
+        direction: "output"
+        description: "Windshield wiper motor"
+      - id: "interior_lights"
+        required: false
+        direction: "output"
+        description: "Interior lighting control"
+      - id: "key_fob_receiver"
+        required: false
+        direction: "input"
+        description: "Remote keyless entry receiver"
+    buses:
+      - can_bus
+      - lin_bus
+
+# Required channels for the DUT profiles above
+channels:
+  # Advanced ECU channels
+  - id: "vehicle_speed"
+    instrument: "vehicle_speed_sensor"
+    logical_name: "VEHICLE_SPEED"
+    scaling:
+      input_range: [0.0, 12.0]
+      output_range: [0, 200]
+      units: "km/h"
+
+  - id: "brake_pressure"
+    instrument: "brake_sensor"
+    logical_name: "BRAKE_PRESSURE"
+    scaling:
+      input_range: [0.5, 4.5]
+      output_range: [0, 100]
+      units: "bar"
+
+  - id: "fuel_injection"
+    instrument: "fuel_injector"
+    config:
+      frequency: 50
+      duty_cycle_range: [0, 100]
+
+  - id: "ignition_coil"
+    instrument: "ignition_driver"
+    config:
+      frequency: 100
+      duty_cycle_range: [0, 100]
+
+  - id: "diagnostic_led"
+    instrument: "status_led"
+    active_high: true
+
+  - id: "coolant_temp"
+    instrument: "coolant_sensor"
+    logical_name: "COOLANT_TEMP"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [-40, 120]
+      units: "°C"
+
+  - id: "oil_pressure"
+    instrument: "oil_sensor"
+    logical_name: "OIL_PRESSURE"
+    scaling:
+      input_range: [0.5, 4.5]
+      output_range: [0, 8]
+      units: "bar"
+
+  # EV Controller channels
+  - id: "accelerator_pedal"
+    instrument: "accel_pedal_sensor"
+    logical_name: "ACCELERATOR"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [0, 100]
+      units: "%"
+
+  - id: "brake_pedal"
+    instrument: "brake_pedal_sensor"
+    logical_name: "BRAKE_PEDAL"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [0, 100]
+      units: "%"
+
+  - id: "motor_speed"
+    instrument: "motor_controller"
+    config:
+      frequency: 1000
+      duty_cycle_range: [0, 100]
+    scaling:
+      output_range: [0, 15000]
+      units: "rpm"
+
+  - id: "motor_torque"
+    instrument: "motor_controller"
+    config:
+      frequency: 1000
+      duty_cycle_range: [0, 100]
+    scaling:
+      output_range: [0, 300]
+      units: "Nm"
+
+  - id: "battery_voltage"
+    instrument: "battery_sensor"
+    logical_name: "BATTERY_VOLTAGE"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [0, 450]
+      units: "V"
+
+  - id: "battery_current"
+    instrument: "battery_sensor"
+    logical_name: "BATTERY_CURRENT"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [-200, 200]
+      units: "A"
+
+  - id: "battery_soc"
+    instrument: "battery_sensor"
+    logical_name: "BATTERY_SOC"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [0, 100]
+      units: "%"
+
+  - id: "regenerative_braking"
+    instrument: "regen_controller"
+    config:
+      frequency: 100
+      duty_cycle_range: [0, 100]
+
+  - id: "thermal_management"
+    instrument: "thermal_controller"
+    config:
+      frequency: 10
+      duty_cycle_range: [0, 100]
+
+  # TCU channels
+  - id: "engine_torque"
+    instrument: "torque_sensor"
+    logical_name: "ENGINE_TORQUE"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [0, 500]
+      units: "Nm"
+
+  - id: "gear_position"
+    instrument: "gear_indicator"
+    config:
+      frequency: 1
+      duty_cycle_range: [0, 100]
+
+  - id: "shift_solenoid_1"
+    instrument: "shift_valve_1"
+    active_high: true
+
+  - id: "shift_solenoid_2"
+    instrument: "shift_valve_2"
+    active_high: true
+
+  - id: "torque_converter_clutch"
+    instrument: "tcc_solenoid"
+    active_high: true
+
+  - id: "transmission_temp"
+    instrument: "trans_temp_sensor"
+    logical_name: "TRANS_TEMP"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [-40, 150]
+      units: "°C"
+
+  - id: "shift_lever"
+    instrument: "prndl_sensor"
+    logical_name: "PRNDL_POSITION"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [0, 7]
+      units: "position"
+
+  # BCM channels
+  - id: "headlights"
+    instrument: "headlight_relay"
+    active_high: true
+
+  - id: "brake_lights"
+    instrument: "brake_light_relay"
+    active_high: true
+
+  - id: "turn_signals"
+    instrument: "turn_signal_relay"
+    config:
+      frequency: 2
+      duty_cycle_range: [0, 100]
+
+  - id: "horn"
+    instrument: "horn_relay"
+    active_high: true
+
+  - id: "door_locks"
+    instrument: "lock_actuator"
+    active_high: true
+
+  - id: "window_motors"
+    instrument: "window_controller"
+    config:
+      frequency: 100
+      duty_cycle_range: [0, 100]
+
+  - id: "wiper_motor"
+    instrument: "wiper_controller"
+    config:
+      frequency: 1
+      duty_cycle_range: [0, 100]
+
+  - id: "interior_lights"
+    instrument: "interior_light_controller"
+    config:
+      frequency: 0.5
+      duty_cycle_range: [0, 100]
+
+  - id: "key_fob_receiver"
+    instrument: "rf_receiver"
+    logical_name: "KEY_FOB_SIGNAL"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [0, 255]
+      units: "command"
+
+# Additional buses for the new DUT profiles
+buses:
+  - id: "can_bus"
+    plugin: "can_plugin"
+    type: "can"
+    bitrate: 500000
+    filters:
+      - id: 0x100
+        mask: 0x7FF
+
+  - id: "diagnostic_bus"
+    plugin: "diagnostic_plugin"
+    type: "can"
+    bitrate: 250000
+    interface: "can1"
+
+  - id: "ev_bus"
+    plugin: "can_plugin"
+    type: "can"
+    bitrate: 1000000
+    interface: "can2"
+    filters:
+      - id: 0x200
+        mask: 0x7FF
+
+  - id: "lin_bus"
+    plugin: "lin_plugin"
+    type: "serial"
+    bitrate: 19200
+    interface: "/dev/ttyLIN0"

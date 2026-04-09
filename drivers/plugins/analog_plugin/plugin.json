@@ -1,0 +1,16 @@
+{
+  "name": "analog_plugin",
+  "version": "1.0.0",
+  "description": "Analog I/O plugin for ADC/DAC operations",
+  "author": "Virtual Test Engineer",
+  "type": "device_driver",
+  "supported_interfaces": ["analog"],
+  "dependencies": {},
+  "entry_point": "analog_driver.py",
+  "capabilities": {
+    "adc_channels": 8,
+    "dac_channels": 4,
+    "resolution_bits": 12,
+    "sample_rate": 1000
+  }
+}

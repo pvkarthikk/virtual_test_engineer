@@ -1,0 +1,17 @@
+{
+  "name": "gpio_plugin",
+  "version": "1.0.0",
+  "description": "GPIO digital I/O plugin for Arduino/Raspberry Pi",
+  "author": "Virtual Test Engineer",
+  "type": "device_driver",
+  "supported_interfaces": ["gpio"],
+  "dependencies": {},
+  "entry_point": "gpio_driver.py",
+  "capabilities": {
+    "digital_inputs": 16,
+    "digital_outputs": 16,
+    "pwm_channels": 6,
+    "interrupt_capable": true,
+    "max_frequency": 1000
+  }
+}

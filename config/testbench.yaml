@@ -1,0 +1,95 @@
+version: "1.0"
+name: "Arduino_ECU_TestBench"
+description: "Test bench for Arduino-based throttle ECU validation"
+
+plugins:
+  - name: "gpio_plugin"
+    type: "gpio"
+    config:
+      pins: [2, 3, 4, 5, 6, 7, 8, 9]
+
+  - name: "analog_plugin"
+    type: "analog"
+    config:
+      adc_channels: [0, 1, 2, 3]
+      dac_channels: []
+
+instruments:
+  - id: "throttle_sensor"
+    plugin: "analog_plugin"
+    type: "adc"
+    channel: 0
+    calibration:
+      min: 0.0
+      max: 5.0
+      units: "volts"
+
+  - id: "engine_speed_output"
+    plugin: "gpio_plugin"
+    type: "pwm"
+    pin: 9
+    config:
+      frequency: 1000
+      duty_cycle_range: [0, 100]
+
+  - id: "eco_mode_switch"
+    plugin: "gpio_plugin"
+    type: "digital_input"
+    pin: 2
+    active_high: true
+
+channels:
+  - id: "throttle_position"
+    instrument: "throttle_sensor"
+    logical_name: "THROTTLE_POS"
+    scaling:
+      input_range: [0.0, 5.0]
+      output_range: [0, 100]
+      units: "%"
+
+  - id: "engine_speed"
+    instrument: "engine_speed_output"
+    config:
+      frequency: 1000
+      duty_cycle_range: [0, 100]
+    scaling:
+      output_range: [0, 8000]
+      units: "rpm"
+
+  - id: "eco_mode"
+    instrument: "eco_mode_switch"
+    active_high: true
+
+buses:
+  - id: "can_bus"
+    plugin: "can_plugin"
+    type: "can"
+    bitrate: 500000
+    filters:
+      - id: 0x100
+        mask: 0x7FF
+
+dut_profiles:
+  - id: "arduino_ecu"
+    name: "Arduino Throttle ECU"
+    description: "Simple ECU with analog throttle input and PWM engine speed output"
+    channels:
+      - id: "throttle_position"
+        required: true
+        direction: "input"
+      - id: "engine_speed"
+        required: true
+        direction: "output"
+      - id: "eco_mode"
+        required: false
+        direction: "input"
+    buses:
+      - can_bus
+
+flashing:
+  enabled: true
+  firmware_directory: "./firmware"
+  supported_protocols: ["avrdude"]
+  default_timeout: 300
+  max_concurrent_operations: 1
+  verification_enabled: true
