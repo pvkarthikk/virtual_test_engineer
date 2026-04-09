@@ -345,7 +345,208 @@ Reload the test bench configuration from disk.
 **Error Responses:**
 - `500`: Configuration reload failed
 
-## 6. Error Response Format
+## 6. Firmware Flashing Endpoints
+
+### POST /flash
+Initiate a firmware flashing operation to a target device.
+
+**Request Body:**
+```json
+{
+  "target_device": "arduino_ecu",
+  "firmware_file": "throttle_control_v1.2.hex",
+  "protocol": "avrdude",
+  "parameters": {
+    "programmer": "arduino",
+    "port": "/dev/ttyACM0",
+    "baudrate": 115200,
+    "chip": "atmega328p"
+  },
+  "verify_after_flash": true,
+  "backup_current_firmware": false
+}
+```
+
+**Response (202 Accepted):**
+```json
+{
+  "flash_id": "flash_550e8400-e29b-41d4-a716-446655440000",
+  "status": "queued",
+  "estimated_duration": 30,
+  "created_at": 1704110400.0
+}
+```
+
+**Error Responses:**
+- `400`: Missing required fields (target_device, firmware_file, protocol)
+- `404`: Target device or firmware file not found
+- `409`: Another flash operation already in progress
+
+### GET /flash/status
+Get status of flashing operations.
+
+**Query Parameters:**
+- `flash_id` (optional): Specific flash operation ID
+
+**Response (200):**
+```json
+{
+  "flash_id": "flash_550e8400-e29b-41d4-a716-446655440000",
+  "status": "running",
+  "progress": {
+    "percentage": 45,
+    "current_step": "writing_flash",
+    "step_description": "Writing firmware to flash memory",
+    "bytes_written": 14336,
+    "total_bytes": 32768
+  },
+  "start_time": 1704110400.0,
+  "estimated_completion": 1704110430.0,
+  "target_device": "arduino_ecu",
+  "firmware_file": "throttle_control_v1.2.hex"
+}
+```
+
+**Error Responses:**
+- `404`: Flash operation not found
+
+### GET /flash/status/{flash_id}
+Get detailed status and logs for a specific flash operation.
+
+**Parameters:**
+- `flash_id` (path): Flash operation identifier
+
+**Response (200):**
+```json
+{
+  "flash_id": "flash_550e8400-e29b-41d4-a716-446655440000",
+  "status": "completed",
+  "result": {
+    "success": true,
+    "verification_passed": true,
+    "bytes_written": 32768,
+    "flash_time_ms": 28500,
+    "md5_checksum": "a1b2c3d4e5f6..."
+  },
+  "start_time": 1704110400.0,
+  "end_time": 1704110428.5,
+  "logs": [
+    {
+      "timestamp": 1704110400.0,
+      "level": "info",
+      "message": "Starting flash operation"
+    },
+    {
+      "timestamp": 1704110405.0,
+      "level": "info",
+      "message": "Erasing flash memory"
+    },
+    {
+      "timestamp": 1704110410.0,
+      "level": "info",
+      "message": "Writing firmware blocks"
+    },
+    {
+      "timestamp": 1704110425.0,
+      "level": "info",
+      "message": "Verifying written data"
+    },
+    {
+      "timestamp": 1704110428.5,
+      "level": "info",
+      "message": "Flash operation completed successfully"
+    }
+  ]
+}
+```
+
+**Error Responses:**
+- `404`: Flash operation not found
+
+### DELETE /flash/{flash_id}
+Cancel an ongoing flash operation.
+
+**Parameters:**
+- `flash_id` (path): Flash operation identifier
+
+**Response (200):**
+```json
+{
+  "flash_id": "flash_550e8400-e29b-41d4-a716-446655440000",
+  "status": "cancelled",
+  "cancelled_at": 1704110415.0
+}
+```
+
+**Error Responses:**
+- `404`: Flash operation not found
+- `409`: Flash operation cannot be cancelled (already completed/failed)
+
+### POST /flash/upload
+Upload a firmware file for flashing operations.
+
+**Content-Type:** `multipart/form-data`
+
+**Form Data:**
+- `file`: Firmware binary/hex file (required)
+- `filename`: Optional custom filename
+- `description`: Optional description
+
+**Response (201):**
+```json
+{
+  "file_id": "fw_550e8400-e29b-41d4-a716-446655440001",
+  "filename": "throttle_control_v1.2.hex",
+  "size_bytes": 32768,
+  "md5_checksum": "a1b2c3d4e5f6...",
+  "uploaded_at": 1704110400.0,
+  "description": "Throttle control firmware v1.2"
+}
+```
+
+**Error Responses:**
+- `400`: No file provided or invalid file format
+- `413`: File too large
+- `500`: File upload failed
+
+### GET /flash/files
+List uploaded firmware files.
+
+**Response (200):**
+```json
+{
+  "files": [
+    {
+      "file_id": "fw_550e8400-e29b-41d4-a716-446655440001",
+      "filename": "throttle_control_v1.2.hex",
+      "size_bytes": 32768,
+      "md5_checksum": "a1b2c3d4e5f6...",
+      "uploaded_at": 1704110400.0,
+      "description": "Throttle control firmware v1.2"
+    }
+  ]
+}
+```
+
+### DELETE /flash/files/{file_id}
+Delete an uploaded firmware file.
+
+**Parameters:**
+- `file_id` (path): Firmware file identifier
+
+**Response (200):**
+```json
+{
+  "file_id": "fw_550e8400-e29b-41d4-a716-446655440001",
+  "status": "deleted"
+}
+```
+
+**Error Responses:**
+- `404`: Firmware file not found
+- `409`: File is currently being used in a flash operation
+
+## 8. Error Response Format
 
 All API errors return a standardized JSON response:
 
@@ -372,9 +573,14 @@ All API errors return a standardized JSON response:
 | `CHANNEL_NOT_FOUND` | 404 | Channel does not exist |
 | `TEST_RUN_NOT_FOUND` | 404 | Test run does not exist |
 | `TEST_NOT_COMPLETED` | 409 | Test run not finished yet |
+| `FLASH_OPERATION_NOT_FOUND` | 404 | Flash operation does not exist |
+| `FLASH_ALREADY_RUNNING` | 409 | Another flash operation is already in progress |
+| `FIRMWARE_FILE_NOT_FOUND` | 404 | Firmware file not found |
+| `FLASH_VERIFICATION_FAILED` | 500 | Firmware verification after flash failed |
+| `FLASH_TIMEOUT` | 408 | Flash operation timed out |
 | `INTERNAL_ERROR` | 500 | Unexpected server error |
 
-## 7. WebSocket Streaming
+## 9. WebSocket Streaming
 
 ### Channel Value Streaming
 **Endpoint:** `ws://localhost:8080/api/v1/channels/{channel_id}/stream`
@@ -405,13 +611,15 @@ All API errors return a standardized JSON response:
 }
 ```
 
-## 8. Rate Limiting
+## 10. Rate Limiting
 
 - **Channel Reads/Writes:** No explicit rate limiting (hardware-dependent)
 - **Test Runs:** Maximum 5 concurrent test runs
+- **Flash Operations:** Maximum 1 concurrent flash operation per target device
+- **Firmware Uploads:** Maximum 10MB per file, 100MB total storage
 - **API Requests:** No rate limiting for local deployment
 
-## 9. OpenAPI Documentation
+## 11. OpenAPI Documentation
 
 Complete API documentation is automatically available at:
 - **Swagger UI:** `http://localhost:8080/docs`

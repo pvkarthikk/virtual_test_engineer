@@ -72,6 +72,15 @@ dut_profiles:
   - id: "arduino_throttle_ecu"
     channels: ["throttle_position", "engine_speed", "eco_mode"]
     buses: ["can_bus"]
+
+flashing:
+  enabled: true
+  firmware_directory: "./firmware"
+  supported_protocols: ["avrdude", "can_bootloader"]
+  default_timeout: 300
+  max_concurrent_operations: 1
+  verification_enabled: true
+```
 ```
 
 ## Test Scenario Schema
@@ -275,4 +284,77 @@ class ValidationResult(BaseModel):
     valid: bool
     errors: List[Dict[str, Any]] = Field(default_factory=list)
     warnings: List[Dict[str, Any]] = Field(default_factory=list)
+
+### Flashing Models
+
+```python
+class FlashStatus(str, Enum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+class FlashProtocol(str, Enum):
+    AVRDUDE = "avrdude"
+    OPENOCD = "openocd"
+    JTAG = "jtag"
+    CAN_BOOTLOADER = "can_bootloader"
+    SERIAL_BOOTLOADER = "serial_bootloader"
+
+class FlashOperation(BaseModel):
+    flash_id: str
+    target_device: str
+    firmware_file: str
+    protocol: FlashProtocol
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    status: FlashStatus
+    progress: Dict[str, Any] = Field(default_factory=dict)
+    start_time: Optional[float] = None
+    end_time: Optional[float] = None
+    logs: List[Dict[str, Any]] = Field(default_factory=list)
+
+class FirmwareFile(BaseModel):
+    file_id: str
+    filename: str
+    size_bytes: int
+    md5_checksum: str
+    uploaded_at: float
+    description: Optional[str] = None
+
+class FlashRequest(BaseModel):
+    target_device: str = Field(..., min_length=1)
+    firmware_file: str = Field(..., min_length=1)
+    protocol: FlashProtocol
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    verify_after_flash: bool = True
+    backup_current_firmware: bool = False
+
+class FlashProgress(BaseModel):
+    percentage: float = Field(ge=0, le=100)
+    current_step: str
+    step_description: str
+    bytes_written: Optional[int] = None
+    total_bytes: Optional[int] = None
+
+class FlashResult(BaseModel):
+    success: bool
+    verification_passed: Optional[bool] = None
+    bytes_written: Optional[int] = None
+    flash_time_ms: Optional[float] = None
+    md5_checksum: Optional[str] = None
+    error_message: Optional[str] = None
+
+class FlashStatusResponse(BaseModel):
+    flash_id: str
+    status: FlashStatus
+    progress: Optional[FlashProgress] = None
+    result: Optional[FlashResult] = None
+    start_time: Optional[float] = None
+    end_time: Optional[float] = None
+    estimated_completion: Optional[float] = None
+    target_device: str
+    firmware_file: str
+    logs: List[Dict[str, Any]] = Field(default_factory=list)
+```
 ```
