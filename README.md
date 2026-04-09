@@ -10,6 +10,15 @@ A software-defined test bench platform for automotive ECU testing and validation
 - **REST API**: HTTP interface for external agents and automation
 - **Real-time**: Support for streaming sensor data and test execution
 - **Configuration-Driven**: YAML/JSON setup for easy test bench reconfiguration
+- **Firmware Flashing**: Built-in support for programming ECUs with various protocols
+
+## Documentation
+
+📖 **[Complete User Guide](USER_GUIDE.md)** - Learn how to:
+- Add new simulators (plugins)
+- Configure DUT profiles
+- Use the Python client library
+- Extend the system with custom functionality
 
 ## Architecture
 
@@ -18,7 +27,8 @@ The system follows a layered architecture:
 1. **Hardware Abstraction Layer (HAL)**: Direct hardware interface
 2. **Device Manager**: Channel and instrument management
 3. **Test Execution Engine**: Scenario orchestration
-4. **REST API Layer**: External HTTP interface
+4. **Flashing Manager**: Firmware programming operations
+5. **REST API Layer**: External HTTP interface
 
 ## Quick Start
 
@@ -31,7 +41,7 @@ pip install -r requirements.txt
 ### 2. Run the Server
 
 ```bash
-python -m src.main
+python -m uvicorn src.api.endpoints:app --host 0.0.0.0 --port 8080
 ```
 
 The API will be available at `http://localhost:8080`
@@ -47,6 +57,29 @@ curl http://localhost:8080/channels
 
 # Read a channel (if configured)
 curl http://localhost:8080/channels/throttle_position
+
+# List firmware files
+curl http://localhost:8080/flash/files
+```
+
+### 4. Use the Python Client
+
+```python
+from client.vte_client import VirtualTestEngineerClient
+
+async def main():
+    async with VirtualTestEngineerClient() as client:
+        # Check server health
+        health = await client.health_check()
+        print(f"Server status: {health['status']}")
+
+        # List channels
+        channels = await client.list_channels()
+        print(f"Found {len(channels)} channels")
+
+# Run the test script
+python test_client.py
+```
 
 # Start a test scenario
 curl -X POST http://localhost:8080/runs \

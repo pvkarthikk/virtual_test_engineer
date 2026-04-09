@@ -1,0 +1,13 @@
+{
+  "server_url": "http://localhost:8080",
+  "timeout": 30.0,
+  "retry_attempts": 3,
+  "retry_delay": 1.0,
+  "log_level": "INFO",
+  "ssl_verify": true,
+  "default_test_timeout": 300.0,
+  "default_poll_interval": 1.0,
+  "default_flash_timeout": 300.0,
+  "default_flash_protocol": "avrdude",
+  "default_dut_profile": "arduino_ecu"
+}

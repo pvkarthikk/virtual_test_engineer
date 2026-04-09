@@ -1,0 +1,18 @@
+{
+  "name": "sample_gpio_plugin",
+  "version": "1.0.0",
+  "description": "Sample GPIO plugin demonstrating simulator development",
+  "author": "Virtual Test Engineer",
+  "type": "device_driver",
+  "supported_interfaces": ["gpio"],
+  "dependencies": {
+    "python": ">=3.8"
+  },
+  "entry_point": "sample_gpio_driver.py",
+  "capabilities": {
+    "digital_inputs": 8,
+    "digital_outputs": 8,
+    "interrupt_capable": true,
+    "pullup_resistors": true
+  }
+}
