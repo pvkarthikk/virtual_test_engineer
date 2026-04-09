@@ -85,3 +85,11 @@ dut_profiles:
         direction: "input"
     buses:
       - can_bus
+
+flashing:
+  enabled: true
+  firmware_directory: "./firmware"
+  supported_protocols: ["avrdude"]
+  default_timeout: 300
+  max_concurrent_operations: 1
+  verification_enabled: true

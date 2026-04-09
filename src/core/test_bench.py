@@ -13,6 +13,7 @@ from .types import TestBenchState, TestRun
 from .plugin_manager import PluginManager
 from .device_manager import DeviceManager
 from .test_engine import TestExecutionEngine
+from .flashing_manager import FlashingManager
 
 
 class VirtualTestBench:
@@ -27,6 +28,7 @@ class VirtualTestBench:
         self.plugin_manager = PluginManager()
         self.device_manager = DeviceManager(self.plugin_manager)
         self.test_engine = TestExecutionEngine(self.device_manager)
+        self.flashing_manager: Optional[FlashingManager] = None
 
     async def initialize(self, config_file: Optional[str] = None) -> bool:
         """Initialize the test bench"""
@@ -48,6 +50,12 @@ class VirtualTestBench:
                 if not success:
                     self.state = TestBenchState.ERROR
                     return False
+
+            # Initialize flashing manager if enabled
+            flashing_config = self.config.get('flashing', {})
+            if flashing_config.get('enabled', False):
+                self.flashing_manager = FlashingManager(self.plugin_manager, flashing_config)
+                await self.flashing_manager.initialize()
 
             self.state = TestBenchState.IDLE
             return True
@@ -139,6 +147,53 @@ class VirtualTestBench:
         if success:
             self.state = TestBenchState.IDLE
         return success
+
+    # Flashing operations
+    async def start_flash(self, target_device: str, firmware_file: str,
+                         protocol: str, parameters: Dict[str, Any]) -> str:
+        """Start a firmware flash operation"""
+        if not self.flashing_manager:
+            raise RuntimeError("Flashing not enabled in configuration")
+
+        return await self.flashing_manager.start_flash(
+            target_device, firmware_file, protocol, parameters
+        )
+
+    def get_flash_status(self, flash_id: Optional[str] = None) -> Dict[str, Any]:
+        """Get flash operation status"""
+        if not self.flashing_manager:
+            raise RuntimeError("Flashing not enabled in configuration")
+
+        return self.flashing_manager.get_flash_status(flash_id)
+
+    async def cancel_flash(self, flash_id: str) -> bool:
+        """Cancel a flash operation"""
+        if not self.flashing_manager:
+            raise RuntimeError("Flashing not enabled in configuration")
+
+        return await self.flashing_manager.cancel_flash(flash_id)
+
+    async def upload_firmware(self, filename: str, content: bytes,
+                            description: Optional[str] = None):
+        """Upload firmware file"""
+        if not self.flashing_manager:
+            raise RuntimeError("Flashing not enabled in configuration")
+
+        return await self.flashing_manager.upload_firmware(filename, content, description)
+
+    async def delete_firmware(self, file_id: str) -> bool:
+        """Delete firmware file"""
+        if not self.flashing_manager:
+            raise RuntimeError("Flashing not enabled in configuration")
+
+        return await self.flashing_manager.delete_firmware(file_id)
+
+    def list_firmware_files(self):
+        """List firmware files"""
+        if not self.flashing_manager:
+            raise RuntimeError("Flashing not enabled in configuration")
+
+        return self.flashing_manager.list_firmware_files()
 
     def get_active_test_runs(self) -> List[str]:
         """Get active test run IDs"""

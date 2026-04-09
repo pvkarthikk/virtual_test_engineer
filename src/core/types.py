@@ -199,6 +199,85 @@ class BusPlugin(ABC):
         pass
 
 
+# Flashing-related types
+
+class FlashStatus(Enum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class FlashProtocol(Enum):
+    AVRDUDE = "avrdude"
+    OPENOCD = "openocd"
+    JTAG = "jtag"
+    CAN_BOOTLOADER = "can_bootloader"
+    SERIAL_BOOTLOADER = "serial_bootloader"
+
+
+@dataclass
+class FlashOperation:
+    """Represents a firmware flashing operation"""
+    flash_id: str
+    target_device: str
+    firmware_file: str
+    protocol: FlashProtocol
+    parameters: Dict[str, Any]
+    status: FlashStatus
+    progress: Dict[str, Any] = None
+    start_time: Optional[float] = None
+    end_time: Optional[float] = None
+    logs: List[Dict[str, Any]] = None
+
+    def __post_init__(self):
+        if self.progress is None:
+            self.progress = {"percentage": 0}
+        if self.logs is None:
+            self.logs = []
+
+
+@dataclass
+class FirmwareFile:
+    """Represents an uploaded firmware file"""
+    file_id: str
+    filename: str
+    size_bytes: int
+    md5_checksum: str
+    uploaded_at: float
+    description: Optional[str] = None
+
+
+class FlashingPlugin(ABC):
+    """Abstract base class for flashing plugins"""
+
+    @abstractmethod
+    async def initialize(self, config: Dict[str, Any]) -> None:
+        """Initialize the flashing plugin"""
+        pass
+
+    @abstractmethod
+    async def shutdown(self) -> None:
+        """Shutdown the flashing plugin"""
+        pass
+
+    @abstractmethod
+    async def flash_firmware(self, operation: FlashOperation, progress_callback: callable) -> bool:
+        """Execute firmware flashing"""
+        pass
+
+    @abstractmethod
+    async def cancel_flash(self, flash_id: str) -> bool:
+        """Cancel ongoing flash operation"""
+        pass
+
+    @abstractmethod
+    def get_supported_protocols(self) -> List[FlashProtocol]:
+        """Get supported flashing protocols"""
+        pass
+
+
 @dataclass
 class TestStep:
     """Represents a test step"""

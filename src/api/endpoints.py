@@ -3,10 +3,11 @@
 Virtual Test Engineer - REST API
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.responses import JSONResponse
 from typing import Dict, List, Any, Optional
 import asyncio
+import uuid
 
 from ..core.test_bench import VirtualTestBench
 from ..core.types import TestRunStatus
@@ -21,7 +22,7 @@ async def get_test_bench() -> VirtualTestBench:
     """Get the global test bench instance"""
     global test_bench
     if test_bench is None:
-        test_bench = VirtualTestBench()
+        test_bench = VirtualTestBench('config/testbench.yaml')
         success = await test_bench.initialize()
         if not success:
             raise HTTPException(status_code=500, detail="Failed to initialize test bench")
@@ -302,6 +303,140 @@ async def reload_configuration():
         return {"status": "reloaded", "timestamp": asyncio.get_event_loop().time()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reloading config: {str(e)}")
+
+
+# Firmware Flashing Endpoints
+
+@app.post("/flash")
+async def start_flash(request: Dict[str, Any]):
+    """Start firmware flashing"""
+    tb = await get_test_bench()
+
+    required_fields = ["target_device", "firmware_file", "protocol"]
+    for field in required_fields:
+        if field not in request:
+            raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+
+    try:
+        flash_id = await tb.start_flash(
+            target_device=request["target_device"],
+            firmware_file=request["firmware_file"],
+            protocol=request["protocol"],
+            parameters=request.get("parameters", {})
+        )
+
+        return {
+            "flash_id": flash_id,
+            "status": "queued",
+            "created_at": asyncio.get_event_loop().time()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error starting flash: {str(e)}")
+
+
+@app.get("/flash/status")
+async def get_flash_status(flash_id: Optional[str] = None):
+    """Get flash status"""
+    tb = await get_test_bench()
+
+    try:
+        status = tb.get_flash_status(flash_id)
+        if flash_id and status is None:
+            raise HTTPException(status_code=404, detail="Flash operation not found")
+        return status
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/flash/status/{flash_id}")
+async def get_flash_status_detail(flash_id: str):
+    """Get detailed flash status"""
+    tb = await get_test_bench()
+
+    try:
+        status = tb.get_flash_status(flash_id)
+        if status is None:
+            raise HTTPException(status_code=404, detail="Flash operation not found")
+        return status
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/flash/{flash_id}")
+async def cancel_flash(flash_id: str):
+    """Cancel flash operation"""
+    tb = await get_test_bench()
+
+    try:
+        success = await tb.cancel_flash(flash_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Flash operation not found")
+
+        return {
+            "flash_id": flash_id,
+            "status": "cancelled",
+            "cancelled_at": asyncio.get_event_loop().time()
+        }
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/flash/upload")
+async def upload_firmware(
+    file: UploadFile = File(...),
+    description: Optional[str] = None
+):
+    """Upload firmware file"""
+    tb = await get_test_bench()
+
+    try:
+        # Read file content
+        content = await file.read()
+
+        # Upload firmware
+        firmware_file = await tb.upload_firmware(
+            filename=file.filename,
+            content=content,
+            description=description
+        )
+
+        return firmware_file
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@app.get("/flash/files")
+async def list_firmware_files():
+    """List firmware files"""
+    tb = await get_test_bench()
+
+    try:
+        files = tb.list_firmware_files()
+        return {"files": files}
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/flash/files/{file_id}")
+async def delete_firmware_file(file_id: str):
+    """Delete firmware file"""
+    tb = await get_test_bench()
+
+    try:
+        success = await tb.delete_firmware(file_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Firmware file not found or in use")
+
+        return {
+            "file_id": file_id,
+            "status": "deleted"
+        }
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # Error handling
