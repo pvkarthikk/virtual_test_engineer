@@ -1,0 +1,33 @@
+# Simulator Configuration
+# Maps logical pins to physical pins with hardware capabilities and limits
+# Reference: SPECIFICATION.md Section 3.2.2
+
+simulator:
+  hardware_type: arduino_nano
+  logical_pins:
+    sim_output_1:
+      physical_pin: D11
+      capabilities:
+        - analog_output
+        - pwm
+      voltage_range: [0, 5]
+      current_limit: 40
+      resolution_bits: 8
+      frequency_range: [0, 1000]
+
+    sim_output_2:
+      physical_pin: D12
+      capabilities:
+        - digital_output
+      voltage_range: [0, 5]
+      current_limit: 40
+      resolution_bits: 1
+
+    sim_input_1:
+      physical_pin: D2
+      capabilities:
+        - digital_input
+        - interrupt
+      voltage_range: [0, 5]
+      current_limit: 1
+      pull_up_resistor: true

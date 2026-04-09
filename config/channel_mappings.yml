@@ -1,0 +1,22 @@
+# Channel Mappings Configuration
+# Maps user-friendly channel names to logical pins
+# Reference: SPECIFICATION.md Section 3.2.2
+
+mappings:
+  brake_temp_sensor:
+    logical_pin: sim_output_1
+    description: Brake Temperature Sensor
+    type: analog_input
+    unit: celsius
+
+  led_indicator:
+    logical_pin: sim_output_2
+    description: LED Indicator
+    type: digital_output
+    unit: boolean
+
+  button_input:
+    logical_pin: sim_input_1
+    description: Test Button
+    type: digital_input
+    unit: boolean

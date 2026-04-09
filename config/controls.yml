@@ -1,0 +1,48 @@
+# Control Logic & Signal Mapping
+# Application Layer Definition - assigns user-friendly names and signal processing logic
+# Reference: spec.md Section 3.1.3
+
+system_controls:
+  Accelerator_Pedal:
+    resource_id: HW_ADC_THROTTLE
+    protocol: RAW
+    logic:
+      mapping_type: LINEAR
+      unit: Percentage
+      calibration:
+        raw_min: 100
+        raw_max: 900
+        phys_min: 0
+        phys_max: 100
+
+  Motor_Speed_Feedback:
+    resource_id: HW_ADC_TACHO
+    protocol: RAW
+    logic:
+      mapping_type: LINEAR
+      unit: RPM
+      calibration:
+        raw_min: 0
+        raw_max: 1023
+        phys_min: 0
+        phys_max: 8000
+
+  Drive_Motor_Output:
+    resource_id: HW_PWM_MOTOR
+    protocol: RAW
+    logic:
+      unit: Duty_Cycle
+      freq_hz: 4000
+
+  Drive_Mode_Switch:
+    resource_id:
+      - HW_DIG_MODE_A
+      - HW_DIG_MODE_B
+    protocol: RAW
+    logic:
+      mode: STATE_TABLE
+      state_map:
+        "11": ECO_MODE
+        "10": SPORT_MODE
+        "01": LIMP_MODE
+        "00": FAULT_DISCONNECTED
