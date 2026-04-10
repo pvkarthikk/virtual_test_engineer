@@ -65,7 +65,7 @@ ECU validation workflows combine low-level input/output with high-level scenario
 
 The platform is built on four ideas: \emph{software-defined} behavior via configuration files rather than hardcoded mappings; \emph{extensibility} through plugins for new device types; \emph{layered control} from direct channel access to full scenario execution; and \emph{configuration-driven} setup for DUT profiles, instruments, and tests.
 
-The implementation stack described in the specification uses FastAPI for the HTTP layer, asynchronous execution for I/O-bound operations, Pydantic for request and configuration validation, and optional WebSocket streams for live channel and bus data.
+The implementation stack described in the specification uses FastAPI \cite{fastapi} for the HTTP layer, asynchronous execution for I/O-bound operations, Pydantic \cite{pydantic} for request and configuration validation, and optional WebSocket streams for live channel and bus data.
 
 \section{Layered Architecture}
 
@@ -298,7 +298,7 @@ CPU Usage (Idle) & 1.2\% & $< 5\%$ \\
 \end{table}
 
 \subsection{Test Scenario Results}
-A "Basic Throttle Response Test" was executed 100 times to verify repeatability. The scenario involves setting the throttle to 50\%, waiting for 2 seconds, and asserting that the engine speed reaches the target range (4.5 - 5.5 units).
+A "Basic Throttle Response Test" was executed 100 times to verify repeatability. The scenario involves setting the throttle to 50\%, waiting for 2 seconds, and asserting that the engine speed reaches a mode-specific target range (e.g., $4.1 - 4.3$ krpm for Eco mode, corresponding to 4200 RPM).
 
 \begin{table}[htbp]
 \caption{Test Run Results (100 Iterations)}
@@ -373,6 +373,10 @@ Pydantic data validation library documentation. Available: \url{https://docs.pyd
 IEEE Conference Paper Template and IEEEtran class documentation. Available: \url{https://www.ieee.org/conferences/publishing/templates.html}
 
 \bibitem{c4} S. Brown, ``The C4 Model for Visualising Software Architecture,'' 2018.
+
+\end{thebibliography}
+
+\end{document}for Visualising Software Architecture,'' 2018.
 
 \end{thebibliography}
 
