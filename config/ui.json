@@ -1,0 +1,89 @@
+{
+  "layout": "dashboard",
+  "widgets": [
+    {
+      "id": "w1776967920758",
+      "type": "bar",
+      "channel": "ch_temp",
+      "label": "Engine Temperature",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1776968648076",
+      "type": "gauge",
+      "channel": "ch_temp",
+      "label": "assadf",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1776968659924",
+      "type": "led",
+      "channel": "ch_temp",
+      "label": "sadf",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1776968663412",
+      "type": "slider",
+      "channel": "ch_temp",
+      "label": "asdfasd",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1776969143131",
+      "type": "numeric",
+      "channel": "ch_temp",
+      "label": "sadfsadf",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1776969164099",
+      "type": "waveform",
+      "channel": "ch_temp",
+      "label": "asdf",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1776969170323",
+      "type": "button",
+      "channel": "ch_temp",
+      "label": "asfasdf",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    }
+  ]
+}

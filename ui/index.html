@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDTB | Software Defined Test Bench</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- TOP TOOLBAR -->
+        <header class="toolbar">
+            <div class="logo">
+                <i data-lucide="box"></i>
+                <span>SDTB</span>
+                <span class="version">v0.1.0</span>
+            </div>
+            <div class="system-status">
+                <div class="status-indicator offline"></div>
+                <span class="status-text">Disconnected</span>
+            </div>
+            <div class="toolbar-actions">
+                <button id="btn-connect" class="btn btn-primary btn-sm">
+                    <i data-lucide="link"></i> Connect
+                </button>
+                <button id="btn-disconnect" class="btn btn-outline btn-sm hidden">
+                    <i data-lucide="link-2"></i> Disconnect
+                </button>
+                <button id="btn-restart" class="btn btn-outline btn-sm">
+                    <i data-lucide="refresh-cw"></i> Restart
+                </button>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <!-- SIDEBAR NAVIGATION -->
+            <aside class="sidebar">
+                <button class="nav-item active" data-view="dashboard" title="Live Dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                </button>
+                <button class="nav-item" data-view="widget-mapper" title="Widget Mapper">
+                    <i data-lucide="layers"></i>
+                </button>
+                <button class="nav-item" data-view="channel-mapper" title="Channel Mapper">
+                    <i data-lucide="git-branch"></i>
+                </button>
+                <button class="nav-item" data-view="devices" title="Device Explorer">
+                    <i data-lucide="cpu"></i>
+                </button>
+                <button class="nav-item" data-view="waveform" title="Waveform Viewer">
+                    <i data-lucide="activity"></i>
+                </button>
+                <button class="nav-item" data-view="test-editor" title="Test Script Editor">
+                    <i data-lucide="play-circle"></i>
+                </button>
+                <button class="nav-item" data-view="debug" title="Debug Window">
+                    <i data-lucide="terminal"></i>
+                </button>
+                <div class="sidebar-spacer"></div>
+                <button class="nav-item" data-view="settings" title="Settings">
+                    <i data-lucide="settings"></i>
+                </button>
+            </aside>
+
+            <!-- MAIN CONTENT AREA -->
+            <main class="content">
+                <!-- WAVEFORM VIEWER VIEW -->
+                <div id="view-waveform" class="view">
+                    <div class="view-header">
+                        <h1>Waveform Viewer</h1>
+                    </div>
+                    <div class="explorer-container">
+                        <div class="explorer-master">
+                            <div class="detail-header">
+                                <h3>Channels</h3>
+                            </div>
+                            <div id="waveform-channels-list" class="waveform-config-list" style="max-height: 400px; overflow-y: auto;">
+                                <!-- Populated dynamically -->
+                            </div>
+                            <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--border-color);">
+                            <div class="form-group">
+                                <label>Refresh Rate</label>
+                                <select id="waveform-rate" class="table-input" style="width: 100% !important;">
+                                    <option value="250">250ms</option>
+                                    <option value="500">500ms</option>
+                                    <option value="1000" selected>1000ms</option>
+                                </select>
+                            </div>
+                            <div class="flex-row" style="gap: 10px; margin-top: 20px;">
+                                <button class="btn btn-outline btn-block" id="btn-waveform-pause">
+                                    <i data-lucide="pause"></i> Pause
+                                </button>
+                                <button class="btn btn-outline btn-block" id="btn-waveform-clear">
+                                    <i data-lucide="refresh-cw"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                        <div class="explorer-detail" style="padding: 0; position: relative; background: #000; overflow: hidden;">
+                            <canvas id="waveform-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
+                            <div class="waveform-legend" id="waveform-legend" style="position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; gap: 5px; pointer-events: none;"></div>
+                            <div class="waveform-hint" style="position: absolute; bottom: 10px; right: 10px; font-size: 0.7rem; color: rgba(255,255,255,0.3);">Use mouse wheel to zoom, drag to pan</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-dashboard" class="view active">
+                    <div class="view-header">
+                        <h1>Live Dashboard</h1>
+                        <div class="view-actions">
+                            <div class="input-group">
+                                <label for="poll-interval">Rate:</label>
+                                <select id="poll-interval" class="btn btn-outline btn-sm">
+                                    <option value="250">250ms</option>
+                                    <option value="500">500ms</option>
+                                    <option value="1000" selected>1s</option>
+                                    <option value="2000">2s</option>
+                                </select>
+                            </div>
+                            <button id="btn-add-widget" class="btn btn-outline btn-sm">
+                                <i data-lucide="plus"></i> Add Widget
+                            </button>
+                        </div>
+                    </div>
+                    <div id="dashboard-grid" class="dashboard-grid">
+                        <!-- Widgets will be injected here -->
+                    </div>
+                </div>
+
+                <div id="view-devices" class="view">
+                    <div class="view-header">
+                        <h1>Device Explorer</h1>
+                    </div>
+                    <div class="explorer-container">
+                        <div class="explorer-master" id="device-explorer-list">
+                            <!-- Device list items -->
+                        </div>
+                        <div class="explorer-detail" id="device-explorer-detail">
+                            <div class="empty-state">
+                                <p>Select a device to view signal details</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-widget-mapper" class="view">
+                    <div class="view-header">
+                        <h1>Widget Mapper</h1>
+                        <button id="btn-save-widgets" class="btn btn-primary btn-sm">
+                            <i data-lucide="save"></i> Save Configuration
+                        </button>
+                    </div>
+                    <div class="widget-mapper-container">
+                        <div class="widget-list" id="widget-list">
+                            <!-- Widget configuration items -->
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-channel-mapper" class="view">
+                    <div class="view-header">
+                        <h1>Channel Mapper</h1>
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Channel ID</th>
+                                <th>Device ID</th>
+                                <th>Signal ID</th>
+                                <th>Unit</th>
+                                <th>Min</th>
+                                <th>Max</th>
+                                <th>Value</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="channel-mapping-table">
+                            <!-- Rows injected here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="view-test-editor" class="view">
+                    <div class="view-header">
+                        <h1>Test Script Editor</h1>
+                        <div class="view-actions">
+                            <button id="btn-run-test" class="btn btn-primary btn-sm">
+                                <i data-lucide="play"></i> Run Test
+                            </button>
+                        </div>
+                    </div>
+                    <div class="test-editor-container">
+                        <textarea id="test-content" placeholder='{"action": "write", "channel": "ch_temp", "value": 25}'></textarea>
+                        <div class="test-log" id="test-log">
+                            <!-- Test results logs -->
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-debug" class="view">
+                    <div class="view-header">
+                        <h1>Debug Window</h1>
+                        <div class="view-actions" style="display: flex; align-items: center; gap: 10px;">
+                            <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="checkbox" id="chk-autoscroll" checked> AutoScroll
+                            </label>
+                        </div>
+                    </div>
+                    <div id="debug-window" class="debug-window">
+                        <!-- Live SSE logs -->
+                    </div>
+                </div>
+
+                <div id="view-settings" class="view">
+                    <div class="view-header">
+                        <h1>Settings</h1>
+                        <button id="btn-save-settings" class="btn btn-primary btn-sm">
+                            <i data-lucide="save"></i> Save Settings
+                        </button>
+                    </div>
+                    <div class="settings-form card">
+                        <div class="form-group">
+                            <label>Device Directory</label>
+                            <input type="text" id="setting-dev-dir" class="table-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Server Host</label>
+                            <input type="text" id="setting-host" class="table-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Server Port</label>
+                            <input type="number" id="setting-port" class="table-input">
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- WIDGET MODAL -->
+    <div id="modal-widget" class="modal">
+        <div class="modal-content card">
+            <h2 id="widget-modal-title">Add Widget</h2>
+            <div class="form-group">
+                <label>Label</label>
+                <input type="text" id="widget-label" class="table-input" placeholder="e.g. Temperature">
+            </div>
+            <div class="form-group">
+                <label>Channel</label>
+                <select id="widget-channel" class="table-input"></select>
+            </div>
+            <div class="form-group">
+                <label>Type</label>
+                <select id="widget-type" class="table-input">
+                    <option value="numeric">Numeric Display</option>
+                    <option value="gauge">Gauge</option>
+                    <option value="bar">Bar Graph</option>
+                    <option value="waveform">Waveform</option>
+                    <option value="button">Button</option>
+                    <option value="slider">Slider</option>
+                </select>
+            </div>
+            <div class="flex-row" style="gap: 10px; margin-top: 20px; justify-content: flex-end;">
+                <button id="btn-widget-cancel" class="btn btn-outline">Cancel</button>
+                <button id="btn-widget-save" class="btn btn-primary">Save Widget</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

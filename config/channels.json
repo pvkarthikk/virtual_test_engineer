@@ -1,0 +1,14 @@
+[
+  {
+    "channel_id": "ch_temp",
+    "device_id": "mock_1",
+    "signal_id": "AI0",
+    "properties": {
+      "unit": "°C",
+      "min": -40.0,
+      "max": 150.0,
+      "resolution": 10,
+      "offset": -20.0
+    }
+  }
+]

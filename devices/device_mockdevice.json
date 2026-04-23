@@ -1,0 +1,7 @@
+{
+  "id": "mock_1",
+  "connection_params": {
+    "simulated": true
+  },
+  "settings": {}
+}

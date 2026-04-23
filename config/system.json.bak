@@ -1,0 +1,7 @@
+{
+  "device_directory": "e:\\workspace\\sdtb\\sdtb\\source\\devices",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8080
+  }
+}
