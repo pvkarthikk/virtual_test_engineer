@@ -42,9 +42,9 @@ body {
     background-color: var(--bg-toolbar);
     border-bottom: 1px solid var(--border-color);
     display: flex;
-    align-items: center;
     padding: 0 20px;
     justify-content: space-between;
+    align-items: center;
     z-index: 100;
 }
 
@@ -191,7 +191,11 @@ body {
     border: 1px solid transparent;
 }
 
-.btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+.btn-sm { 
+    padding: 4px 10px; 
+    font-size: 0.75rem; 
+    height: 28px;
+}
 .btn-block { width: 100%; justify-content: center; }
 
 .btn-primary {
@@ -215,6 +219,55 @@ body {
 }
 
 .hidden { display: none !important; }
+
+/* WIDGET MAPPER */
+.widget-mapper-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 800px;
+}
+
+.widget-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.widget-list-item {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 15px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.widget-list-item:hover {
+    border-color: var(--accent-primary);
+    background: rgba(255,255,255,0.02);
+}
+
+.widget-list-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.widget-list-info h4 {
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.widget-list-info span {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
 
 /* DASHBOARD GRID */
 .dashboard-grid {
@@ -299,6 +352,20 @@ body {
     height: 60px;
     background: rgba(0,0,0,0.2);
     border-radius: 4px;
+}
+
+.led-container { align-items: center; gap: 15px; }
+.led-bulb {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: #1f2937;
+    border: 3px solid rgba(255,255,255,0.05);
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+    transition: all 0.3s;
+}
+.led-bulb.active {
+    background: var(--accent-success);
+    box-shadow: 0 0 20px var(--accent-success), inset 0 0 10px rgba(255,255,255,0.5);
 }
 
 /* TABLES */
