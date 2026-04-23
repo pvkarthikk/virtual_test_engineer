@@ -16,6 +16,12 @@ const state = {
     sse: {
         logs: null,
         channels: {} // channelId -> EventSource
+    },
+    waveform: {
+        activeChannels: new Set(),
+        paused: false,
+        history: {}, // channelId -> { data: [{t, v}], color, style, enabled }
+        plotter: null
     }
 };
 
@@ -26,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTestEditor();
     setupSettings();
     setupWidgetMapper();
+    setupWaveformViewer();
     setupPolling();
     setupSSE();
     
@@ -62,6 +69,7 @@ function switchView(viewId) {
     if (viewId === 'channel-mapper') renderChannelMapper();
     if (viewId === 'settings') loadSettings();
     if (viewId === 'devices') refreshDevices();
+    if (viewId === 'waveform') initWaveformViewer();
 }
 
 // --- SYSTEM CONTROLS ---
@@ -116,6 +124,7 @@ function setupSystemControls() {
 function updateStatusIndicator(status, text) {
     const indicator = document.querySelector('.status-indicator');
     const statusText = document.querySelector('.status-text');
+    if (!indicator || !statusText) return;
     indicator.className = `status-indicator ${status}`;
     statusText.innerText = text;
 }
@@ -150,7 +159,16 @@ async function pollDashboard() {
     if (channelIds.length === 0) return;
 
     try {
-        await Promise.all(channelIds.map(id => apiGet(`/channel/${id}`)));
+        await Promise.all(channelIds.map(async (id) => {
+            try {
+                await apiGet(`/channel/${id}`);
+            } catch (e) {
+                // Handle 503 silently in poll
+                if (e.message.includes('503')) {
+                    console.warn(`Channel ${id} unavailable (503)`);
+                }
+            }
+        }));
     } catch (e) {
         console.error('Polling error', e);
     }
@@ -279,7 +297,6 @@ const waveformHistory = {};
 function updateWaveform(poly, val, widget) {
     if (!waveformHistory[widget.id]) waveformHistory[widget.id] = new Array(50).fill(20);
     
-    // Scale value to 0-40 range for SVG
     const ch = state.channels.find(c => c.channel_id === widget.channel);
     const min = ch ? ch.properties.min : 0;
     const max = ch ? ch.properties.max : 100;
@@ -330,19 +347,30 @@ async function refreshUIConfig() {
 // --- WIDGET MAPPER ---
 function setupWidgetMapper() {
     const btnAdd = document.getElementById('btn-add-widget');
-    btnAdd.onclick = () => {
-        state.editingWidgetIndex = null;
-        openWidgetModal();
-    };
+    if (btnAdd) {
+        btnAdd.onclick = () => {
+            state.editingWidgetIndex = null;
+            openWidgetModal();
+        };
+    }
 }
 
 function renderWidgetMapper() {
     const list = document.getElementById('widget-list');
+    if (!list) return;
     list.innerHTML = '';
     
     state.uiConfig.widgets.forEach((widget, index) => {
         const item = document.createElement('div');
         item.className = 'widget-item';
+        item.style.padding = '12px';
+        item.style.background = 'rgba(255,255,255,0.03)';
+        item.style.borderRadius = '8px';
+        item.style.marginBottom = '8px';
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        item.style.alignItems = 'center';
+        
         item.innerHTML = `
             <div>
                 <strong>${widget.label}</strong> (${widget.type})<br>
@@ -426,20 +454,24 @@ function openWidgetModal(widget = null) {
     };
 }
 
-document.getElementById('btn-save-widgets').onclick = async () => {
-    try {
-        await apiPut('/ui/config', state.uiConfig);
-        addLog('Widget configuration saved', 'success');
-        if (state.status === 'online') startPolling();
-    } catch (e) {
-        addLog(`Save failed: ${e.message}`, 'error');
-    }
-};
+const btnSaveWidgets = document.getElementById('btn-save-widgets');
+if (btnSaveWidgets) {
+    btnSaveWidgets.onclick = async () => {
+        try {
+            await apiPut('/ui/config', state.uiConfig);
+            addLog('Widget configuration saved', 'success');
+            if (state.status === 'online') startPolling();
+        } catch (e) {
+            addLog(`Save failed: ${e.message}`, 'error');
+        }
+    };
+}
 
 // --- CHANNEL MAPPER ---
 async function renderChannelMapper() {
     await refreshChannels();
     const table = document.getElementById('channel-mapping-table');
+    if (!table) return;
     table.innerHTML = '';
     
     state.channels.forEach(ch => {
@@ -468,29 +500,34 @@ async function renderChannelMapper() {
 // --- SETTINGS ---
 function setupSettings() {
     const btnSave = document.getElementById('btn-save-settings');
-    btnSave.onclick = async () => {
-        const config = {
-            device_directory: document.getElementById('setting-dev-dir').value,
-            server: {
-                host: document.getElementById('setting-host').value,
-                port: parseInt(document.getElementById('setting-port').value)
+    if (btnSave) {
+        btnSave.onclick = async () => {
+            const config = {
+                device_directory: document.getElementById('setting-dev-dir').value,
+                server: {
+                    host: document.getElementById('setting-host').value,
+                    port: parseInt(document.getElementById('setting-port').value)
+                }
+            };
+            try {
+                await apiPut('/system/config', config);
+                addLog('Settings saved. Restart system to apply.', 'success');
+            } catch (e) {
+                addLog(`Failed to save settings: ${e.message}`, 'error');
             }
         };
-        try {
-            await apiPut('/system/config', config);
-            addLog('Settings saved. Restart system to apply.', 'success');
-        } catch (e) {
-            addLog(`Failed to save settings: ${e.message}`, 'error');
-        }
-    };
+    }
 }
 
 async function loadSettings() {
     try {
         const config = await apiGet('/system/config');
-        document.getElementById('setting-dev-dir').value = config.device_directory;
-        document.getElementById('setting-host').value = config.server.host;
-        document.getElementById('setting-port').value = config.server.port;
+        const devDir = document.getElementById('setting-dev-dir');
+        const host = document.getElementById('setting-host');
+        const port = document.getElementById('setting-port');
+        if (devDir) devDir.value = config.device_directory;
+        if (host) host.value = config.server.host;
+        if (port) port.value = config.server.port;
     } catch (e) {
         addLog(`Failed to load settings: ${e.message}`, 'error');
     }
@@ -499,15 +536,17 @@ async function loadSettings() {
 // --- TEST EDITOR ---
 function setupTestEditor() {
     const btnRun = document.getElementById('btn-run-test');
-    btnRun.onclick = async () => {
-        const content = document.getElementById('test-content').value;
-        try {
-            await apiPost('/test/run', content, 'text/plain');
-            addLog('Test sequence started', 'info');
-        } catch (e) {
-            addLog(`Test failed: ${e.message}`, 'error');
-        }
-    };
+    if (btnRun) {
+        btnRun.onclick = async () => {
+            const content = document.getElementById('test-content').value;
+            try {
+                await apiPost('/test/run', content, 'text/plain');
+                addLog('Test sequence started', 'info');
+            } catch (e) {
+                addLog(`Test failed: ${e.message}`, 'error');
+            }
+        };
+    }
 }
 
 // --- SSE ---
@@ -527,9 +566,19 @@ function subscribeToChannel(channelId) {
     
     source.onmessage = (event) => {
         const update = JSON.parse(event.data);
-        const widget = state.uiConfig.widgets.find(w => w.channel === channelId);
-        if (widget) {
-            updateWidgetValue(widget, Number(update.value));
+        const val = Number(update.value);
+        state.uiConfig.widgets.forEach(widget => {
+            if (widget.channel === channelId) {
+                updateWidgetValue(widget, val);
+            }
+        });
+        
+        // Also update waveform history if this channel is in viewer
+        if (state.waveform.history[channelId] && state.waveform.history[channelId].enabled && !state.waveform.paused) {
+            state.waveform.history[channelId].data.push({t: Date.now(), v: val});
+            if (state.waveform.history[channelId].data.length > 1000) {
+                state.waveform.history[channelId].data.shift();
+            }
         }
     };
 }
@@ -539,6 +588,7 @@ async function refreshDevices() {
     try {
         state.devices = await apiGet('/device');
         const list = document.getElementById('device-explorer-list');
+        if (!list) return;
         list.innerHTML = '';
         state.devices.forEach(dev => {
             const item = document.createElement('div');
@@ -564,6 +614,7 @@ async function refreshDevices() {
 
 async function showDeviceSignals(deviceId) {
     const detail = document.getElementById('device-explorer-detail');
+    if (!detail) return;
     detail.innerHTML = '<div class="loading">Loading signals...</div>';
     
     try {
@@ -608,11 +659,205 @@ async function showDeviceSignals(deviceId) {
     }
 }
 
+// --- WAVEFORM VIEWER ---
+function setupWaveformViewer() {
+    const canvas = document.getElementById('waveform-canvas');
+    if (!canvas) return;
+
+    state.waveform.plotter = new WaveformPlotter(canvas);
+    
+    const btnPause = document.getElementById('btn-waveform-pause');
+    if (btnPause) {
+        btnPause.onclick = () => {
+            state.waveform.paused = !state.waveform.paused;
+            btnPause.innerHTML = state.waveform.paused ? 
+                '<i data-lucide="play"></i> Resume' : '<i data-lucide="pause"></i> Pause';
+            lucide.createIcons();
+        };
+    }
+
+    const btnClear = document.getElementById('btn-waveform-clear');
+    if (btnClear) {
+        btnClear.onclick = () => {
+            Object.keys(state.waveform.history).forEach(id => {
+                state.waveform.history[id].data = [];
+            });
+            state.waveform.plotter.resetView();
+        };
+    }
+}
+
+function initWaveformViewer() {
+    refreshChannels().then(() => {
+        const list = document.getElementById('waveform-channels-list');
+        if (!list) return;
+        list.innerHTML = '';
+        state.channels.forEach(ch => {
+            const item = document.createElement('div');
+            item.className = 'waveform-channel-item';
+            
+            const color = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+            
+            item.innerHTML = `
+                <div class="waveform-channel-header">
+                    <input type="checkbox" onchange="toggleWaveformChannel('${ch.channel_id}', this.checked)">
+                    <strong>${ch.channel_id}</strong>
+                </div>
+                <div class="flex-row" style="gap: 5px">
+                    <input type="color" value="${color}" onchange="setWaveformColor('${ch.channel_id}', this.value)">
+                    <select class="table-input" style="padding: 2px" onchange="setWaveformStyle('${ch.channel_id}', this.value)">
+                        <option value="solid">Solid</option>
+                        <option value="dashed">Dashed</option>
+                        <option value="dotted">Dotted</option>
+                    </select>
+                </div>
+            `;
+            list.appendChild(item);
+            
+            if (!state.waveform.history[ch.channel_id]) {
+                state.waveform.history[ch.channel_id] = {
+                    data: [],
+                    color: color,
+                    style: 'solid',
+                    enabled: false
+                };
+            }
+        });
+    });
+}
+
+window.toggleWaveformChannel = (id, enabled) => {
+    if (state.waveform.history[id]) {
+        state.waveform.history[id].enabled = enabled;
+        if (enabled) subscribeToChannel(id);
+    }
+};
+
+window.setWaveformColor = (id, color) => {
+    if (state.waveform.history[id]) state.waveform.history[id].color = color;
+};
+
+window.setWaveformStyle = (id, style) => {
+    if (state.waveform.history[id]) state.waveform.history[id].style = style;
+};
+
+class WaveformPlotter {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.zoom = { x: 1, y: 1 };
+        this.offset = { x: 0, y: 0 };
+        this.isPanning = false;
+        this.lastMouse = { x: 0, y: 0 };
+        
+        this.initEvents();
+        this.animate();
+    }
+
+    initEvents() {
+        this.canvas.addEventListener('mousedown', e => {
+            this.isPanning = true;
+            this.lastMouse = { x: e.clientX, y: e.clientY };
+        });
+        window.addEventListener('mousemove', e => {
+            if (!this.isPanning) return;
+            const dx = (e.clientX - this.lastMouse.x) / this.zoom.x;
+            const dy = (e.clientY - this.lastMouse.y) / this.zoom.y;
+            this.offset.x -= dx;
+            this.offset.y += dy;
+            this.lastMouse = { x: e.clientX, y: e.clientY };
+        });
+        window.addEventListener('mouseup', () => this.isPanning = false);
+        this.canvas.addEventListener('wheel', e => {
+            if (state.currentView !== 'waveform') return;
+            e.preventDefault();
+            const factor = e.deltaY > 0 ? 0.9 : 1.1;
+            this.zoom.x *= factor;
+            this.zoom.y *= factor;
+        }, { passive: false });
+    }
+
+    resetView() {
+        this.zoom = { x: 1, y: 1 };
+        this.offset = { x: 0, y: 0 };
+    }
+
+    animate() {
+        this.draw();
+        requestAnimationFrame(() => this.animate());
+    }
+
+    draw() {
+        if (state.currentView !== 'waveform') return;
+        const { width, height } = this.canvas;
+        if (this.canvas.width !== this.canvas.clientWidth || this.canvas.height !== this.canvas.clientHeight) {
+            this.canvas.width = this.canvas.clientWidth;
+            this.canvas.height = this.canvas.clientHeight;
+        }
+
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, width, height);
+        
+        // Grid
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < width; i += 50) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke();
+        }
+        for (let i = 0; i < height; i += 50) {
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(width, i); ctx.stroke();
+        }
+
+        const now = Date.now();
+        const timeWindow = 10000 / this.zoom.x;
+        
+        const legend = document.getElementById('waveform-legend');
+        if (legend) legend.innerHTML = '';
+
+        Object.keys(state.waveform.history).forEach(id => {
+            const chan = state.waveform.history[id];
+            if (!chan.enabled || chan.data.length < 2) return;
+
+            // Legend
+            if (legend) {
+                const lastData = chan.data[chan.data.length - 1];
+                const lastVal = lastData ? lastData.v : 0;
+                const legItem = document.createElement('div');
+                legItem.className = 'legend-item';
+                legItem.style.borderLeftColor = chan.color;
+                legItem.innerHTML = `<span>${id}</span><strong>${lastVal.toFixed(2)}</strong>`;
+                legend.appendChild(legItem);
+            }
+
+            ctx.beginPath();
+            ctx.strokeStyle = chan.color;
+            ctx.lineWidth = 2;
+            if (chan.style === 'dashed') ctx.setLineDash([10, 5]);
+            else if (chan.style === 'dotted') ctx.setLineDash([2, 2]);
+            else ctx.setLineDash([]);
+
+            const chCfg = state.channels.find(c => c.channel_id === id);
+            const min = chCfg ? chCfg.properties.min : 0;
+            const max = chCfg ? chCfg.properties.max : 100;
+            const range = max - min || 1;
+
+            chan.data.forEach((p, i) => {
+                const x = width - ((now - p.t + (this.offset.x * 10)) / timeWindow) * width;
+                const y = height - ((p.v - min + this.offset.y) / range) * height;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            ctx.setLineDash([]);
+        });
+    }
+}
+
 // --- UTILS ---
 function addLog(message, type = 'info') {
     const debugWindow = document.getElementById('debug-window');
     const testLog = document.getElementById('test-log');
-    if (!debugWindow || !testLog) return;
+    if (!debugWindow) return;
     
     const entry = document.createElement('div');
     entry.className = `log-entry ${type}`;
@@ -620,7 +865,7 @@ function addLog(message, type = 'info') {
     entry.innerHTML = `<span style="color: #4b5563">[${timestamp}]</span> ${message}`;
     
     debugWindow.appendChild(entry.cloneNode(true));
-    if (message.startsWith('Step') || type === 'success' || type === 'error') {
+    if (testLog && (message.startsWith('Step') || type === 'success' || type === 'error')) {
         testLog.appendChild(entry);
         testLog.scrollTop = testLog.scrollHeight;
     }
