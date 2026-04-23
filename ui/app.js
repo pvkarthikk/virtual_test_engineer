@@ -14,6 +14,8 @@ const state = {
     editingWidgetIndex: null,
     editingChannelId: null,
     pollTimer: null,
+    devicePollTimer: null,
+    activeDeviceId: null,
     sse: {
         logs: null,
         channels: {} // channelId -> EventSource
@@ -58,6 +60,10 @@ function switchView(viewId) {
     document.querySelectorAll('.view').forEach(view => {
         view.classList.toggle('active', view.id === `view-${viewId}`);
     });
+    
+    // Stop device polling if not in devices view
+    if (viewId !== 'devices') stopDevicePolling();
+
     if (viewId === 'dashboard') renderDashboard();
     if (viewId === 'widget-mapper') renderWidgetMapper();
     if (viewId === 'channel-mapper') renderChannelMapper();
@@ -124,6 +130,13 @@ function updateStatusIndicator(status, text) {
 function setupPolling() {
     const intervalSelect = document.getElementById('poll-interval');
     if (intervalSelect) intervalSelect.onchange = () => { if (state.status === 'online') startPolling(); };
+    
+    const deviceRateSelect = document.getElementById('device-poll-rate');
+    if (deviceRateSelect) {
+        deviceRateSelect.onchange = () => {
+            if (state.activeDeviceId) startDevicePolling(state.activeDeviceId);
+        };
+    }
 }
 
 function startPolling() {
@@ -134,6 +147,26 @@ function startPolling() {
 }
 
 function stopPolling() { if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; } }
+
+function startDevicePolling(deviceId) {
+    stopDevicePolling();
+    state.activeDeviceId = deviceId;
+    const rateEl = document.getElementById('device-poll-rate');
+    const ms = rateEl ? parseInt(rateEl.value) : 1000;
+    state.devicePollTimer = setInterval(() => {
+        if (state.currentView === 'devices' && state.activeDeviceId) {
+            updateDeviceSignalsList(state.activeDeviceId);
+        }
+    }, ms);
+}
+
+function stopDevicePolling() {
+    if (state.devicePollTimer) {
+        clearInterval(state.devicePollTimer);
+        state.devicePollTimer = null;
+    }
+    state.activeDeviceId = null;
+}
 
 async function pollDashboard() {
     if (state.status !== 'online') return;
@@ -298,7 +331,7 @@ async function openChannelModal(chan = null) {
     inputId.value = chan ? chan.channel_id : '';
     inputId.disabled = !!chan;
     inputUnit.value = chan ? chan.properties.unit : '';
-    inputScale.value = chan ? chan.properties.resolution : 1; // Backend uses resolution
+    inputScale.value = chan ? chan.properties.resolution : 1;
     inputMin.value = chan ? chan.properties.min : 0;
     inputMax.value = chan ? chan.properties.max : 100;
 
@@ -313,17 +346,8 @@ async function openChannelModal(chan = null) {
     document.getElementById('btn-chan-cancel').onclick = () => modal.classList.remove('active');
     document.getElementById('btn-chan-save').onclick = async () => {
         const newChan = {
-            channel_id: inputId.value,
-            device_id: selectDevice.value,
-            signal_id: selectSignal.value,
-            properties: {
-                unit: inputUnit.value,
-                resolution: parseFloat(inputScale.value), // Mapped from UI Scale Factor
-                min: parseFloat(inputMin.value),
-                max: parseFloat(inputMax.value),
-                offset: 0,
-                value: 0
-            }
+            channel_id: inputId.value, device_id: selectDevice.value, signal_id: selectSignal.value,
+            properties: { unit: inputUnit.value, resolution: parseFloat(inputScale.value), min: parseFloat(inputMin.value), max: parseFloat(inputMax.value), offset: 0, value: 0 }
         };
         let body = state.editingChannelId ? state.channels.map(c => c.channel_id === state.editingChannelId ? newChan : c) : [...state.channels, newChan];
         try { await apiPut('/system/config/channels', body); modal.classList.remove('active'); renderChannelMapper(); } catch (e) { addLog('Save Channel fail', 'error'); }
@@ -403,12 +427,21 @@ async function refreshDevices() {
 async function showDeviceSignals(id) {
     const det = document.getElementById('device-explorer-detail');
     if (!det) return;
+    det.innerHTML = '<div class="loading">Loading signals...</div>';
+    startDevicePolling(id);
+}
+
+async function updateDeviceSignalsList(id) {
+    const det = document.getElementById('device-explorer-detail');
+    if (!det) return;
     try {
         const sigs = await apiGet(`/device/${id}/signal`);
-        let h = `<div class="detail-header"><h3>Signals for ${id}</h3></div><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Dir</th><th>Range</th><th>Value</th></tr></thead><tbody>`;
-        sigs.forEach(s => { h += `<tr><td><code class="badge badge-sm">${s.signal_id}</code></td><td>${s.name}</td><td>${s.direction}</td><td>${s.min}-${s.max} ${s.unit}</td><td><strong>${s.value}</strong></td></tr>`; });
+        let h = `<div class="detail-header"><h3>Signals for ${id}</h3></div><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Dir</th><th>Range</th><th>Display</th></tr></thead><tbody>`;
+        sigs.forEach(s => { 
+            h += `<tr><td><code class="badge badge-sm">${s.signal_id}</code></td><td>${s.name}</td><td>${s.direction}</td><td>${s.min}-${s.max} ${s.unit}</td><td><strong id="sig-val-${s.signal_id}">${Number(s.value).toFixed(2)}</strong></td></tr>`; 
+        });
         det.innerHTML = h + '</tbody></table>';
-    } catch (e) { det.innerHTML = `Error: ${e.message}`; }
+    } catch (e) { det.innerHTML = `Error: ${e.message}`; stopDevicePolling(); }
 }
 
 function setupWaveformViewer() {
@@ -442,7 +475,12 @@ window.setWaveformColor = (id, c) => { if (state.waveform.history[id]) state.wav
 window.setWaveformStyle = (id, s) => { if (state.waveform.history[id]) state.waveform.history[id].style = s; };
 
 class WaveformPlotter {
-    constructor(c) { this.canvas = c; this.ctx = c.getContext('2d'); this.zoom = {x:1,y:1}; this.offset = {x:0,y:0}; this.isPanning = false; this.lastMouse = {x:0,y:0}; this.initEvents(); this.animate(); }
+    constructor(c) {
+        this.canvas = c; this.ctx = c.getContext('2d');
+        this.padding = { left: 60, right: 20, top: 20, bottom: 40 };
+        this.zoom = {x:1,y:1}; this.offset = {x:0,y:0}; this.isPanning = false; this.lastMouse = {x:0,y:0};
+        this.initEvents(); this.animate();
+    }
     initEvents() {
         this.canvas.addEventListener('mousedown', e => { this.isPanning = true; this.lastMouse = {x:e.clientX,y:e.clientY}; });
         window.addEventListener('mousemove', e => { if (!this.isPanning) return; this.offset.x -= (e.clientX - this.lastMouse.x)/this.zoom.x; this.offset.y += (e.clientY - this.lastMouse.y)/this.zoom.y; this.lastMouse = {x:e.clientX,y:e.clientY}; });
@@ -455,20 +493,24 @@ class WaveformPlotter {
         if (state.currentView !== 'waveform') return;
         const {width, height} = this.canvas;
         if (this.canvas.width !== this.canvas.clientWidth) { this.canvas.width = this.canvas.clientWidth; this.canvas.height = this.canvas.clientHeight; }
-        const ctx = this.ctx; ctx.clearRect(0,0,width,height); ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
-        for (let i = 0; i < width; i += 50) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke(); }
-        for (let i = 0; i < height; i += 50) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(width, i); ctx.stroke(); }
-        const now = Date.now(), timeWindow = 10000 / this.zoom.x, legend = document.getElementById('waveform-legend');
-        if (legend) legend.innerHTML = '';
+        const ctx = this.ctx; ctx.clearRect(0,0,width,height);
+        const graphW = width - this.padding.left - this.padding.right, graphH = height - this.padding.top - this.padding.bottom;
+        ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(this.padding.left, this.padding.top); ctx.lineTo(this.padding.left, height - this.padding.bottom); ctx.lineTo(width - this.padding.right, height - this.padding.bottom); ctx.stroke();
+        ctx.font = '10px monospace'; ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'right';
+        const now = Date.now(), timeWindow = 10000 / this.zoom.x;
+        for (let i = 0; i <= 5; i++) { const y = height - this.padding.bottom - (i / 5) * graphH; ctx.fillText((i * 20).toFixed(0), this.padding.left - 10, y + 3); ctx.strokeStyle = 'rgba(75, 85, 99, 0.2)'; ctx.beginPath(); ctx.moveTo(this.padding.left, y); ctx.lineTo(width - this.padding.right, y); ctx.stroke(); }
+        ctx.textAlign = 'center'; for (let i = 0; i <= 5; i++) { const x = this.padding.left + (i / 5) * graphW; const timeOffset = ((5 - i) / 5) * timeWindow; ctx.fillText((timeOffset / 1000).toFixed(1) + 's', x, height - this.padding.bottom + 20); ctx.beginPath(); ctx.moveTo(x, height - this.padding.bottom); ctx.lineTo(x, height - this.padding.bottom + 5); ctx.stroke(); }
+        ctx.save(); ctx.beginPath(); ctx.rect(this.padding.left, this.padding.top, graphW, graphH); ctx.clip();
+        const legend = document.getElementById('waveform-legend'); if (legend) legend.innerHTML = '';
         Object.keys(state.waveform.history).forEach(id => {
             const chan = state.waveform.history[id]; if (!chan.enabled || chan.data.length < 2) return;
-            if (legend) { const lastVal = chan.data[chan.data.length-1].v; const li = document.createElement('div'); li.className = 'legend-item'; li.style.borderLeftColor = chan.color; li.innerHTML = `<span>${id}</span><strong>${lastVal.toFixed(2)}</strong>`; legend.appendChild(li); }
-            ctx.beginPath(); ctx.strokeStyle = chan.color; ctx.lineWidth = 2;
-            if (chan.style === 'dashed') ctx.setLineDash([10,5]); else if (chan.style === 'dotted') ctx.setLineDash([2,2]); else ctx.setLineDash([]);
+            if (legend) { const li = document.createElement('div'); li.className = 'legend-item'; li.style.borderLeftColor = chan.color; li.innerHTML = `<span>${id}</span><strong>${chan.data[chan.data.length-1].v.toFixed(2)}</strong>`; legend.appendChild(li); }
+            ctx.beginPath(); ctx.strokeStyle = chan.color; ctx.lineWidth = 2; if (chan.style === 'dashed') ctx.setLineDash([10,5]); else if (chan.style === 'dotted') ctx.setLineDash([2,2]); else ctx.setLineDash([]);
             const cfg = state.channels.find(c => c.channel_id === id); const min = cfg ? cfg.properties.min : 0, max = cfg ? cfg.properties.max : 100, range = max - min || 1;
-            chan.data.forEach((p, i) => { const x = width - ((now - p.t + (this.offset.x * 10)) / timeWindow) * width; const y = height - ((p.v - min + this.offset.y) / range) * height; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+            chan.data.forEach((p, i) => { const x = width - this.padding.right - ((now - p.t + (this.offset.x * 10)) / timeWindow) * graphW, y = height - this.padding.bottom - ((p.v - min + this.offset.y) / range) * graphH; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
             ctx.stroke(); ctx.setLineDash([]);
         });
+        ctx.restore();
     }
 }
 

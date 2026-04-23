@@ -128,6 +128,17 @@
                 <div id="view-devices" class="view">
                     <div class="view-header">
                         <h1>Device Explorer</h1>
+                        <div class="view-actions">
+                            <div class="input-group">
+                                <label>Poll Rate:</label>
+                                <select id="device-poll-rate" class="btn btn-outline btn-sm">
+                                    <option value="500">500ms</option>
+                                    <option value="1000" selected>1s</option>
+                                    <option value="2000">2s</option>
+                                    <option value="5000">5s</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     <div class="explorer-container">
                         <div class="explorer-master" id="device-explorer-list">
