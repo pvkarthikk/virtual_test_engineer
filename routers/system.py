@@ -15,11 +15,15 @@ async def get_system_status():
     """
     Returns overall system health, status, and version information.
     """
+    devices = system.device_manager.get_all_devices()
+    is_connected = any(dev.is_connected for dev in devices.values()) if devices else False
+    
     return {
         "name": "SDTB Server",
         "version": "0.1.0",
-        "status": "online",
-        "devices_discovered": len(system.device_manager.get_all_devices()),
+        "status": "online" if is_connected else "offline",
+        "is_connected": is_connected,
+        "devices_discovered": len(devices),
         "channels_configured": len(system.channel_manager.get_all_channels())
     }
 

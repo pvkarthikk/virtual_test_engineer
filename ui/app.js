@@ -60,10 +60,7 @@ function switchView(viewId) {
     document.querySelectorAll('.view').forEach(view => {
         view.classList.toggle('active', view.id === `view-${viewId}`);
     });
-    
-    // Stop device polling if not in devices view
     if (viewId !== 'devices') stopDevicePolling();
-
     if (viewId === 'dashboard') renderDashboard();
     if (viewId === 'widget-mapper') renderWidgetMapper();
     if (viewId === 'channel-mapper') renderChannelMapper();
@@ -81,15 +78,10 @@ function setupSystemControls() {
             updateStatusIndicator('connecting', 'Connecting...');
             try {
                 await apiPost('/system/connect');
-                state.status = 'online';
-                updateStatusIndicator('online', 'Connected');
-                btnConnect.classList.add('hidden');
-                btnDisconnect.classList.remove('hidden');
+                syncStatus(true);
                 addLog('System connected successfully', 'success');
-                startPolling();
             } catch (e) {
-                state.status = 'offline';
-                updateStatusIndicator('offline', 'Disconnected');
+                syncStatus(false);
                 addLog(`Connection failed: ${e.message}`, 'error');
             }
         };
@@ -98,15 +90,9 @@ function setupSystemControls() {
         btnDisconnect.onclick = async () => {
             try {
                 await apiPost('/system/disconnect');
-                state.status = 'offline';
-                updateStatusIndicator('offline', 'Disconnected');
-                btnConnect.classList.remove('hidden');
-                btnDisconnect.classList.add('hidden');
+                syncStatus(false);
                 addLog('System disconnected', 'info');
-                stopPolling();
-            } catch (e) {
-                addLog(`Disconnection failed: ${e.message}`, 'error');
-            }
+            } catch (e) { addLog(`Disconnection failed: ${e.message}`, 'error'); }
         };
     }
     if (btnRestart) {
@@ -120,6 +106,24 @@ function setupSystemControls() {
     }
 }
 
+function syncStatus(isConnected) {
+    state.status = isConnected ? 'online' : 'offline';
+    updateStatusIndicator(state.status, isConnected ? 'Connected' : 'Disconnected');
+    
+    const btnConnect = document.getElementById('btn-connect');
+    const btnDisconnect = document.getElementById('btn-disconnect');
+    
+    if (isConnected) {
+        if (btnConnect) btnConnect.classList.add('hidden');
+        if (btnDisconnect) btnDisconnect.classList.remove('hidden');
+        startPolling();
+    } else {
+        if (btnConnect) btnConnect.classList.remove('hidden');
+        if (btnDisconnect) btnDisconnect.classList.add('hidden');
+        stopPolling();
+    }
+}
+
 function updateStatusIndicator(status, text) {
     const indicator = document.querySelector('.status-indicator');
     const statusText = document.querySelector('.status-text');
@@ -130,13 +134,8 @@ function updateStatusIndicator(status, text) {
 function setupPolling() {
     const intervalSelect = document.getElementById('poll-interval');
     if (intervalSelect) intervalSelect.onchange = () => { if (state.status === 'online') startPolling(); };
-    
     const deviceRateSelect = document.getElementById('device-poll-rate');
-    if (deviceRateSelect) {
-        deviceRateSelect.onchange = () => {
-            if (state.activeDeviceId) startDevicePolling(state.activeDeviceId);
-        };
-    }
+    if (deviceRateSelect) deviceRateSelect.onchange = () => { if (state.activeDeviceId) startDevicePolling(state.activeDeviceId); };
 }
 
 function startPolling() {
@@ -153,20 +152,10 @@ function startDevicePolling(deviceId) {
     state.activeDeviceId = deviceId;
     const rateEl = document.getElementById('device-poll-rate');
     const ms = rateEl ? parseInt(rateEl.value) : 1000;
-    state.devicePollTimer = setInterval(() => {
-        if (state.currentView === 'devices' && state.activeDeviceId) {
-            updateDeviceSignalsList(state.activeDeviceId);
-        }
-    }, ms);
+    state.devicePollTimer = setInterval(() => { if (state.currentView === 'devices' && state.activeDeviceId) updateDeviceSignalsList(state.activeDeviceId); }, ms);
 }
 
-function stopDevicePolling() {
-    if (state.devicePollTimer) {
-        clearInterval(state.devicePollTimer);
-        state.devicePollTimer = null;
-    }
-    state.activeDeviceId = null;
-}
+function stopDevicePolling() { if (state.devicePollTimer) { clearInterval(state.devicePollTimer); state.devicePollTimer = null; } state.activeDeviceId = null; }
 
 async function pollDashboard() {
     if (state.status !== 'online') return;
@@ -205,8 +194,7 @@ function createWidgetCard(widget) {
     else if (widget.type === 'button') content += `<div class="widget-content button-container"><button class="btn btn-primary btn-block" onclick="widgetWrite('${widget.channel}', 1)">Trigger</button></div>`;
     else if (widget.type === 'slider') {
         const ch = state.channels.find(c => c.channel_id === widget.channel);
-        const min = ch ? ch.properties.min : 0;
-        const max = ch ? ch.properties.max : 100;
+        const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
         content += `<div class="widget-content slider-container"><input type="range" class="btn-block" onchange="widgetWrite('${widget.channel}', this.value)" min="${min}" max="${max}" value="${min}" id="slider-${widget.id}"><div class="widget-value-sm" id="val-${widget.id}">--</div></div>`;
     } else content += `<div class="widget-content numeric-container"><div class="widget-value" id="val-${widget.id}">--</div></div>`;
     card.innerHTML = content;
@@ -244,8 +232,7 @@ const waveformHistory = {};
 function updateWaveform(poly, val, widget) {
     if (!waveformHistory[widget.id]) waveformHistory[widget.id] = new Array(50).fill(20);
     const ch = state.channels.find(c => c.channel_id === widget.channel);
-    const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
-    const range = max - min || 1;
+    const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100, range = max - min || 1;
     waveformHistory[widget.id].push(40 - ((val - min) / range * 40));
     if (waveformHistory[widget.id].length > 50) waveformHistory[widget.id].shift();
     poly.setAttribute('points', waveformHistory[widget.id].map((v, i) => `${i * 2},${v}`).join(' '));
@@ -253,7 +240,28 @@ function updateWaveform(poly, val, widget) {
 
 window.widgetWrite = async (id, val) => { try { await apiPut(`/channel/${id}?value=${val}`, {}); } catch (e) { addLog(`Write failed: ${e.message}`, 'error'); } };
 
-async function refreshAllData() { await Promise.all([refreshChannels(), refreshUIConfig()]); renderDashboard(); }
+async function refreshAllData() { 
+    console.log('[SDTB] refreshAllData: starting...');
+    
+    // 1. Load basic configs first
+    await Promise.all([refreshChannels(), refreshUIConfig()]); 
+    
+    // 2. Check system status and sync buttons/polling
+    try {
+        console.log('[SDTB] Checking /system status...');
+        const status = await apiGet('/system');
+        console.log('[SDTB] System status:', status);
+        syncStatus(status.is_connected === true);
+    } catch (e) { 
+        console.error('[SDTB] Status check failed:', e);
+        addLog('Status check fail: ' + e.message, 'error'); 
+    }
+    
+    // 3. Finally render the UI
+    renderDashboard(); 
+    console.log('[SDTB] refreshAllData: complete');
+}
+
 async function refreshChannels() { try { state.channels = await apiGet('/channel'); } catch (e) { addLog('Channels fail', 'error'); } }
 async function refreshUIConfig() { try { state.uiConfig = await apiGet('/ui/config'); } catch (e) { addLog('UI fail', 'error'); } }
 
@@ -327,21 +335,18 @@ async function openChannelModal(chan = null) {
     const modal = document.getElementById('modal-channel');
     const inputId = document.getElementById('chan-id'), selectDevice = document.getElementById('chan-device'), selectSignal = document.getElementById('chan-signal');
     const inputUnit = document.getElementById('chan-unit'), inputScale = document.getElementById('chan-scale'), inputMin = document.getElementById('chan-min'), inputMax = document.getElementById('chan-max');
-    
     inputId.value = chan ? chan.channel_id : '';
     inputId.disabled = !!chan;
     inputUnit.value = chan ? chan.properties.unit : '';
     inputScale.value = chan ? chan.properties.resolution : 1;
     inputMin.value = chan ? chan.properties.min : 0;
     inputMax.value = chan ? chan.properties.max : 100;
-
     try {
         state.devices = await apiGet('/device');
         selectDevice.innerHTML = '<option value="">Select Device...</option>';
         state.devices.forEach(dev => { const opt = document.createElement('option'); opt.value = dev.id; opt.text = dev.id; if (chan && chan.device_id === dev.id) opt.selected = true; selectDevice.appendChild(opt); });
         if (chan) await onChannelDeviceChange(chan.signal_id);
     } catch (e) { addLog('Devices load fail', 'error'); }
-
     modal.classList.add('active');
     document.getElementById('btn-chan-cancel').onclick = () => modal.classList.remove('active');
     document.getElementById('btn-chan-save').onclick = async () => {
@@ -437,9 +442,7 @@ async function updateDeviceSignalsList(id) {
     try {
         const sigs = await apiGet(`/device/${id}/signal`);
         let h = `<div class="detail-header"><h3>Signals for ${id}</h3></div><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Dir</th><th>Range</th><th>Display</th></tr></thead><tbody>`;
-        sigs.forEach(s => { 
-            h += `<tr><td><code class="badge badge-sm">${s.signal_id}</code></td><td>${s.name}</td><td>${s.direction}</td><td>${s.min}-${s.max} ${s.unit}</td><td><strong id="sig-val-${s.signal_id}">${Number(s.value).toFixed(2)}</strong></td></tr>`; 
-        });
+        sigs.forEach(s => { h += `<tr><td><code class="badge badge-sm">${s.signal_id}</code></td><td>${s.name}</td><td>${s.direction}</td><td>${s.min}-${s.max} ${s.unit}</td><td><strong id="sig-val-${s.signal_id}">${Number(s.value).toFixed(2)}</strong></td></tr>`; });
         det.innerHTML = h + '</tbody></table>';
     } catch (e) { det.innerHTML = `Error: ${e.message}`; stopDevicePolling(); }
 }
@@ -504,7 +507,7 @@ class WaveformPlotter {
         const legend = document.getElementById('waveform-legend'); if (legend) legend.innerHTML = '';
         Object.keys(state.waveform.history).forEach(id => {
             const chan = state.waveform.history[id]; if (!chan.enabled || chan.data.length < 2) return;
-            if (legend) { const li = document.createElement('div'); li.className = 'legend-item'; li.style.borderLeftColor = chan.color; li.innerHTML = `<span>${id}</span><strong>${chan.data[chan.data.length-1].v.toFixed(2)}</strong>`; legend.appendChild(li); }
+            if (legend) { li = document.createElement('div'); li.className = 'legend-item'; li.style.borderLeftColor = chan.color; li.innerHTML = `<span>${id}</span><strong>${chan.data[chan.data.length-1].v.toFixed(2)}</strong>`; legend.appendChild(li); }
             ctx.beginPath(); ctx.strokeStyle = chan.color; ctx.lineWidth = 2; if (chan.style === 'dashed') ctx.setLineDash([10,5]); else if (chan.style === 'dotted') ctx.setLineDash([2,2]); else ctx.setLineDash([]);
             const cfg = state.channels.find(c => c.channel_id === id); const min = cfg ? cfg.properties.min : 0, max = cfg ? cfg.properties.max : 100, range = max - min || 1;
             chan.data.forEach((p, i) => { const x = width - this.padding.right - ((now - p.t + (this.offset.x * 10)) / timeWindow) * graphW, y = height - this.padding.bottom - ((p.v - min + this.offset.y) / range) * graphH; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
