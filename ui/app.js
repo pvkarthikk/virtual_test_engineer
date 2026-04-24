@@ -455,32 +455,53 @@ async function updateDeviceSignalsList(id) {
 }
 
 let waveformChart = null;
+let uplotSeriesIds = [];
+const uplotGlobal = { x: [], y: {} };
 
-function setupWaveformViewer() {
+function rebuildWaveformChart() {
     const c = document.getElementById('waveform-chart-container');
     if (!c) return;
+    c.innerHTML = '';
+    if (waveformChart) waveformChart.destroy();
 
-    waveformChart = new CanvasJS.Chart("waveform-chart-container", {
-        zoomEnabled: true,
-        panEnabled: true,
-        animationEnabled: false,
-        theme: "dark1",
-        backgroundColor: "transparent",
-        axisX: {
-            title: "Time",
-            valueFormatString: "HH:mm:ss",
-            gridColor: "rgba(255, 255, 255, 0.1)",
-            labelFontColor: "#94a3b8",
-            titleFontColor: "#94a3b8"
-        },
-        axisY: {
-            gridColor: "rgba(255, 255, 255, 0.1)",
-            includeZero: false,
-            labelFontColor: "#94a3b8"
-        },
-        data: []
+    uplotSeriesIds = Object.keys(state.waveform.history).filter(id => state.waveform.history[id].enabled);
+    if (uplotSeriesIds.length === 0) return;
+
+    const series = [ { label: "Time", value: (u, v) => v ? new Date(v * 1000).toLocaleTimeString() : "--" } ];
+    uplotSeriesIds.forEach(id => {
+        const chan = state.waveform.history[id];
+        series.push({
+            label: id,
+            stroke: chan.color,
+            width: 2,
+            paths: uPlot.paths.stepped({align: 1}),
+            dash: chan.style === 'dashed' ? [10, 5] : chan.style === 'dotted' ? [2, 2] : []
+        });
     });
 
+    const opts = {
+        title: "Live Waveform",
+        id: "chart1",
+        class: "my-chart",
+        width: c.clientWidth || 800,
+        height: c.clientHeight - 40 || 400,
+        series: series,
+        axes: [
+            { grid: { stroke: "rgba(255, 255, 255, 0.1)", width: 1 }, stroke: "#94a3b8" },
+            { grid: { stroke: "rgba(255, 255, 255, 0.1)", width: 1 }, stroke: "#94a3b8" }
+        ],
+        cursor: { drag: { x: true, y: true, uni: 50 } }
+    };
+
+    const data = [ uplotGlobal.x ];
+    uplotSeriesIds.forEach(id => {
+        data.push(uplotGlobal.y[id] || new Array(uplotGlobal.x.length).fill(null));
+    });
+
+    waveformChart = new uPlot(opts, data, c);
+}
+
+function setupWaveformViewer() {
     const btnP = document.getElementById('btn-waveform-pause');
     if (btnP) btnP.onclick = () => {
         state.waveform.paused = !state.waveform.paused;
@@ -489,54 +510,49 @@ function setupWaveformViewer() {
     };
     const btnC = document.getElementById('btn-waveform-clear');
     if (btnC) btnC.onclick = () => {
+        uplotGlobal.x = [];
+        uplotGlobal.y = {};
         Object.keys(state.waveform.history).forEach(id => state.waveform.history[id].data = []);
+        rebuildWaveformChart();
     };
 
-    function updateChart() {
+    function updateWaveformFrame() {
         if (state.currentView !== 'waveform') {
-            requestAnimationFrame(updateChart);
+            requestAnimationFrame(updateWaveformFrame);
             return;
         }
 
-        const now = Date.now();
-        const datasets = [];
-
-        Object.keys(state.waveform.history).forEach(id => {
-            const chan = state.waveform.history[id];
-            if (!chan.enabled || chan.data.length === 0) return;
-
-            datasets.push({
-                type: "stepLine",
-                name: id,
-                color: chan.color,
-                xValueType: "dateTime",
-                markerSize: 0,
-                lineThickness: 2,
-                lineDashType: chan.style === 'dashed' ? "dash" : chan.style === 'dotted' ? "dot" : "solid",
-                dataPoints: chan.data.map(p => ({ x: p.t, y: p.v }))
+        if (!state.waveform.paused && uplotSeriesIds.length > 0) {
+            const now = Date.now() / 1000;
+            uplotGlobal.x.push(now);
+            
+            Object.keys(state.waveform.history).forEach(id => {
+                if (!uplotGlobal.y[id]) uplotGlobal.y[id] = new Array(uplotGlobal.x.length - 1).fill(null);
+                const chan = state.waveform.history[id];
+                const latest = chan.data.length > 0 ? chan.data[chan.data.length - 1].v : null;
+                uplotGlobal.y[id].push(latest);
             });
-        });
+            
+            if (uplotGlobal.x.length > 1000) {
+                uplotGlobal.x.shift();
+                Object.values(uplotGlobal.y).forEach(arr => arr.shift());
+            }
 
-        if (waveformChart) {
-            waveformChart.options.data = datasets;
-
-            if (!state.waveform.paused) {
-                if (!waveformChart.options.axisX) waveformChart.options.axisX = {};
-                waveformChart.options.axisX.viewportMinimum = now - 10000;
-                waveformChart.options.axisX.viewportMaximum = now;
-                waveformChart.render();
-            } else {
-                if (waveformChart.options.axisX && waveformChart.options.axisX.viewportMinimum !== null) {
-                    waveformChart.options.axisX.viewportMinimum = null;
-                    waveformChart.options.axisX.viewportMaximum = null;
-                    waveformChart.render();
-                }
+            if (waveformChart) {
+                const data = [ uplotGlobal.x ];
+                uplotSeriesIds.forEach(id => data.push(uplotGlobal.y[id]));
+                waveformChart.setData(data);
             }
         }
-
-        requestAnimationFrame(updateChart);
+        requestAnimationFrame(updateWaveformFrame);
     }
-    requestAnimationFrame(updateChart);
+    
+    // Only start the loop once
+    if (!window._waveformLoopStarted) {
+        window._waveformLoopStarted = true;
+        requestAnimationFrame(updateWaveformFrame);
+    }
+    rebuildWaveformChart();
 }
 
 function initWaveformViewer() {
@@ -571,12 +587,13 @@ function initWaveformViewer() {
                 state.waveform.history[ch.channel_id] = { data: [], color: color, style: 'solid', enabled: false };
             }
         });
+        rebuildWaveformChart();
     });
 }
 
-window.toggleWaveformChannel = (id, e) => { if (state.waveform.history[id]) { state.waveform.history[id].enabled = e; if (e) subscribeToChannel(id); } };
-window.setWaveformColor = (id, c) => { if (state.waveform.history[id]) state.waveform.history[id].color = c; };
-window.setWaveformStyle = (id, s) => { if (state.waveform.history[id]) state.waveform.history[id].style = s; };
+window.toggleWaveformChannel = (id, e) => { if (state.waveform.history[id]) { state.waveform.history[id].enabled = e; if (e) subscribeToChannel(id); rebuildWaveformChart(); } };
+window.setWaveformColor = (id, c) => { if (state.waveform.history[id]) { state.waveform.history[id].color = c; rebuildWaveformChart(); } };
+window.setWaveformStyle = (id, s) => { if (state.waveform.history[id]) { state.waveform.history[id].style = s; rebuildWaveformChart(); } };
 
 function addLog(m, t = 'info') {
     const d = document.getElementById('debug-window'), tl = document.getElementById('test-log'); if (!d) return;
