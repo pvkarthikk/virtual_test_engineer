@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SDTB | Software Defined Test Bench</title>
+    <title>Software Defined Test Bench</title>
     <link rel="stylesheet" href="style.css?v=3">
     <link rel="stylesheet" href="https://unpkg.com/uplot/dist/uPlot.min.css">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -14,7 +14,7 @@
         <header class="toolbar">
             <div class="logo">
                 <i data-lucide="box"></i>
-                <span>SDTB</span>
+                <span>Software Defined Test Bench</span>
                 <span class="version">v0.1.0</span>
             </div>
             <div class="system-status">
@@ -202,13 +202,31 @@
                     <div class="view-header">
                         <h1>Test Script Editor</h1>
                         <div class="view-actions">
+                            <button id="btn-add-test-step" class="btn btn-outline btn-sm">
+                                <i data-lucide="plus"></i> Add Step
+                            </button>
                             <button id="btn-run-test" class="btn btn-primary btn-sm">
                                 <i data-lucide="play"></i> Run Test
                             </button>
                         </div>
                     </div>
-                    <div class="test-editor-container">
-                        <textarea id="test-content" placeholder='{"action": "write", "channel": "ch_temp", "value": 25}'></textarea>
+                    <div class="test-editor-container" style="display: flex; flex-direction: column; gap: 15px;">
+                        <div class="card" style="flex: 1; overflow-y: auto; padding: 15px;">
+                            <table class="table" id="test-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 100px;">CMD</th>
+                                        <th>Channel</th>
+                                        <th style="width: 120px;">Value</th>
+                                        <th style="width: 80px;">Assert</th>
+                                        <th style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                            <tbody id="test-table-body">
+                                    <!-- Test steps injected here -->
+                                </tbody>
+                            </table>
+                        </div>
                         <div class="test-log" id="test-log">
                             <!-- Test results logs -->
                         </div>

@@ -37,5 +37,18 @@
       "offset": 0.0,
       "value": 0.0
     }
+  },
+  {
+    "channel_id": "pwm_out",
+    "device_id": "arduino_r4",
+    "signal_id": "pwm1",
+    "properties": {
+      "unit": "",
+      "min": 0.0,
+      "max": 100.0,
+      "resolution": 1.0,
+      "offset": 0.0,
+      "value": 0.0
+    }
   }
 ]

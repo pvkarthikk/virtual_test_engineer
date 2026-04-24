@@ -25,7 +25,8 @@ const state = {
         paused: false,
         history: {}, // channelId -> { data: [{t, v}], color, style, enabled }
         plotter: null
-    }
+    },
+    testSteps: [ { cmd: 'WRITE', channel: '', value: '', assert: false } ]
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -67,6 +68,7 @@ function switchView(viewId) {
     if (viewId === 'settings') loadSettings();
     if (viewId === 'devices') refreshDevices();
     if (viewId === 'waveform') initWaveformViewer();
+    if (viewId === 'test-editor') renderTestTable();
 }
 
 function setupSystemControls() {
@@ -260,7 +262,12 @@ async function refreshAllData() {
     console.log('[SDTB] refreshAllData: complete');
 }
 
-async function refreshChannels() { try { state.channels = await apiGet('/channel'); } catch (e) { addLog('Channels fail', 'error'); } }
+async function refreshChannels() { 
+    try { 
+        state.channels = await apiGet('/channel'); 
+        if (state.currentView === 'test-editor') renderTestTable();
+    } catch (e) { addLog('Channels fail', 'error'); } 
+}
 async function refreshUIConfig() { try { state.uiConfig = await apiGet('/ui/config'); } catch (e) { addLog('UI fail', 'error'); } }
 
 function setupWidgetMapper() {
@@ -386,10 +393,76 @@ async function loadSettings() {
 
 function setupTestEditor() {
     const btnRun = document.getElementById('btn-run-test');
-    if (btnRun) btnRun.onclick = async () => {
-        try { await apiPost('/test/run', document.getElementById('test-content').value, 'text/plain'); addLog('Test started', 'info'); } catch (e) { addLog('Test fail', 'error'); }
+    const btnAdd = document.getElementById('btn-add-test-step');
+    
+    if (btnAdd) btnAdd.onclick = () => {
+        state.testSteps.push({ cmd: 'WRITE', channel: '', value: '', assert: false });
+        renderTestTable();
     };
+
+    if (btnRun) btnRun.onclick = async () => {
+        const log = document.getElementById('test-log');
+        if (log) log.innerHTML = '';
+        addLog('Starting Test Sequence...', 'info');
+        
+        for (let i = 0; i < state.testSteps.length; i++) {
+            const step = state.testSteps[i];
+            const stepNum = i + 1;
+            try {
+                if (step.cmd === 'WRITE') {
+                    addLog(`Step ${stepNum}: Writing ${step.value} to ${step.channel}`, 'info');
+                    await apiPut(`/channel/${step.channel}?value=${step.value}`, {});
+                    addLog(`Step ${stepNum}: Success`, 'success');
+                } else if (step.cmd === 'READ') {
+                    addLog(`Step ${stepNum}: Reading ${step.channel}`, 'info');
+                    const res = await apiGet(`/channel/${step.channel}`);
+                    addLog(`Step ${stepNum}: Value = ${res.value}`, 'success');
+                    if (step.assert) {
+                        if (parseFloat(res.value) === parseFloat(step.value)) {
+                            addLog(`Step ${stepNum}: Assert PASSED (${res.value} == ${step.value})`, 'success');
+                        } else {
+                            addLog(`Step ${stepNum}: Assert FAILED (${res.value} != ${step.value})`, 'error');
+                        }
+                    }
+                }
+            } catch (e) {
+                addLog(`Step ${stepNum}: Failed - ${e.message}`, 'error');
+                break;
+            }
+        }
+        addLog('Test Sequence Complete', 'info');
+    };
+    renderTestTable();
 }
+
+function renderTestTable() {
+    const tbody = document.getElementById('test-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    state.testSteps.forEach((step, index) => {
+        const row = document.createElement('tr');
+        const cmdHtml = `<select class="table-input" onchange="state.testSteps[${index}].cmd = this.value; renderTestTable();"><option value="WRITE" ${step.cmd === 'WRITE' ? 'selected' : ''}>WRITE</option><option value="READ" ${step.cmd === 'READ' ? 'selected' : ''}>READ</option></select>`;
+        
+        // Populate channels from state.channels
+        let channelOptions = '<option value="">Select...</option>';
+        state.channels.forEach(ch => {
+            channelOptions += `<option value="${ch.channel_id}" ${step.channel === ch.channel_id ? 'selected' : ''}>${ch.channel_id}</option>`;
+        });
+        const chanHtml = `<select class="table-input" onchange="state.testSteps[${index}].channel = this.value">${channelOptions}</select>`;
+        
+        const valHtml = `<input type="number" class="table-input" value="${step.value}" onchange="state.testSteps[${index}].value = this.value" placeholder="Value">`;
+        const assertHtml = step.cmd === 'READ' ? `<input type="checkbox" ${step.assert ? 'checked' : ''} onchange="state.testSteps[${index}].assert = this.checked">` : `<input type="checkbox" disabled>`;
+        const actionsHtml = `<button class="btn-icon" onclick="removeTestStep(${index})"><i data-lucide="trash-2" style="color: #ef4444"></i></button>`;
+        row.innerHTML = `<td>${cmdHtml}</td><td>${chanHtml}</td><td>${valHtml}</td><td>${assertHtml}</td><td><div class="flex-row">${actionsHtml}</div></td>`;
+        tbody.appendChild(row);
+    });
+    lucide.createIcons();
+}
+
+window.removeTestStep = (index) => {
+    state.testSteps.splice(index, 1);
+    renderTestTable();
+};
 
 function setupSSE() {
     const s = new EventSource('/system/logs/stream');
