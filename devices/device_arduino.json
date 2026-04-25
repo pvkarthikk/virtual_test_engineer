@@ -1,7 +1,7 @@
 {
   "id": "arduino_uno",
   "plugin": "ArduinoFirmataDevice",
-  "enabled": true,
+  "enabled": false,
   "connection_params": {
     "port": "COM3",
     "baud": 57600,

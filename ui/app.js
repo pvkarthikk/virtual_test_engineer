@@ -14,7 +14,6 @@ const state = {
     editingWidgetIndex: null,
     editingChannelId: null,
     pollTimer: null,
-    devicePollTimer: null,
     activeDeviceId: null,
     sse: {
         logs: null,
@@ -65,7 +64,7 @@ function switchView(viewId) {
     document.querySelectorAll('.view').forEach(view => {
         view.classList.toggle('active', view.id === `view-${viewId}`);
     });
-    if (viewId !== 'devices') stopDevicePolling();
+    if (viewId !== 'devices') state.activeDeviceId = null;
     if (viewId === 'dashboard') renderDashboard();
     if (viewId === 'widget-mapper') renderWidgetMapper();
     if (viewId === 'channel-mapper') renderChannelMapper();
@@ -150,8 +149,6 @@ function updateStatusIndicator(status, text) {
 function setupPolling() {
     const intervalSelect = document.getElementById('poll-interval');
     if (intervalSelect) intervalSelect.onchange = () => { if (state.status === 'online') startPolling(); };
-    const deviceRateSelect = document.getElementById('device-poll-rate');
-    if (deviceRateSelect) deviceRateSelect.onchange = () => { if (state.activeDeviceId) startDevicePolling(state.activeDeviceId); };
 }
 
 function setupHeartbeat() {
@@ -182,7 +179,6 @@ async function checkBackendHealth() {
             addLog('Backend connection lost', 'error');
             // stop all polling
             stopPolling();
-            stopDevicePolling();
         }
     }
 }
@@ -190,21 +186,11 @@ async function checkBackendHealth() {
 function startPolling() {
     stopPolling();
     const intervalEl = document.getElementById('poll-interval');
-    const ms = intervalEl ? parseInt(intervalEl.value) : 1000;
+    const ms = intervalEl ? parseInt(intervalEl.value) : 250;
     state.pollTimer = setInterval(pollDashboard, ms);
 }
 
 function stopPolling() { if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; } }
-
-function startDevicePolling(deviceId) {
-    stopDevicePolling();
-    state.activeDeviceId = deviceId;
-    const rateEl = document.getElementById('device-poll-rate');
-    const ms = rateEl ? parseInt(rateEl.value) : 1000;
-    state.devicePollTimer = setInterval(() => { if (state.currentView === 'devices' && state.activeDeviceId) updateDeviceSignalsList(state.activeDeviceId); }, ms);
-}
-
-function stopDevicePolling() { if (state.devicePollTimer) { clearInterval(state.devicePollTimer); state.devicePollTimer = null; } state.activeDeviceId = null; }
 
 async function pollDashboard() {
     if (state.status !== 'online') return;
@@ -391,7 +377,7 @@ async function renderChannelMapper() {
     table.innerHTML = '';
     state.channels.forEach(ch => {
         const row = document.createElement('tr');
-        row.innerHTML = `<td>${ch.channel_id}</td><td>${ch.device_id}</td><td>${ch.signal_id}</td><td>${ch.properties.unit}</td><td>${ch.properties.min}</td><td>${ch.properties.max}</td><td><input type="number" step="0.01" class="table-input" id="read-${ch.channel_id}" readonly></td><td><div class="flex-row" style="gap: 5px"><button class="btn btn-outline btn-sm" onclick="readSingleChannel('${ch.channel_id}')"><i data-lucide="refresh-cw"></i></button><button class="btn btn-outline btn-sm" onclick="editChannel('${ch.channel_id}')"><i data-lucide="edit"></i></button><button class="btn btn-outline btn-sm" onclick="removeChannel('${ch.channel_id}')"><i data-lucide="trash-2" style="color: var(--accent-danger)"></i></button></div></td>`;
+        row.innerHTML = `<td>${ch.channel_id}</td><td>${ch.device_id}</td><td>${ch.signal_id}</td><td>${ch.properties.unit}</td><td>${ch.properties.min}</td><td>${ch.properties.max}</td><td><input type="number" step="0.01" class="table-input" id="read-${ch.channel_id}" style="width: 80px"></td><td><div class="flex-row" style="gap: 5px"><button class="btn btn-outline btn-sm" onclick="writeSingleChannel('${ch.channel_id}')" title="Write"><i data-lucide="edit-3"></i></button><button class="btn btn-outline btn-sm" onclick="readSingleChannel('${ch.channel_id}')" title="Read"><i data-lucide="refresh-cw"></i></button><button class="btn btn-outline btn-sm" onclick="editChannel('${ch.channel_id}')" title="Edit Mapping"><i data-lucide="edit"></i></button><button class="btn btn-outline btn-sm" onclick="removeChannel('${ch.channel_id}')" title="Delete"><i data-lucide="trash-2" style="color: var(--accent-danger)"></i></button></div></td>`;
         table.appendChild(row);
     });
     lucide.createIcons();
@@ -627,7 +613,8 @@ async function showDeviceSignals(id) {
     const det = document.getElementById('device-explorer-detail');
     if (!det) return;
     det.innerHTML = '<div class="loading">Loading signals...</div>';
-    startDevicePolling(id);
+    state.activeDeviceId = id;
+    updateDeviceSignalsList(id);
 }
 
 window.toggleDevice = async (id, enabled) => {
@@ -646,6 +633,29 @@ window.closeModal = (id) => {
     if (m) m.classList.remove('active');
 };
 
+window.readDeviceSignal = async (deviceId, signalId) => {
+    try {
+        const data = await apiGet(`/device/${deviceId}/signal/${signalId}`);
+        const input = document.getElementById(`sig-input-${signalId}`);
+        if (input) input.value = Number(data.value).toFixed(2);
+        addLog(`Read ${signalId} from ${deviceId}: ${data.value}`, 'success');
+    } catch (e) {
+        addLog(`Read failed for ${signalId}: ${e.message}`, 'error');
+    }
+};
+
+window.writeDeviceSignal = async (deviceId, signalId) => {
+    try {
+        const input = document.getElementById(`sig-input-${signalId}`);
+        if (!input) return;
+        const val = parseFloat(input.value);
+        await apiPut(`/device/${deviceId}/signal/${signalId}?value=${val}`);
+        addLog(`Wrote ${val} to ${signalId} on ${deviceId}`, 'success');
+    } catch (e) {
+        addLog(`Write failed for ${signalId}: ${e.message}`, 'error');
+    }
+};
+
 async function updateDeviceSignalsList(id) {
     const det = document.getElementById('device-explorer-detail');
     if (!det) return;
@@ -653,10 +663,30 @@ async function updateDeviceSignalsList(id) {
         const sigs = await apiGet(`/device/${id}/signal`);
         const dev = state.devices.find(d => d.id === id);
         const isOnline = dev ? (dev.status === 'online' || dev.status === 'connected') : false;
-        let h = `<div class="detail-header"><h3>Signals for ${id} <span class="status-badge-sm ${isOnline ? 'online' : 'offline'}" style="font-size: 0.7rem; padding: 2px 6px">${isOnline ? 'Online' : 'Offline'}</span></h3></div><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Dir</th><th>Range</th><th>Display</th></tr></thead><tbody>`;
-        sigs.forEach(s => { h += `<tr><td><code class="badge badge-sm">${s.signal_id}</code></td><td>${s.name}</td><td>${s.direction}</td><td>${s.min}-${s.max} ${s.unit}</td><td><strong id="sig-val-${s.signal_id}">${Number(s.value).toFixed(2)}</strong></td></tr>`; });
+        let h = `<div class="detail-header"><h3>Signals for ${id} <span class="status-badge-sm ${isOnline ? 'online' : 'offline'}" style="font-size: 0.7rem; padding: 2px 6px">${isOnline ? 'Online' : 'Offline'}</span></h3></div><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Dir</th><th>Range</th><th>Value</th><th>Actions</th></tr></thead><tbody>`;
+        sigs.forEach(s => {
+            const val = Number(s.value).toFixed(2);
+            h += `<tr>
+                <td><code class="badge badge-sm">${s.signal_id}</code></td>
+                <td>${s.name}</td>
+                <td>${s.direction}</td>
+                <td>${s.min}-${s.max} ${s.unit}</td>
+                <td><input type="number" step="0.01" class="table-input" id="sig-input-${s.signal_id}" value="${val}" style="width: 80px"></td>
+                <td>
+                    <div class="flex-row" style="gap: 5px">
+                        <button class="btn btn-outline btn-sm" onclick="writeDeviceSignal('${id}', '${s.signal_id}')" title="Write">
+                            <i data-lucide="edit-3"></i>
+                        </button>
+                        <button class="btn btn-outline btn-sm" onclick="readDeviceSignal('${id}', '${s.signal_id}')" title="Read">
+                            <i data-lucide="refresh-cw"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+        });
         det.innerHTML = h + '</tbody></table>';
-    } catch (e) { det.innerHTML = `Error: ${e.message}`; stopDevicePolling(); }
+        lucide.createIcons();
+    } catch (e) { det.innerHTML = `Error: ${e.message}`; }
 }
 
 let waveformChart = null;
@@ -991,3 +1021,14 @@ async function apiPost(p, b = null, ct = 'application/json') {
     return r.json();
 }
 async function readSingleChannel(id) { try { const d = await apiGet(`/channel/${id}`); const i = document.getElementById(`read-${id}`); if (i) i.value = Number(d.value).toFixed(2); } catch (e) { addLog(`Read fail: ${e.message}`, 'error'); } }
+async function writeSingleChannel(id) {
+    try {
+        const i = document.getElementById(`read-${id}`);
+        if (!i) return;
+        const val = parseFloat(i.value);
+        await apiPut(`/channel/${id}?value=${val}`, {});
+        addLog(`Wrote ${val} to channel ${id}`, 'success');
+    } catch (e) {
+        addLog(`Write fail: ${e.message}`, 'error');
+    }
+}

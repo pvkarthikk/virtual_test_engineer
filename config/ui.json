@@ -2,34 +2,10 @@
   "layout": "dashboard",
   "widgets": [
     {
-      "id": "w1777024820198",
+      "id": "w1777123481061",
       "type": "toggle",
-      "channel": "light",
-      "label": "check_light_button",
-      "position": {
-        "row": 0,
-        "col": 0
-      },
-      "min": null,
-      "max": null
-    },
-    {
-      "id": "w1777024873974",
-      "type": "led",
-      "channel": "light",
-      "label": "feedback",
-      "position": {
-        "row": 0,
-        "col": 0
-      },
-      "min": null,
-      "max": null
-    },
-    {
-      "id": "w1777099179171",
-      "type": "numeric",
-      "channel": "ch_temp",
-      "label": "temp",
+      "channel": "check_led",
+      "label": "check_led",
       "position": {
         "row": 0,
         "col": 0

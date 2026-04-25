@@ -73,6 +73,34 @@ async def toggle_device(device_id: str, enabled: bool):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{device_id}/signal/{signal_id}")
+async def read_device_signal(device_id: str, signal_id: str):
+    """
+    Reads a single signal value from hardware.
+    """
+    device = system.device_manager.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
+    try:
+        val = device.read_signal(signal_id)
+        return {"device_id": device_id, "signal_id": signal_id, "value": val}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/{device_id}/signal/{signal_id}")
+async def write_device_signal(device_id: str, signal_id: str, value: float):
+    """
+    Writes a value to a single hardware signal.
+    """
+    device = system.device_manager.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
+    try:
+        device.write_signal(signal_id, value)
+        return {"message": "Success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/{device_id}/signal/{signal_id}/stream")
 async def stream_device_signal(device_id: str, signal_id: str):
     """

@@ -1,38 +1,12 @@
 [
   {
-    "channel_id": "light",
-    "device_id": "arduino_uno",
-    "signal_id": "D13",
+    "channel_id": "check_led",
+    "device_id": "arduino_custom",
+    "signal_id": "DO3",
     "properties": {
       "unit": "",
       "min": 0.0,
       "max": 100.0,
-      "resolution": 1.0,
-      "offset": 0.0,
-      "value": 0.0
-    }
-  },
-  {
-    "channel_id": "check_light_feedback",
-    "device_id": "arduino_uno",
-    "signal_id": "D13",
-    "properties": {
-      "unit": "",
-      "min": 0.0,
-      "max": 100.0,
-      "resolution": 1.0,
-      "offset": 0.0,
-      "value": 0.0
-    }
-  },
-  {
-    "channel_id": "ch_temp",
-    "device_id": "arduino_uno",
-    "signal_id": "A0",
-    "properties": {
-      "unit": "",
-      "min": 0.0,
-      "max": 65535.0,
       "resolution": 1.0,
       "offset": 0.0,
       "value": 0.0
