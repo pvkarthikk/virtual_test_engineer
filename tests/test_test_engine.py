@@ -4,7 +4,7 @@ import asyncio
 import json
 
 # Add source directory to path
-source_path = os.path.join(os.getcwd(), "sdtb", "source")
+source_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if source_path not in sys.path:
     sys.path.append(source_path)
 
@@ -12,15 +12,12 @@ from core.system import SDTBSystem
 
 async def test_test_engine():
     print("Testing Test Engine...")
-    config_dir = os.path.join(os.getcwd(), "sdtb", "source", "config")
+    config_dir = os.path.join(source_path, "config")
     system = SDTBSystem(config_dir)
     system.startup()
     system.device_manager.connect_all()
 
     # Create a simple JSONL script
-    # 1. Write ch_temp to 25
-    # 2. Wait 500ms
-    # 3. Assert ch_temp == 25
     script = (
         '{"action": "write", "channel": "ch_temp", "value": 25.0}\n'
         '{"action": "wait", "duration_ms": 500}\n'
@@ -33,7 +30,7 @@ async def test_test_engine():
 
 async def test_concurrency_lock():
     print("\nTesting Concurrency Lock...")
-    config_dir = os.path.join(os.getcwd(), "sdtb", "source", "config")
+    config_dir = os.path.join(source_path, "config")
     system = SDTBSystem(config_dir)
     
     # 1. Start a long running test step
@@ -47,9 +44,7 @@ async def test_concurrency_lock():
     assert system.test_engine.is_test_running == True
     print("Test is running in background...")
 
-    # 2. Attempt manual write (via ChannelManager directly - in real app via API)
-    # The API router checks is_test_running.
-    # Let's verify our is_test_running flag is correct.
+    # 2. Attempt manual write
     print(f"is_test_running: {system.test_engine.is_test_running}")
     
     # 3. Wait for test to finish

@@ -2,7 +2,7 @@ import sys
 import os
 
 # Add source directory to path
-sys.path.append(os.path.join(os.getcwd(), "sdtb", "source"))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from models.config import SystemConfig, ChannelConfig, ChannelProperties
 from core.config_manager import ConfigManager

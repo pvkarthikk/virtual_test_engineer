@@ -1,19 +1,19 @@
 import sys
 import os
+import asyncio
 
 # Add source directory to path
-source_path = os.path.join(os.getcwd(), "sdtb", "source")
+source_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if source_path not in sys.path:
     sys.path.append(source_path)
 
 from core.system import SDTBSystem
 
-def test_integration():
+async def test_integration():
     print("Testing System Integration...")
-    config_dir = os.path.join(os.getcwd(), "sdtb", "source", "config")
+    config_dir = os.path.join(source_path, "config")
     
     # Initialize system with the specific test config directory
-    # (The singleton instance might already be initialized if we were in the same process)
     system = SDTBSystem(config_dir)
     
     # 1. Startup: Discover and Initialize
@@ -28,17 +28,11 @@ def test_integration():
     print("Connection OK")
     
     # 3. Read Channel
-    # Mock AI0 defaults to 2.5
-    # ch_temp mapping: Value = (Raw * 0.1) - 20.0
-    # Value = (2.5 * 0.1) - 20.0 = 0.25 - 20.0 = -19.75
     val = system.channel_manager.read_channel("ch_temp")
     print(f"Read ch_temp (scaled): {val}")
     assert val == -19.75, f"Expected -19.75, got {val}"
     
     # 4. Write Channel
-    # target = 20.0
-    # Raw = (Target - Offset) / Resolution
-    # Raw = (20.0 - (-20.0)) / 0.1 = 40.0 / 0.1 = 400.0
     print("Writing 20.0 to ch_temp...")
     system.channel_manager.write_channel("ch_temp", 20.0)
     
@@ -57,12 +51,12 @@ def test_integration():
         print(f"Caught expected error: {e}")
 
     # 6. Shutdown
-    system.shutdown()
+    await system.shutdown()
     print("Shutdown OK")
 
 if __name__ == "__main__":
     try:
-        test_integration()
+        asyncio.run(test_integration())
         print("\nFull system integration test passed!")
     except Exception as e:
         print(f"\nIntegration test failed: {e}")

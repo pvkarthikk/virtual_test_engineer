@@ -3,10 +3,10 @@ import os
 import time
 import logging
 
-# Add source directory to path if needed
-# source_path = os.path.dirname(os.path.abspath(__file__))
-# if source_path not in sys.path:
-#     sys.path.append(source_path)
+# Add source directory to path
+source_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if source_path not in sys.path:
+    sys.path.append(source_path)
 
 from devices.device_arduino_firmata import ArduinoFirmataDevice
 
@@ -52,16 +52,6 @@ def run_arduino_test():
             
         print("SUCCESS: Digital write test complete.")
         
-        # # 4. Test Analog Read (A0)
-        # print("\n[3/4] Testing Analog Read: Reading A0...")
-        # for i in range(15):
-        #     # We must call update() manually to fetch latest values from hardware
-        #     device.update()
-        #     val = device.read_signal("A0")
-        #     print(f"  Read {i+1}: A0 = {val:.2f}V")
-        #     wait_for_user = input()
-        #     time.sleep(0.5)
-        
         # 5. Test Blink D13 and Analog Read (A0)
         print("\n[4/4] Testing Digital Write D13 and Analog Read: A0...")
         d13_val = 0
@@ -72,7 +62,9 @@ def run_arduino_test():
             d13_val = not d13_val
             val = device.read_signal("A0")
             print(f"  Read {i+1}: A0 = {val:.2f}V")
-            wait_for_user = input()
+            # Wait for user input removed for automated testing if needed, 
+            # but keeping it as it was a manual test script.
+            # wait_for_user = input() 
             time.sleep(0.5)
             
         print("SUCCESS: Analog read test complete.")
