@@ -64,7 +64,7 @@ class SDTBSystem:
         self.initialized = True
         logger.info("SDTB System Initialized")
 
-    def startup(self):
+    async def startup(self):
         """
         Performs the system startup sequence: discovery and channel mapping.
         """
@@ -109,17 +109,17 @@ class SDTBSystem:
             except asyncio.CancelledError:
                 pass
             self.update_task = None
-        self.device_manager.disconnect_all()
+        await self.device_manager.disconnect_all()
 
-    def restart(self):
+    async def restart(self):
         """
         Restarts the system: disconnects, re-initializes, and re-discovers.
         """
         logger.info("Restarting SDTB System...")
-        self.shutdown()
+        await self.shutdown()
         self.initialized = False
         self.__init__(self.config_dir)
-        self.startup()
+        await self.startup()
 
     def _handle_test_step_result(self, result):
         """
@@ -141,17 +141,17 @@ class SDTBSystem:
                 for dev_id, device in devices.items():
                     if device.is_connected:
                         try:
-                            device.update()
+                            # Offload to thread to avoid blocking loop
+                            await asyncio.to_thread(device.update)
+                            
                             # Push raw signal updates to stream
                             signals = device.get_signals()
                             for sig in signals:
                                 self.stream_manager.push_device_signal_update(dev_id, sig.signal_id, sig.value)
                                 
                             # Push scaled channel updates to stream
-                            # To be efficient, we only iterate channels that belong to this device
                             for ch in self.channel_manager.get_all_channels():
                                 if ch.device_id == dev_id:
-                                    # Find the corresponding raw signal
                                     for sig in signals:
                                         if sig.signal_id == ch.signal_id:
                                             scaled_value = (sig.value * ch.properties.resolution) + ch.properties.offset
@@ -163,4 +163,4 @@ class SDTBSystem:
                 break
             except Exception as e:
                 logger.error(f"Unexpected error in update loop: {e}")
-                await asyncio.sleep(1.0) # Prevent tight loop on error
+                await asyncio.sleep(1.0)

@@ -54,10 +54,11 @@ class DeviceManager:
                 except Exception as e:
                     logger.error(f"Failed to initialize device config {filename}: {e}")
 
-    def connect_all(self):
+    async def connect_all(self):
         """
         Attempts to connect all initialized devices.
         """
+        import asyncio
         for device_id, device in self.devices.items():
             config = self.device_configs[device_id]
             if not config.enabled:
@@ -66,19 +67,22 @@ class DeviceManager:
                 
             try:
                 logger.info(f"Connecting to device {device_id}...")
-                device.connect(config.connection_params)
+                # Offload to thread to avoid blocking event loop
+                await asyncio.to_thread(device.connect, config.connection_params)
                 logger.info(f"Successfully connected device: {device_id}")
             except Exception as e:
                 logger.error(f"Failed to connect device {device_id}: {e}")
         self._system_connected = True
 
-    def disconnect_all(self):
+    async def disconnect_all(self):
         """
         Gracefully disconnects all devices.
         """
+        import asyncio
         for device_id, device in self.devices.items():
             try:
-                device.disconnect()
+                # Offload to thread to avoid blocking event loop
+                await asyncio.to_thread(device.disconnect)
                 logger.info(f"Disconnected device: {device_id}")
             except Exception as e:
                 logger.error(f"Error disconnecting device {device_id}: {e}")
@@ -90,7 +94,7 @@ class DeviceManager:
     def get_all_devices(self) -> Dict[str, BaseDevice]:
         return self.devices
 
-    def toggle_device(self, device_id: str, enabled: bool):
+    async def toggle_device(self, device_id: str, enabled: bool):
         device = self.devices.get(device_id)
         if not device:
             raise ValueError(f"Device {device_id} not found")
@@ -110,16 +114,19 @@ class DeviceManager:
         
         # Connection management based on toggle
         # Only auto-connect if the system is globally in the 'connected' state
+        import asyncio
         if enabled:
             if not device.is_connected and self._system_connected:
                 try:
                     logger.info(f"Auto-connecting enabled device: {device_id}")
-                    device.connect(config.connection_params)
+                    # Offload to thread to avoid blocking event loop
+                    await asyncio.to_thread(device.connect, config.connection_params)
                 except Exception as e:
                     logger.error(f"Auto-connect failed for {device_id}: {e}")
         else:
             if device.is_connected:
                 try:
-                    device.disconnect()
+                    # Offload to thread to avoid blocking event loop
+                    await asyncio.to_thread(device.disconnect)
                 except Exception as e:
                     logger.error(f"Disconnect failed for {device_id}: {e}")

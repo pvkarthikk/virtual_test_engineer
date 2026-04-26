@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    sdtb_system.startup()
+    await sdtb_system.startup()
     yield
     # Shutdown
     await sdtb_system.shutdown()
