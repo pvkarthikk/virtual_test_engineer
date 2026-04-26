@@ -13,7 +13,6 @@ const state = {
     tempWidgets: [],
     editingWidgetIndex: null,
     editingChannelId: null,
-    pollTimer: null,
     activeDeviceId: null,
     sse: {
         logs: null,
@@ -44,9 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setupChannelMapper();
     setupWaveformViewer();
     setupTheme(); // Initialize theme toggle
-    setupPolling();
     setupSSE();
     setupHeartbeat();
+    updateStatusBar();
+    setInterval(updateStatusBarTime, 1000);
     refreshAllData();
 });
 
@@ -64,7 +64,7 @@ const viewTitles = {
 function initLayout() {
     const container = document.getElementById('layout-container');
     if (!container) return;
-    
+
     const defaultLayout = {
         settings: {
             showPopoutIcon: false,
@@ -98,7 +98,7 @@ function initLayout() {
     state.layout = new GoldenLayout(config, $(container));
 
     Object.keys(viewTitles).forEach(viewId => {
-        state.layout.registerComponent(viewId, function(container, componentState) {
+        state.layout.registerComponent(viewId, function (container, componentState) {
             const el = document.getElementById(`view-${viewId}`);
             if (el) {
                 container.getElement().append($(el));
@@ -110,7 +110,7 @@ function initLayout() {
                 document.querySelectorAll('.nav-item').forEach(item => {
                     item.classList.toggle('active', item.getAttribute('data-view') === viewId);
                 });
-                
+
                 // Use a slightly longer timeout to ensure GL has rendered the container
                 setTimeout(() => {
                     refreshViewContent(viewId);
@@ -135,7 +135,7 @@ function initLayout() {
         if (state.layout.isInitialised) {
             const config = state.layout.toConfig();
             localStorage.setItem('sdtb-layout-v1', JSON.stringify(config));
-            
+
             // Trigger a resize for any visible waveform plotter
             const c = document.getElementById('waveform-chart-container');
             if (c && c.clientWidth > 0 && state.waveform.plotter) {
@@ -148,7 +148,7 @@ function initLayout() {
     });
 
     state.layout.init();
-    $(window).resize(() => { if(state.layout) state.layout.updateSize(); });
+    $(window).resize(() => { if (state.layout) state.layout.updateSize(); });
 }
 
 function refreshViewContent(viewId) {
@@ -175,7 +175,7 @@ function setupTheme() {
     const btn = document.getElementById('btn-theme-toggle');
     const container = document.getElementById('theme-icon-container');
     if (!btn || !container) return;
-    
+
     // Load preference
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') {
@@ -189,10 +189,10 @@ function setupTheme() {
         localStorage.setItem('theme', isLight ? 'light' : 'dark');
         container.innerHTML = `<i data-lucide="${isLight ? 'sun' : 'moon'}"></i>`;
         lucide.createIcons();
-        
+
         // Notify layout engine to resize if needed
         if (state.layout) state.layout.updateSize();
-        
+
         addLog(`Switched to ${isLight ? 'Day' : 'Night'} mode`, 'info');
     };
 }
@@ -208,12 +208,12 @@ function switchView(viewId) {
     if (!state.layout || !state.layout.isInitialised) return;
 
     state.currentView = viewId;
-    
+
     // Update sidebar active state
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.toggle('active', item.getAttribute('data-view') === viewId);
     });
-    
+
     // Search for existing component in v1.5.9
     const items = state.layout.root.getItemsByFilter(item => item.config.componentName === viewId);
     if (items.length > 0) {
@@ -239,7 +239,7 @@ function switchView(viewId) {
             });
         }
     }
-    
+
     refreshViewContent(viewId);
 }
 
@@ -291,12 +291,10 @@ function syncStatus(isConnected) {
         if (btnConnect) btnConnect.classList.add('hidden');
         if (btnDisconnect) btnDisconnect.classList.remove('hidden');
         document.getElementById('dashboard-grid')?.classList.remove('system-offline');
-        startPolling();
     } else {
         if (btnConnect) btnConnect.classList.remove('hidden');
         if (btnDisconnect) btnDisconnect.classList.add('hidden');
         document.getElementById('dashboard-grid')?.classList.add('system-offline');
-        stopPolling();
     }
 
     // Refresh UI based on state
@@ -313,11 +311,26 @@ function updateStatusIndicator(status, text) {
     const statusText = document.querySelector('.status-text');
     if (indicator) indicator.className = `status-indicator ${status}`;
     if (statusText) statusText.innerText = text;
+
+    // Also update status bar message
+    const statusMsg = document.getElementById('status-msg');
+    if (statusMsg) statusMsg.innerText = text;
 }
 
-function setupPolling() {
-    const intervalSelect = document.getElementById('poll-interval');
-    if (intervalSelect) intervalSelect.onchange = () => { if (state.status === 'online') startPolling(); };
+function updateStatusBar() {
+    const statusDevices = document.getElementById('status-devices');
+    const statusChannels = document.getElementById('status-channels');
+
+    if (statusDevices) statusDevices.innerText = `${state.devices.length} Devices`;
+    if (statusChannels) statusChannels.innerText = `${state.channels.length} Channels`;
+}
+
+function updateStatusBarTime() {
+    const statusTime = document.getElementById('status-time');
+    if (statusTime) {
+        const now = new Date();
+        statusTime.innerText = now.toLocaleTimeString([], { hour12: false });
+    }
 }
 
 function setupHeartbeat() {
@@ -346,30 +359,12 @@ async function checkBackendHealth() {
             state.isBackendAlive = false;
             document.getElementById('backend-lost-banner').classList.remove('hidden');
             addLog('Backend connection lost', 'error');
-            // stop all polling
-            stopPolling();
         }
     }
 }
 
-function startPolling() {
-    stopPolling();
-    const intervalEl = document.getElementById('poll-interval');
-    const ms = intervalEl ? parseInt(intervalEl.value) : 250;
-    state.pollTimer = setInterval(pollDashboard, ms);
-}
-
-function stopPolling() { if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; } }
-
 async function pollDashboard() {
-    if (state.status !== 'online') return;
-    const channelIds = [...new Set(state.uiConfig.widgets.map(w => w.channel))];
-    if (channelIds.length === 0) return;
-    try {
-        await Promise.all(channelIds.map(async (id) => {
-            try { await apiGet(`/channel/${id}`); } catch (e) { if (e.message.includes('503')) console.warn(`503 on ${id}`); }
-        }));
-    } catch (e) { console.error('Poll error', e); }
+    // Legacy polling removed in favor of SSE streams
 }
 
 function renderDashboard() {
@@ -448,9 +443,9 @@ function updateWidgetValue(widget, val) {
         valEl.innerText = isActive ? 'ON' : 'OFF';
     } else if (widget.type === 'gauge' || widget.type === 'numeric' || widget.type === 'slider') {
         valEl.innerText = Number(val).toFixed(2);
-        if (widget.type === 'slider') { 
-            const slider = document.getElementById(`slider-${widget.id}`); 
-            if (slider && document.activeElement !== slider) slider.value = val; 
+        if (widget.type === 'slider') {
+            const slider = document.getElementById(`slider-${widget.id}`);
+            if (slider && document.activeElement !== slider) slider.value = val;
         }
     } else if (widget.type === 'bar') {
         const fill = document.getElementById(`fill-${widget.id}`);
@@ -482,14 +477,22 @@ window.widgetWrite = async (id, val) => { try { await apiPut(`/channel/${id}?val
 
 async function refreshAllData() {
     console.log('[SDTB] refreshAllData: starting...');
-    await Promise.all([refreshChannels(), refreshUIConfig()]);
+    await Promise.all([
+        refreshChannels(),
+        refreshDevices(),
+        refreshUIConfig()
+    ]);
     try {
         console.log('[SDTB] Checking /system status...');
         const status = await apiGet('/system');
         console.log('[SDTB] System status:', status);
         syncStatus(status.is_connected === true);
-    } catch (e) { console.error('[SDTB] Status check failed:', e); addLog('Status check fail: ' + e.message, 'error'); }
+    } catch (e) {
+        console.error('[SDTB] Status check failed:', e);
+        addLog('Status check fail: ' + e.message, 'error');
+    }
     renderDashboard();
+    updateStatusBar();
     console.log('[SDTB] refreshAllData: complete');
 }
 
@@ -541,7 +544,7 @@ function openWidgetModal(w = null) {
 }
 
 const btnSaveWidgets = document.getElementById('btn-save-widgets');
-if (btnSaveWidgets) btnSaveWidgets.onclick = async () => { try { await apiPut('/ui/config', state.uiConfig); addLog('Saved UI', 'success'); if (state.status === 'online') startPolling(); } catch (e) { addLog('Save UI fail', 'error'); } };
+if (btnSaveWidgets) btnSaveWidgets.onclick = async () => { try { await apiPut('/ui/config', state.uiConfig); addLog('Saved UI', 'success'); } catch (e) { addLog('Save UI fail', 'error'); } };
 
 function setupChannelMapper() {
     const btnAdd = document.getElementById('btn-add-channel');
@@ -927,10 +930,19 @@ window.openPlotModal = async () => {
 
 window.updatePlotSignalOptions = () => {
     const type = document.getElementById('plot-type').value;
-    document.getElementById('plot-channel-group').classList.toggle('hidden', type !== 'channel');
-    document.getElementById('plot-device-group').classList.toggle('hidden', type !== 'device');
-    document.getElementById('plot-signal-group').classList.toggle('hidden', type !== 'device');
+    const channelGroup = document.getElementById('plot-channel-group');
+    const deviceGroup = document.getElementById('plot-device-selection-group');
+
+    if (channelGroup) channelGroup.classList.toggle('hidden', type !== 'channel');
+    if (deviceGroup) deviceGroup.classList.toggle('hidden', type !== 'device');
+
     if (type === 'device') updatePlotDeviceSignals();
+    lucide.createIcons();
+};
+
+window.onPlotSourceTypeChange = (type) => {
+    document.getElementById('plot-type').value = type;
+    updatePlotSignalOptions();
 };
 
 window.updatePlotDeviceSignals = async () => {
@@ -1040,17 +1052,19 @@ function rebuildWaveformChart() {
     });
 
     const opts = {
-        title: "Live Waveform",
+        // title: "Live Waveform",
         id: "chart1",
         class: "my-chart",
         width: c.clientWidth,
         height: c.clientHeight,
+        padding: [10, 20, 10, 20], // Adjusted padding for legend
         series: series,
         axes: [
             { grid: { stroke: "rgba(255, 255, 255, 0.1)", width: 1 }, stroke: "#94a3b8" },
             { grid: { stroke: "rgba(255, 255, 255, 0.1)", width: 1 }, stroke: "#94a3b8" }
         ],
-        cursor: { drag: { x: true, y: true, uni: 50 } }
+        cursor: { drag: { x: true, y: true, uni: 50 } },
+        legend: { show: true, live: true }
     };
 
     const data = [uplotGlobal.x];
@@ -1113,7 +1127,56 @@ function setupWaveformViewer() {
         window._waveformLoopStarted = true;
         requestAnimationFrame(updateWaveformFrame);
     }
+    initWaveformResizer();
     rebuildWaveformChart();
+}
+
+function initWaveformResizer() {
+    const resizer = document.getElementById('waveform-resizer');
+    const explorer = document.getElementById('waveform-explorer');
+    if (!resizer || !explorer) return;
+
+    let isResizing = false;
+
+    resizer.onmousedown = (e) => {
+        isResizing = true;
+        resizer.classList.add('active');
+        explorer.style.transition = 'none'; // Disable transition during drag
+        document.body.style.cursor = 'col-resize';
+        e.preventDefault();
+    };
+
+    document.onmousemove = (e) => {
+        if (!isResizing) return;
+
+        const explorerRect = explorer.getBoundingClientRect();
+        let newWidth = e.clientX - explorerRect.left;
+
+        // Constraints
+        if (newWidth < 180) newWidth = 180;
+        if (newWidth > 600) newWidth = 600;
+
+        explorer.style.setProperty('--waveform-sidebar-width', `${newWidth}px`);
+
+        // Update chart size
+        if (state.waveform.plotter) {
+            const chartContainer = document.getElementById('waveform-chart-container');
+            if (chartContainer) {
+                state.waveform.plotter.setSize({
+                    width: chartContainer.clientWidth,
+                    height: chartContainer.clientHeight
+                });
+            }
+        }
+    };
+
+    document.onmouseup = () => {
+        if (!isResizing) return;
+        isResizing = false;
+        resizer.classList.remove('active');
+        explorer.style.transition = ''; // Restore transition
+        document.body.style.cursor = '';
+    };
 }
 
 function toggleWaveformSidebar() {
@@ -1122,7 +1185,7 @@ function toggleWaveformSidebar() {
     if (!explorer || !icon) return;
 
     const isCollapsed = explorer.classList.toggle('collapsed');
-    
+
     // Update icon
     icon.setAttribute('data-lucide', isCollapsed ? 'chevron-right' : 'chevron-left');
     lucide.createIcons();
@@ -1130,12 +1193,15 @@ function toggleWaveformSidebar() {
     // Trigger chart resize after transition
     setTimeout(() => {
         if (state.waveform.plotter) {
-            state.waveform.plotter.setSize({
-                width: document.getElementById('waveform-chart-container').clientWidth,
-                height: document.getElementById('waveform-chart-container').clientHeight
-            });
+            const container = document.getElementById('waveform-chart-container');
+            if (container) {
+                state.waveform.plotter.setSize({
+                    width: container.clientWidth,
+                    height: container.clientHeight
+                });
+            }
         }
-    }, 310);
+    }, 350); // Match CSS transition duration
 }
 
 function initWaveformViewer() {
@@ -1281,7 +1347,7 @@ window.openQuickWaveform = (id) => {
     state.quickWave.data = [[], []];
     state.quickWave.active = true;
     state.quickWave.paused = false;
-    
+
     const btnPause = document.getElementById('btn-quick-pause');
     if (btnPause) {
         btnPause.innerHTML = '<i data-lucide="pause"></i> Pause';
@@ -1292,13 +1358,14 @@ window.openQuickWaveform = (id) => {
 
     container.innerHTML = '';
     const opts = {
-        title: "",
-        width: container.clientWidth || 760,
-        height: container.clientHeight || 400,
-        series: [
-            {},
-            { stroke: "#3b82f6", width: 2, label: id }
-        ],
+        title: "Live Waveform",
+        width: chartContainer.clientWidth,
+        height: chartContainer.clientHeight,
+        padding: [20, 20, 20, 20], // Add padding around the chart
+        scales: {
+            x: { time: true },
+            y: { range: (u, min, max) => [min * 0.9, max * 1.1] }
+        },
         axes: [
             { stroke: "#94a3b8", grid: { stroke: "rgba(255,255,255,0.05)" } },
             { stroke: "#94a3b8", grid: { stroke: "rgba(255,255,255,0.05)" } }

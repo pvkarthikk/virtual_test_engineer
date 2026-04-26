@@ -88,6 +88,27 @@
             <main id="layout-container" style="flex: 1; height: 100%;"></main>
         </div>
 
+        <!-- STATUS BAR -->
+        <footer class="status-bar">
+            <div class="status-group">
+                <i data-lucide="info"></i>
+                <span id="status-msg">System Ready</span>
+            </div>
+            <div class="status-spacer"></div>
+            <div class="status-group" title="Active Devices">
+                <i data-lucide="cpu"></i>
+                <span id="status-devices">0 Devices</span>
+            </div>
+            <div class="status-group" title="Configured Channels">
+                <i data-lucide="git-branch"></i>
+                <span id="status-channels">0 Channels</span>
+            </div>
+            <div class="status-group" style="min-width: 80px;">
+                <i data-lucide="clock"></i>
+                <span id="status-time">--:--:--</span>
+            </div>
+        </footer>
+
         <!-- HIDDEN VIEW TEMPLATES -->
         <div id="view-templates" style="display: none;">
             <div id="view-waveform" class="view">
@@ -104,10 +125,10 @@
                     </div>
                 </div>
                 <div class="explorer-container" id="waveform-explorer">
+                    <div class="sidebar-toggle" onclick="toggleWaveformSidebar()">
+                        <i data-lucide="chevron-left" id="waveform-toggle-icon"></i>
+                    </div>
                     <div class="explorer-master" id="waveform-sidebar">
-                        <div class="sidebar-toggle" onclick="toggleWaveformSidebar()">
-                            <i data-lucide="chevron-left" id="waveform-toggle-icon"></i>
-                        </div>
                         <div class="sidebar-content">
                             <div class="detail-header"
                                 style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -121,7 +142,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="explorer-detail card" style="padding: 15px; position: relative;">
+                    <div class="sidebar-resizer" id="waveform-resizer"></div>
+                    <div class="explorer-detail card waveform-chart-card" style="position: relative;">
                         <div id="waveform-chart-container" style="width: 100%; height: 100%;"></div>
                     </div>
                 </div>
@@ -129,17 +151,11 @@
 
             <div id="view-dashboard" class="view">
                 <div class="view-header">
-                    <div class="view-actions">
-                        <div class="input-group">
-                            <label for="poll-interval">Rate:</label>
-                            <select id="poll-interval" class="btn btn-outline btn-sm">
-                                <option value="100">100ms</option>
-                                <option value="250" selected>250ms</option>
-                                <option value="500">500ms</option>
-                                <option value="1000">1s</option>
-                            </select>
-                        </div>
+                <div class="view-actions">
+                    <div class="flex-row" style="gap: 10px;">
+                        <span class="badge badge-outline">Live Streaming Active</span>
                     </div>
+                </div>
                 </div>
                 <div id="dashboard-grid" class="dashboard-grid">
                     <!-- Widgets will be injected here -->
@@ -389,44 +405,82 @@
     <script src="app.js?v=7"></script>
     <!-- PLOT MODAL -->
     <div id="modal-plot" class="modal">
-        <div class="modal-content card">
-            <h2>Add Signal to Plot</h2>
-            <div class="form-group">
-                <label>Signal Type</label>
-                <select id="plot-type" class="table-input" onchange="updatePlotSignalOptions()">
-                    <option value="channel">Channel</option>
-                    <option value="device">Device Signal</option>
-                </select>
-            </div>
-            <div class="form-group" id="plot-channel-group">
-                <label>Channel</label>
-                <select id="plot-channel" class="table-input"></select>
-            </div>
-            <div class="form-group hidden" id="plot-device-group">
-                <label>Device</label>
-                <select id="plot-device" class="table-input" onchange="updatePlotDeviceSignals()"></select>
-            </div>
-            <div class="form-group hidden" id="plot-signal-group">
-                <label>Signal</label>
-                <select id="plot-signal" class="table-input"></select>
-            </div>
-            <div class="flex-row" style="gap: 15px;">
-                <div class="form-group" style="flex: 1;">
-                    <label>Color</label>
-                    <input type="color" id="plot-color" class="table-input" value="#3b82f6" style="padding: 2px;">
+        <div class="modal-content card plot-modal-redesign">
+            <div class="modal-header">
+                <div class="header-icon-container">
+                    <i data-lucide="line-chart"></i>
                 </div>
-                <div class="form-group" style="flex: 2;">
-                    <label>Style</label>
-                    <select id="plot-style" class="table-input">
-                        <option value="solid">Solid Line</option>
-                        <option value="dashed">Dashed Line</option>
-                        <option value="dotted">Dotted Line</option>
-                    </select>
+                <div class="header-text">
+                    <h2>Add Signal to Plot</h2>
+                    <p>Select a source and customize the appearance</p>
+                </div>
+                <button class="btn-icon close-modal-btn" onclick="closeModal('modal-plot')">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="section-label">Signal Source</div>
+                <div class="source-selector">
+                    <label class="source-option">
+                        <input type="radio" name="plot-type-radio" value="channel" checked onchange="onPlotSourceTypeChange('channel')">
+                        <div class="source-card">
+                            <i data-lucide="git-branch"></i>
+                            <span>Virtual Channel</span>
+                        </div>
+                    </label>
+                    <label class="source-option">
+                        <input type="radio" name="plot-type-radio" value="device" onchange="onPlotSourceTypeChange('device')">
+                        <div class="source-card">
+                            <i data-lucide="cpu"></i>
+                            <span>Physical Device</span>
+                        </div>
+                    </label>
+                </div>
+                <input type="hidden" id="plot-type" value="channel">
+                
+                <div id="plot-channel-group" class="form-group animate-fade-in">
+                    <label><i data-lucide="hash"></i> Channel Name</label>
+                    <select id="plot-channel" class="table-input full-width"></select>
+                </div>
+                
+                <div id="plot-device-selection-group" class="hidden animate-fade-in">
+                    <div class="form-group">
+                        <label><i data-lucide="box"></i> Target Device</label>
+                        <select id="plot-device" class="table-input full-width" onchange="updatePlotDeviceSignals()"></select>
+                    </div>
+                    
+                    <div id="plot-signal-group" class="form-group">
+                        <label><i data-lucide="activity"></i> Device Signal</label>
+                        <select id="plot-signal" class="table-input full-width"></select>
+                    </div>
+                </div>
+
+                <div class="section-label">Appearance</div>
+                <div class="appearance-grid">
+                    <div class="form-group">
+                        <label>Plot Color</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="plot-color" value="#3b82f6">
+                            <span class="color-preview-text">Pick Color</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Line Style</label>
+                        <select id="plot-style" class="table-input">
+                            <option value="solid">Solid Line</option>
+                            <option value="dashed">Dashed Line</option>
+                            <option value="dotted">Dotted Line</option>
+                        </select>
+                    </div>
                 </div>
             </div>
-            <div class="modal-actions">
+
+            <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeModal('modal-plot')">Cancel</button>
-                <button class="btn btn-primary" onclick="addPlot()">Add Signal</button>
+                <button class="btn btn-primary" onclick="addPlot()">
+                    <i data-lucide="plus"></i> Add to Waveform
+                </button>
             </div>
         </div>
     </div>
