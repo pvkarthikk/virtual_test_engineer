@@ -644,13 +644,53 @@ body {
 }
 
 .table-input {
-    background: #000;
+    background: rgba(0, 0, 0, 0.4);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 4px 8px;
+    border-radius: 6px;
+    padding: 5px 10px;
     color: var(--text-main);
     font-size: 0.85rem;
     width: 100%;
+    max-width: 120px;
+    outline: none;
+    transition: all 0.2s ease;
+    font-family: 'Fira Code', monospace;
+}
+
+.table-input:focus {
+    border-color: var(--accent-primary);
+    background: rgba(59, 130, 246, 0.05);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.table-input:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Hide Spin Box Arrows */
+.table-input::-webkit-outer-spin-button,
+.table-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.table-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+.table-compact th {
+    padding: 6px 10px;
+    font-size: 0.7rem;
+}
+
+.table-compact td {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+}
+
+.table-compact .badge {
+    padding: 2px 5px;
+    font-size: 0.65rem;
 }
 
 /* EXPLORER LAYOUT */
@@ -1030,11 +1070,12 @@ input:checked + .slider:before {
 }
 
 .tab-item {
-    padding: 10px 20px;
+    padding: 0 20px;
+    height: 38px;
     cursor: pointer;
     border-bottom: 2px solid transparent;
     color: var(--text-muted);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     transition: all 0.2s;
     display: flex;
     align-items: center;
@@ -1051,6 +1092,61 @@ input:checked + .slider:before {
     color: var(--accent-primary);
     border-bottom-color: var(--accent-primary);
     background: rgba(59, 130, 246, 0.1);
+}
+
+/* GOLDEN LAYOUT THEME OVERRIDES */
+.lm_header {
+    height: 38px !important;
+    background: var(--bg-sidebar) !important;
+}
+
+.lm_header .lm_tabs {
+    height: 38px !important;
+}
+
+.lm_header .lm_tab {
+    height: 38px !important;
+    line-height: 38px !important;
+    padding: 0 20px !important;
+    background: var(--bg-sidebar) !important;
+    border: none !important;
+    color: var(--text-muted) !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+}
+
+.lm_header .lm_tab:hover {
+    color: var(--text-main) !important;
+    background: rgba(255,255,255,0.05) !important;
+}
+
+.lm_header .lm_tab.lm_active {
+    color: var(--accent-primary) !important;
+    background: rgba(59, 130, 246, 0.1) !important;
+    border-bottom: 2px solid var(--accent-primary) !important;
+    box-shadow: none !important;
+}
+
+.lm_header .lm_controls > li {
+    height: 38px !important;
+    line-height: 38px !important;
+}
+
+.lm_content {
+    background: var(--bg-main) !important;
+    border-color: var(--border-color) !important;
+}
+
+.lm_splitter {
+    background: var(--bg-main) !important;
+    width: 3px !important;
+    height: 3px !important;
+}
+
+.lm_tab .lm_close_tab {
+    top: 13px !important;
 }
 
 .tab-content {

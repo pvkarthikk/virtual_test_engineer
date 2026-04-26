@@ -555,7 +555,7 @@ async function renderChannelMapper() {
     table.innerHTML = '';
     state.channels.forEach(ch => {
         const row = document.createElement('tr');
-        row.innerHTML = `<td>${ch.channel_id}</td><td>${ch.device_id}</td><td>${ch.signal_id}</td><td>${ch.properties.unit}</td><td>${ch.properties.min}</td><td>${ch.properties.max}</td><td><input type="number" step="0.01" class="table-input" id="read-${ch.channel_id}" style="width: 80px"></td><td><div class="flex-row" style="gap: 5px"><button class="btn btn-outline btn-sm" onclick="writeSingleChannel('${ch.channel_id}')" title="Write"><i data-lucide="edit-3"></i></button><button class="btn btn-outline btn-sm" onclick="readSingleChannel('${ch.channel_id}')" title="Read"><i data-lucide="refresh-cw"></i></button><button class="btn btn-outline btn-sm" onclick="editChannel('${ch.channel_id}')" title="Edit Mapping"><i data-lucide="edit"></i></button><button class="btn btn-outline btn-sm" onclick="removeChannel('${ch.channel_id}')" title="Delete"><i data-lucide="trash-2" style="color: var(--accent-danger)"></i></button></div></td>`;
+        row.innerHTML = `<td>${ch.channel_id}</td><td>${ch.device_id}</td><td>${ch.signal_id}</td><td>${ch.properties.unit}</td><td>${ch.properties.min}</td><td>${ch.properties.max}</td><td><input type="number" step="any" class="table-input" id="read-${ch.channel_id}"></td><td><div class="flex-row" style="gap: 5px"><button class="btn btn-outline btn-sm" onclick="writeSingleChannel('${ch.channel_id}')" title="Write"><i data-lucide="edit-3"></i></button><button class="btn btn-outline btn-sm" onclick="readSingleChannel('${ch.channel_id}')" title="Read"><i data-lucide="refresh-cw"></i></button><button class="btn btn-outline btn-sm" onclick="editChannel('${ch.channel_id}')" title="Edit Mapping"><i data-lucide="edit"></i></button><button class="btn btn-outline btn-sm" onclick="removeChannel('${ch.channel_id}')" title="Delete"><i data-lucide="trash-2" style="color: var(--accent-danger)"></i></button></div></td>`;
         table.appendChild(row);
     });
     lucide.createIcons();
@@ -865,7 +865,10 @@ async function updateDeviceSignalsList(id) {
                     </div>
                 </div>
                 <div class="flex-row" style="gap: 10px">
-                    <span style="font-size: 0.85rem; color: var(--text-muted)">Device Enable:</span>
+                    <button class="btn btn-outline btn-sm" onclick="restartDevice('${dev.id}')" title="Restart Device" style="padding: 2px 8px; font-size: 0.75rem; color: var(--accent-warning); border-color: var(--accent-warning); display: flex; align-items: center; gap: 4px;">
+                        <i data-lucide="refresh-cw" style="width: 12px; height: 12px"></i> Restart
+                    </button>
+                    <span style="font-size: 0.85rem; color: var(--text-muted); margin-left: 10px">Device Enable:</span>
                     <label class="switch-sm" title="${dev.enabled ? 'Disable' : 'Enable'} Device">
                         <input type="checkbox" ${dev.enabled ? 'checked' : ''} onchange="toggleDevice('${dev.id}', this.checked)">
                         <span class="slider-sm"></span>
@@ -873,23 +876,24 @@ async function updateDeviceSignalsList(id) {
                 </div>
             </div>
             <div class="detail-header"><h3>Signals for ${id} <span class="status-badge-sm ${isOnline ? 'online' : 'offline'}" style="font-size: 0.7rem; padding: 2px 6px">${isOnline ? 'Online' : 'Offline'}</span></h3></div>
-            <table class="table"><thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Dir</th><th>Range</th><th>Value</th><th>Actions</th></tr></thead><tbody>`;
+            <table class="table table-compact"><thead><tr><th>ID</th><th>Name</th><th>Dir</th><th>Min</th><th>Max</th><th>Unit</th><th>Value</th><th>Actions</th></tr></thead><tbody>`;
         sigs.forEach(s => {
             const val = Number(s.value).toFixed(2);
             h += `<tr>
                 <td><code class="badge badge-sm">${s.signal_id}</code></td>
-                <td>${s.name}</td>
-                <td style="font-size: 0.8rem; color: var(--text-muted)">${s.description || ''}</td>
-                <td>${s.direction}</td>
-                <td>${s.min}-${s.max} ${s.unit}</td>
-                <td><input type="number" step="0.01" class="table-input" id="sig-input-${s.signal_id}" value="${val}" style="width: 80px"></td>
+                <td><div style="font-weight:600">${s.name}</div><div style="font-size:0.7rem; opacity:0.6">${s.description || ''}</div></td>
+                <td><span class="badge badge-outline" style="font-size:0.65rem">${s.direction}</span></td>
+                <td>${s.min}</td>
+                <td>${s.max}</td>
+                <td><span class="text-muted" style="font-size:0.75rem">${s.unit}</span></td>
+                <td><input type="number" step="any" class="table-input" id="sig-input-${s.signal_id}" value="${val}"></td>
                 <td>
-                    <div class="flex-row" style="gap: 5px">
+                    <div class="flex-row" style="gap: 4px">
                         <button class="btn btn-outline btn-sm" onclick="writeDeviceSignal('${id}', '${s.signal_id}')" title="Write">
-                            <i data-lucide="edit-3"></i>
+                            <i data-lucide="edit-3" style="width:12px; height:12px"></i>
                         </button>
                         <button class="btn btn-outline btn-sm" onclick="readDeviceSignal('${id}', '${s.signal_id}')" title="Read">
-                            <i data-lucide="refresh-cw"></i>
+                            <i data-lucide="refresh-cw" style="width:12px; height:12px"></i>
                         </button>
                     </div>
                 </td>
