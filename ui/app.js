@@ -1636,22 +1636,37 @@ function startFlashLogStream(flashId, execId) {
 }
 
 function startFlashStatusPolling(flashId, execId) {
+    let errorCount = 0;
     const poll = setInterval(async () => {
         try {
             const status = await apiGet(`/flash/status?flash_id=${flashId}&execution_id=${execId}`);
-            const progress = status.progress || 0;
+            
+            if (status.error) {
+                console.warn(`[Flash] Polling error: ${status.error}`);
+                return;
+            }
+
+            const progress = status.progress !== undefined ? status.progress : 0;
             const bar = document.getElementById('flash-progress-bar');
             const text = document.getElementById('flash-progress-text');
             
             if (bar) bar.style.width = `${progress}%`;
             if (text) text.innerText = `${status.status} (${progress}%)`;
             
-            if (["success", "failed", "aborted", "error"].includes(status.status.toLowerCase())) {
+            errorCount = 0;
+
+            const currentStatus = (status.status || "").toLowerCase();
+            if (["success", "failed", "aborted", "error"].includes(currentStatus)) {
                 clearInterval(poll);
-                addFlashLog(`Final Status: ${status.status}`, status.status.toLowerCase() === 'success' ? 'success' : 'error');
+                addFlashLog(`Final Status: ${status.status}`, currentStatus === 'success' ? 'success' : 'error');
             }
         } catch (e) {
-            clearInterval(poll);
+            errorCount++;
+            console.error(`[Flash] Status poll failed (${errorCount}/5):`, e);
+            if (errorCount >= 5) {
+                clearInterval(poll);
+                addFlashLog('Flashing status tracking lost after multiple failures.', 'error');
+            }
         }
     }, 1000);
 }
