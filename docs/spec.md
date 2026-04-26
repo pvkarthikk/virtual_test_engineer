@@ -382,6 +382,7 @@ Note: Each device plugin (`device_<name>.py`) has a corresponding `device_<name>
 | F06 | Test Execution & Control | High | Implemented |
 | F07 | User Interface (UI) | Medium | Implemented |
 | F08 | Agentic Control (MCP) | Medium | Implemented |
+| F09 | Fault Injection | Low | Defined |
 
 ### 3.1.1 Feature Descriptions
 
@@ -400,6 +401,8 @@ Note: Each device plugin (`device_<name>.py`) has a corresponding `device_<name>
 - **UI**: A browser-based dashboard served directly by the SDTB server. The User Interface feature provides a visual control panel where users can map widgets (gauges, sliders, buttons, LEDs, etc.) to channels, control system lifecycle (connect/disconnect/restart), monitor live signal activity in a debug window, and edit/execute test scripts — all without writing any API calls manually. The Test Execution & Control feature manages the complete lifecycle of these automated sequences—allowing users to discover available tests, pass dynamic parameters, run them asynchronously, and retrieve detailed pass/fail measurement logs upon completion.
 
 - **MCP**: A built-in Model Context Protocol server that enables AI agents to autonomously discover, monitor, and control the test bench. By exposing hardware as a set of standardized "Tools" (like `read_channels` and `write_channels`), agents can execute complex test scenarios, interpret sensor data, and drive actuators using natural language reasoning.
+
+- **Fault Injection**: Simulates hardware or communication failures (e.g., shorts, opens, signal corruption) to validate the target system's diagnostic and safety mechanisms.
 
 ### 3.2 Domain Concepts
 
@@ -558,6 +561,9 @@ Each raw signal shall expose the following properties to define its physical cha
 | `/device/{device_id}/signal/{signal_id}` | GET | Read a raw device signal | 200 OK, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}/info` | GET | Retrieve signal metadata and properties (resolution, unit, min, max, offset) | 200 OK, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}/stream` | GET | Stream live data from a signal (e.g., CAN, LIN, UART) | 200 OK, 404 Not Found |
+| `/device/{device_id}/signal/{signal_id}/fault` | GET | Retrieve a list of available fault simulation capabilities for this specific signal | 200 OK, 404 Not Found |
+| `/device/{device_id}/signal/{signal_id}/fault` | POST | Activate a specific fault simulation on the signal (requires `fault_id` in JSON payload) | 200 OK, 400 Bad Request, 404 Not Found |
+| `/device/{device_id}/signal/{signal_id}/fault` | DELETE | Clear any active fault on the signal and restore normal operation | 200 OK, 404 Not Found |
 
 > **TODO**: Streaming endpoints for LIN and SENT are placeholders for future support. Will be reviewed later.
 
@@ -576,7 +582,7 @@ Each raw signal shall expose the following properties to define its physical cha
 | F03.07 | User shall be able to read PWM signal input measurements (frequency, duty cycle) | High | Integration Test |
 | F03.08 | System shall support real-time signal streaming/subscription for monitoring applications | Medium | Integration Test |
 | F03.09 | Signal configuration shall validate against hardware capabilities and reject invalid parameters | High | Unit Test |
-| F03.10 | System shall provide signal buffering capabilities for waveform generation/capture where supported | Low | Integration Test |
+| F03.10 | System shall provide signal buffering capabilities for oscilloscope generation/capture where supported | Low | Integration Test |
 | F03.11 | All signal operations shall be timestamped for synchronization purposes | Medium | Integration Test |
 | F03.12 | System shall support signal triggering capabilities (external trigger sources) | Low | Integration Test |
 | F03.13 | LIN streaming endpoint to be implemented (TBD) | TBD | TBD |
@@ -763,11 +769,11 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 
 | View Name | Description |
 |-----------|-------------|
-| Dashboard | Ultra-Compact v3 grid displaying mapped channel widgets. Supports **Quick Look** (click widget to open high-res modal waveform). |
+| Dashboard | Ultra-Compact v3 grid displaying mapped channel widgets. Supports **Quick Look** (click widget to open high-res modal oscilloscope). |
 | Widget Mapper | Configuration interface to assign widget types to channels. |
 | Channel Mapper | Interface to create/edit channel-to-signal mappings visually. |
 | Device Explorer | Multi-tab view of discovered hardware with **LED Status Indicators** and per-device **Restart** buttons. |
-| Waveform Viewer | Multi-channel graphing with collapsible "Active Plots" panel for maximized visualization space. |
+| Oscilloscope Viewer | Multi-channel graphing with collapsible "Active Plots" panel for maximized visualization space. |
 | Debug Window | Live scrolling log of command flow via SSE. |
 | Test Editor | JSONL test script editor with integrated execution controls. |
 
@@ -790,7 +796,7 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 | F07.02 | UI shall follow a three-region layout: toolbar/menubar (top), sidebar (left), and center content area | Medium | Integration Test |
 | F07.03 | Toolbar shall provide File, About, and Preference menu items | Medium | Integration Test |
 | F07.04 | Preference menu shall open system configuration (system.json) as a form overlay dialog | Medium | Integration Test |
-| F07.05 | Sidebar shall provide icon-based navigation with six views: Dashboard, Widget Mapper, Channel Mapper, Device Explorer, Waveform Viewer, and Debug Window | Medium | Integration Test |
+| F07.05 | Sidebar shall provide icon-based navigation with six views: Dashboard, Widget Mapper, Channel Mapper, Device Explorer, Oscilloscope Viewer, and Debug Window | Medium | Integration Test |
 | F07.06 | Center content area shall dynamically switch based on the active sidebar view | Medium | Integration Test |
 | F07.07 | Dashboard view shall display live channel widgets and include Connect, Disconnect, and Restart buttons | Medium | Integration Test |
 | F07.08 | Widget Mapper view shall allow users to assign widget types to channels and configure widget properties | Medium | Integration Test |
@@ -802,14 +808,14 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 | F07.14 | UI configuration (ui.json) shall be managed exclusively via /ui/config endpoints | Medium | Unit Test |
 | F07.15 | Widgets shall update in real-time using channel streaming (SSE) | Medium | Integration Test |
 | F07.16 | UI shall be self-contained; no external dependencies or separate build step required to serve | Medium | Integration Test |
-| F07.17 | Waveform viewer shall support simultaneous display of multiple channels | High | Integration Test |
+| F07.17 | Oscilloscope viewer shall support simultaneous display of multiple channels | High | Integration Test |
 | F07.18 | User shall be able to assign unique colors to each channel in the viewer | High | UI Test |
 | F07.19 | User shall be able to select different line styles (solid, dashed, dotted, points) per channel | High | UI Test |
 | F07.20 | Viewer shall support real-time zoom (X and Y axis) and panning | High | UI Test |
 | F07.21 | User shall be able to pause and resume the live data stream without losing buffered history | High | UI Test |
-| F07.22 | User shall be able to select the data refresh rate for the waveform (e.g., 250ms, 500ms, 1000ms) | High | UI Test |
+| F07.22 | User shall be able to select the data refresh rate for the oscilloscope (e.g., 250ms, 500ms, 1000ms) | High | UI Test |
 | F07.23 | Viewer shall display a legend with channel names and current values | High | UI Test |
-| F07.24 | User shall be able to export the current waveform data to CSV/JSON (future) | Low | Integration Test |
+| F07.24 | User shall be able to export the current oscilloscope data to CSV/JSON (future) | Low | Integration Test |
 
 #### F08: Agentic Control (MCP)
 
@@ -832,6 +838,8 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 | `read_channels` | Batch read multiple channels in a single request. | `channel_ids: List[str]` |
 | `write_channel` | Sets the value of a single channel. | `channel_id`, `value` |
 | `write_channels` | Batch write multiple channels for synchronized control. | `writes: List[WriteOp]` |
+| `inject_fault` | Simulates a hardware fault on a channel (Short to Ground, Open, etc.). | `channel_id`, `fault_id` |
+| `clear_fault` | Restores a channel to normal operation. | `channel_id` |
 | `get_channel_info` | Retrieves metadata (units, range) for a channel. | `channel_id` |
 | `get_system_summary` | Returns a high-level overview of hardware health. | None |
 | `connect_system` | Connects all physical hardware (Arduinos, etc.). | None |
@@ -847,6 +855,41 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 | F08.04 | System shall provide batch read/write tools for optimized agent performance. | Medium | Performance Test |
 | F08.05 | MCP interface shall provide human-readable documentation as a Resource. | Medium | Agent Test |
 | F08.06 | Tool execution shall include proper error reporting for individual channel failures in batches. | High | Error Handling Test |
+
+#### F09: Fault Injection
+
+**Description**: Enable users to simulate hardware failures and signal anomalies to validate the diagnostic capabilities and fail-safe logic of the target system (ECU).
+
+**API Integration**: Faults are managed directly through the signal endpoints. Users do not call a separate fault service; instead, they apply faults to specific hardware signals.
+
+| Endpoint | Method | Description | Status Codes |
+|----------|--------|-------------|--------------|
+| `/device/{device_id}/signal/{signal_id}/fault` | GET | Retrieve list of available faults for the signal | 200 OK, 404 Not Found |
+| `/device/{device_id}/signal/{signal_id}/fault` | POST | Trigger a specific fault on the signal (accepts `fault_id`) | 200 OK, 400 Bad Request |
+| `/device/{device_id}/signal/{signal_id}/fault` | DELETE | Clear the active fault on the signal | 200 OK |
+| `/system/fault/clear` | POST | Global safety mechanism to clear all faults across all devices | 200 OK |
+
+**Fault Types**
+
+| Fault Type | Description |
+|------------|-------------|
+| Short to Ground | Forces a signal to 0V/Ground |
+| Short to Battery | Forces a signal to Battery voltage (Vbatt) |
+| Open Circuit | Disconnects the signal path (High Impedance) |
+| Stuck at Value | Forces a signal to a specific static value |
+| Signal Noise | Injects random noise into an analog signal |
+| Packet Loss | Simulates intermittent communication failure (CAN/LIN) |
+
+**Requirements**
+
+| ID | Requirement | Priority | Verification Method |
+|----|-------------|----------|---------------------|
+| F09.01 | User shall be able to trigger faults on specific channels or raw signals | Low | Integration Test |
+| F09.02 | System shall support timed faults (automatic clearing after a duration) | Low | Integration Test |
+| F09.03 | System shall provide a global "Clear All Faults" safety mechanism | Low | Integration Test |
+| F09.04 | Fault states shall be reported in the system health status | Low | Integration Test |
+| F09.05 | Fault injection shall be supported in automated test scripts (JSONL) | Low | Integration Test |
+| F09.06 | System shall prevent conflicting faults on the same signal (e.g., Short to Ground and Short to Battery) | Low | Unit Test |
 
 
 ### 3.4 Workflow Requirements
@@ -945,6 +988,7 @@ offline → idle → busy → idle
 {"step": 2, "action": "wait", "duration_ms": 500}
 {"step": 3, "action": "read", "channel": "ch_current_1", "assert": {"min": 0.9, "max": 1.1}}
 {"step": 4, "action": "read", "channel": "ch_temperature_1", "assert": {"equals": 25.0, "tolerance": 0.5}}
+{"step": 5, "action": "fault", "channel": "ch_throttle_sensor", "type": "short_to_ground", "duration_ms": 1000}
 ```
 
 #### W07: Session & Concurrency Rules

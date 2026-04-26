@@ -18,7 +18,7 @@ const state = {
         logs: null,
         channels: {} // channelId -> EventSource
     },
-    waveform: {
+    oscilloscope: {
         activeChannels: new Set(),
         paused: false,
         history: {}, // channelId -> { data: [{t, v}], color, style, enabled }
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSettings();
     setupWidgetMapper();
     setupChannelMapper();
-    setupWaveformViewer();
+    setupOscilloscopeViewer();
     setupFlashView();
     setupTheme(); // Initialize theme toggle
     setupSSE();
@@ -57,7 +57,7 @@ const viewTitles = {
     'devices': 'Device Explorer',
     'channel-mapper': 'Channel Mapper',
     'widget-mapper': 'Widget Mapper',
-    'waveform': 'Waveform Viewer',
+    'oscilloscope': 'Oscilloscope Viewer',
     'test-editor': 'Test Editor',
     'debug': 'System Logs',
     'flash': 'Software Flasher',
@@ -121,10 +121,10 @@ function initLayout() {
                 }, 100);
             });
             container.on('resize', () => {
-                if (viewId === 'waveform' && state.waveform.plotter) {
-                    const c = document.getElementById('waveform-chart-container');
+                if (viewId === 'oscilloscope' && state.oscilloscope.plotter) {
+                    const c = document.getElementById('oscilloscope-chart-container');
                     if (c && c.clientWidth > 0) {
-                        state.waveform.plotter.setSize({
+                        state.oscilloscope.plotter.setSize({
                             width: c.clientWidth,
                             height: Math.max(50, c.clientHeight)
                         });
@@ -139,10 +139,10 @@ function initLayout() {
             const config = state.layout.toConfig();
             localStorage.setItem('sdtb-layout-v1', JSON.stringify(config));
 
-            // Trigger a resize for any visible waveform plotter
-            const c = document.getElementById('waveform-chart-container');
-            if (c && c.clientWidth > 0 && state.waveform.plotter) {
-                state.waveform.plotter.setSize({
+            // Trigger a resize for any visible oscilloscope plotter
+            const c = document.getElementById('oscilloscope-chart-container');
+            if (c && c.clientWidth > 0 && state.oscilloscope.plotter) {
+                state.oscilloscope.plotter.setSize({
                     width: c.clientWidth,
                     height: Math.max(50, c.clientHeight)
                 });
@@ -160,7 +160,7 @@ function refreshViewContent(viewId) {
     if (viewId === 'channel-mapper') renderChannelMapper();
     if (viewId === 'settings') loadSettings();
     if (viewId === 'devices') refreshDevices();
-    if (viewId === 'waveform') initWaveformViewer();
+    if (viewId === 'oscilloscope') initOscilloscopeViewer();
     if (viewId === 'test-editor') renderTestTable();
     if (viewId === 'flash') initFlashView();
 }
@@ -404,7 +404,7 @@ function createWidgetCard(widget) {
     let content = `<div class="widget-header"><span class="widget-label">${widget.label}</span><div class="widget-actions"><button class="btn-icon" onclick="editWidgetById('${widget.id}')"><i data-lucide="edit-2"></i></button></div></div>`;
     if (widget.type === 'gauge') content += `<div class="widget-content gauge-container"><div class="gauge-value" id="val-${widget.id}">--</div><div class="gauge-label">${widget.type}</div></div>`;
     else if (widget.type === 'bar') content += `<div class="widget-content bar-container"><div class="bar-bg"><div class="bar-fill" id="fill-${widget.id}" style="width: 0%"></div></div><div class="widget-value-sm" id="val-${widget.id}">--</div></div>`;
-    else if (widget.type === 'waveform') content += `<div class="widget-content waveform-container" style="cursor: pointer;" onclick="openQuickWaveform('${widget.channel}')" title="Click for detail view"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><polyline id="poly-${widget.id}" fill="none" stroke="var(--accent-primary)" stroke-width="1.5" points="0,20 100,20" /></svg><div class="widget-value-sm"><span id="val-${widget.id}">--</span></div></div>`;
+    else if (widget.type === 'oscilloscope') content += `<div class="widget-content oscilloscope-container" style="cursor: pointer;" onclick="openQuickOscilloscope('${widget.channel}')" title="Click for detail view"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><polyline id="poly-${widget.id}" fill="none" stroke="var(--accent-primary)" stroke-width="1.5" points="0,20 100,20" /></svg><div class="widget-value-sm"><span id="val-${widget.id}">--</span></div></div>`;
     else if (widget.type === 'led') content += `<div class="widget-content led-container"><div class="led-bulb" id="led-${widget.id}"></div><div class="widget-value-sm" id="val-${widget.id}">OFF</div></div>`;
     else if (widget.type === 'toggle') {
         content += `<div class="widget-content toggle-container">
@@ -459,22 +459,22 @@ function updateWidgetValue(widget, val) {
             fill.style.width = `${Math.min(Math.max(((val - min) / (max - min)) * 100, 0), 100)}%`;
         }
         valEl.innerText = Number(val).toFixed(2);
-    } else if (widget.type === 'waveform') {
+    } else if (widget.type === 'oscilloscope') {
         const poly = document.getElementById(`poly-${widget.id}`);
-        if (poly) updateWaveform(poly, val, widget);
+        if (poly) updateOscilloscope(poly, val, widget);
         valEl.innerText = Number(val).toFixed(2);
     } else valEl.innerText = Number(val).toFixed(2);
 }
 
-const waveformHistory = {};
-function updateWaveform(poly, val, widget) {
-    if (!waveformHistory[widget.id]) waveformHistory[widget.id] = new Array(50).fill(20);
+const oscilloscopeHistory = {};
+function updateOscilloscope(poly, val, widget) {
+    if (!oscilloscopeHistory[widget.id]) oscilloscopeHistory[widget.id] = new Array(50).fill(20);
     const ch = state.channels.find(c => c.channel_id === widget.channel);
     const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100, range = max - min || 1;
-    waveformHistory[widget.id].push(40 - ((val - min) / range * 40));
-    console.log(waveformHistory[widget.id]);
-    if (waveformHistory[widget.id].length > 50) waveformHistory[widget.id].shift();
-    poly.setAttribute('points', waveformHistory[widget.id].map((v, i) => `${i * 2},${v}`).join(' '));
+    oscilloscopeHistory[widget.id].push(40 - ((val - min) / range * 40));
+    console.log(oscilloscopeHistory[widget.id]);
+    if (oscilloscopeHistory[widget.id].length > 50) oscilloscopeHistory[widget.id].shift();
+    poly.setAttribute('points', oscilloscopeHistory[widget.id].map((v, i) => `${i * 2},${v}`).join(' '));
 }
 
 window.widgetWrite = async (id, val) => { try { await apiPut(`/channel/${id}?value=${val}`, {}); } catch (e) { addLog(`Write failed: ${e.message}`, 'error'); } };
@@ -717,13 +717,13 @@ function subscribeToChannel(id) {
         const val = Number(JSON.parse(e.data).value);
         state.uiConfig.widgets.forEach(w => { if (w.channel === id) updateWidgetValue(w, val); });
 
-        // Update waveform chart data
-        if (state.waveform.history[id] && state.waveform.history[id].enabled && !state.waveform.paused) {
-            state.waveform.history[id].data.push({ t: Date.now(), v: val });
-            if (state.waveform.history[id].data.length > 1000) state.waveform.history[id].data.shift();
+        // Update oscilloscope chart data
+        if (state.oscilloscope.history[id] && state.oscilloscope.history[id].enabled && !state.oscilloscope.paused) {
+            state.oscilloscope.history[id].data.push({ t: Date.now(), v: val });
+            if (state.oscilloscope.history[id].data.length > 1000) state.oscilloscope.history[id].data.shift();
         }
 
-        // Update quick waveform
+        // Update quick oscilloscope
         if (state.quickWave.active && state.quickWave.plotter && state.quickWave.channelId === id && !state.quickWave.paused) {
             const now = Date.now() / 1000;
             state.quickWave.data[0].push(now);
@@ -735,7 +735,7 @@ function subscribeToChannel(id) {
             state.quickWave.plotter.setData(state.quickWave.data);
         }
 
-        // Update live value in waveform config bar
+        // Update live value in oscilloscope config bar
         const waveValEl = document.getElementById(`wave-val-${id}`);
         if (waveValEl) waveValEl.innerText = val.toFixed(2);
     };
@@ -749,9 +749,9 @@ function subscribeToDeviceSignal(devId, sigId) {
     s.onmessage = (e) => {
         const data = JSON.parse(e.data);
         const val = Number(data.value);
-        if (state.waveform.history[id] && state.waveform.history[id].enabled && !state.waveform.paused) {
-            state.waveform.history[id].data.push({ t: Date.now(), v: val });
-            if (state.waveform.history[id].data.length > 1000) state.waveform.history[id].data.shift();
+        if (state.oscilloscope.history[id] && state.oscilloscope.history[id].enabled && !state.oscilloscope.paused) {
+            state.oscilloscope.history[id].data.push({ t: Date.now(), v: val });
+            if (state.oscilloscope.history[id].data.length > 1000) state.oscilloscope.history[id].data.shift();
         }
         const waveValEl = document.getElementById(`wave-val-${id}`);
         if (waveValEl) waveValEl.innerText = val.toFixed(2);
@@ -911,7 +911,7 @@ async function updateDeviceSignalsList(id) {
     } catch (e) { det.innerHTML = `Error: ${e.message}`; }
 }
 
-let waveformChart = null;
+let oscilloscopeChart = null;
 let uplotSeriesIds = [];
 const uplotGlobal = { x: [], y: {} };
 
@@ -972,12 +972,12 @@ window.addPlot = () => {
         label = `${devId}.${sigId}`;
     }
 
-    if (state.waveform.history[id]) {
+    if (state.oscilloscope.history[id]) {
         alert('Signal already being plotted');
         return;
     }
 
-    state.waveform.history[id] = {
+    state.oscilloscope.history[id] = {
         label: label,
         data: [],
         color: document.getElementById('plot-color').value,
@@ -994,8 +994,8 @@ window.addPlot = () => {
     }
 
     closeModal('modal-plot');
-    renderWaveformChannelsList();
-    rebuildWaveformChart();
+    renderOscilloscopeChannelsList();
+    rebuildOscilloscopeChart();
 };
 
 window.removePlot = (id) => {
@@ -1003,18 +1003,18 @@ window.removePlot = (id) => {
         state.sse.channels[id].close();
         delete state.sse.channels[id];
     }
-    delete state.waveform.history[id];
+    delete state.oscilloscope.history[id];
     delete uplotGlobal.y[id];
-    renderWaveformChannelsList();
-    rebuildWaveformChart();
+    renderOscilloscopeChannelsList();
+    rebuildOscilloscopeChart();
 };
 
-function renderWaveformChannelsList() {
-    const list = document.getElementById('waveform-channels-list');
+function renderOscilloscopeChannelsList() {
+    const list = document.getElementById('oscilloscope-channels-list');
     if (!list) return;
     list.innerHTML = '';
-    Object.keys(state.waveform.history).forEach(id => {
-        const plot = state.waveform.history[id];
+    Object.keys(state.oscilloscope.history).forEach(id => {
+        const plot = state.oscilloscope.history[id];
         const item = document.createElement('div');
         item.className = 'channel-item';
         item.style.cssText = `background: rgba(0,0,0,0.2); border-radius: 8px; border-left: 4px solid ${plot.color}; border-right: 1px solid var(--border-color); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);`;
@@ -1034,18 +1034,18 @@ function renderWaveformChannelsList() {
     lucide.createIcons();
 }
 
-function rebuildWaveformChart() {
-    const c = document.getElementById('waveform-chart-container');
+function rebuildOscilloscopeChart() {
+    const c = document.getElementById('oscilloscope-chart-container');
     if (!c) return;
     c.innerHTML = '';
-    if (waveformChart) waveformChart.destroy();
+    if (oscilloscopeChart) oscilloscopeChart.destroy();
 
-    uplotSeriesIds = Object.keys(state.waveform.history).filter(id => state.waveform.history[id].enabled);
+    uplotSeriesIds = Object.keys(state.oscilloscope.history).filter(id => state.oscilloscope.history[id].enabled);
     if (uplotSeriesIds.length === 0) return;
 
     const series = [{ label: "Time", value: (u, v) => v ? new Date(v * 1000).toLocaleTimeString() : "--" }];
     uplotSeriesIds.forEach(id => {
-        const chan = state.waveform.history[id];
+        const chan = state.oscilloscope.history[id];
         series.push({
             label: id,
             stroke: chan.color,
@@ -1056,7 +1056,7 @@ function rebuildWaveformChart() {
     });
 
     const opts = {
-        // title: "Live Waveform",
+        // title: "Live Oscilloscope",
         id: "chart1",
         class: "my-chart",
         width: c.clientWidth,
@@ -1076,38 +1076,38 @@ function rebuildWaveformChart() {
         data.push(uplotGlobal.y[id] || new Array(uplotGlobal.x.length).fill(null));
     });
 
-    waveformChart = new uPlot(opts, data, c);
-    state.waveform.plotter = waveformChart;
+    oscilloscopeChart = new uPlot(opts, data, c);
+    state.oscilloscope.plotter = oscilloscopeChart;
 }
 
-function setupWaveformViewer() {
-    const btnP = document.getElementById('btn-waveform-pause');
+function setupOscilloscopeViewer() {
+    const btnP = document.getElementById('btn-oscilloscope-pause');
     if (btnP) btnP.onclick = () => {
-        state.waveform.paused = !state.waveform.paused;
-        btnP.innerHTML = state.waveform.paused ? '<i data-lucide="play"></i> Resume' : '<i data-lucide="pause"></i> Pause';
+        state.oscilloscope.paused = !state.oscilloscope.paused;
+        btnP.innerHTML = state.oscilloscope.paused ? '<i data-lucide="play"></i> Resume' : '<i data-lucide="pause"></i> Pause';
         lucide.createIcons();
     };
-    const btnC = document.getElementById('btn-waveform-clear');
+    const btnC = document.getElementById('btn-oscilloscope-clear');
     if (btnC) btnC.onclick = () => {
         uplotGlobal.x = [];
         uplotGlobal.y = {};
-        Object.keys(state.waveform.history).forEach(id => state.waveform.history[id].data = []);
-        rebuildWaveformChart();
+        Object.keys(state.oscilloscope.history).forEach(id => state.oscilloscope.history[id].data = []);
+        rebuildOscilloscopeChart();
     };
 
-    function updateWaveformFrame() {
-        if (state.currentView !== 'waveform') {
-            requestAnimationFrame(updateWaveformFrame);
+    function updateOscilloscopeFrame() {
+        if (state.currentView !== 'oscilloscope') {
+            requestAnimationFrame(updateOscilloscopeFrame);
             return;
         }
 
-        if (!state.waveform.paused && uplotSeriesIds.length > 0) {
+        if (!state.oscilloscope.paused && uplotSeriesIds.length > 0) {
             const now = Date.now() / 1000;
             uplotGlobal.x.push(now);
 
-            Object.keys(state.waveform.history).forEach(id => {
+            Object.keys(state.oscilloscope.history).forEach(id => {
                 if (!uplotGlobal.y[id]) uplotGlobal.y[id] = new Array(uplotGlobal.x.length - 1).fill(null);
-                const chan = state.waveform.history[id];
+                const chan = state.oscilloscope.history[id];
                 const latest = chan.data.length > 0 ? chan.data[chan.data.length - 1].v : null;
                 uplotGlobal.y[id].push(latest);
             });
@@ -1117,27 +1117,27 @@ function setupWaveformViewer() {
                 Object.values(uplotGlobal.y).forEach(arr => arr.shift());
             }
 
-            if (waveformChart) {
+            if (oscilloscopeChart) {
                 const data = [uplotGlobal.x];
                 uplotSeriesIds.forEach(id => data.push(uplotGlobal.y[id]));
-                waveformChart.setData(data);
+                oscilloscopeChart.setData(data);
             }
         }
-        requestAnimationFrame(updateWaveformFrame);
+        requestAnimationFrame(updateOscilloscopeFrame);
     }
 
     // Only start the loop once
-    if (!window._waveformLoopStarted) {
-        window._waveformLoopStarted = true;
-        requestAnimationFrame(updateWaveformFrame);
+    if (!window._oscilloscopeLoopStarted) {
+        window._oscilloscopeLoopStarted = true;
+        requestAnimationFrame(updateOscilloscopeFrame);
     }
-    initWaveformResizer();
-    rebuildWaveformChart();
+    initOscilloscopeResizer();
+    rebuildOscilloscopeChart();
 }
 
-function initWaveformResizer() {
-    const resizer = document.getElementById('waveform-resizer');
-    const explorer = document.getElementById('waveform-explorer');
+function initOscilloscopeResizer() {
+    const resizer = document.getElementById('oscilloscope-resizer');
+    const explorer = document.getElementById('oscilloscope-explorer');
     if (!resizer || !explorer) return;
 
     let isResizing = false;
@@ -1160,13 +1160,13 @@ function initWaveformResizer() {
         if (newWidth < 180) newWidth = 180;
         if (newWidth > 600) newWidth = 600;
 
-        explorer.style.setProperty('--waveform-sidebar-width', `${newWidth}px`);
+        explorer.style.setProperty('--oscilloscope-sidebar-width', `${newWidth}px`);
 
         // Update chart size
-        if (state.waveform.plotter) {
-            const chartContainer = document.getElementById('waveform-chart-container');
+        if (state.oscilloscope.plotter) {
+            const chartContainer = document.getElementById('oscilloscope-chart-container');
             if (chartContainer) {
-                state.waveform.plotter.setSize({
+                state.oscilloscope.plotter.setSize({
                     width: chartContainer.clientWidth,
                     height: chartContainer.clientHeight
                 });
@@ -1183,9 +1183,9 @@ function initWaveformResizer() {
     };
 }
 
-function toggleWaveformSidebar() {
-    const explorer = document.getElementById('waveform-explorer');
-    const icon = document.getElementById('waveform-toggle-icon');
+function toggleOscilloscopeSidebar() {
+    const explorer = document.getElementById('oscilloscope-explorer');
+    const icon = document.getElementById('oscilloscope-toggle-icon');
     if (!explorer || !icon) return;
 
     const isCollapsed = explorer.classList.toggle('collapsed');
@@ -1196,10 +1196,10 @@ function toggleWaveformSidebar() {
 
     // Trigger chart resize after transition
     setTimeout(() => {
-        if (state.waveform.plotter) {
-            const container = document.getElementById('waveform-chart-container');
+        if (state.oscilloscope.plotter) {
+            const container = document.getElementById('oscilloscope-chart-container');
             if (container) {
-                state.waveform.plotter.setSize({
+                state.oscilloscope.plotter.setSize({
                     width: container.clientWidth,
                     height: container.clientHeight
                 });
@@ -1208,14 +1208,14 @@ function toggleWaveformSidebar() {
     }, 350); // Match CSS transition duration
 }
 
-function initWaveformViewer() {
-    renderWaveformChannelsList();
-    rebuildWaveformChart();
+function initOscilloscopeViewer() {
+    renderOscilloscopeChannelsList();
+    rebuildOscilloscopeChart();
 }
 
-window.toggleWaveformChannel = (id, e) => { if (state.waveform.history[id]) { state.waveform.history[id].enabled = e; if (e) subscribeToChannel(id); rebuildWaveformChart(); } };
-window.setWaveformColor = (id, c) => { if (state.waveform.history[id]) { state.waveform.history[id].color = c; rebuildWaveformChart(); } };
-window.setWaveformStyle = (id, s) => { if (state.waveform.history[id]) { state.waveform.history[id].style = s; rebuildWaveformChart(); } };
+window.toggleOscilloscopeChannel = (id, e) => { if (state.oscilloscope.history[id]) { state.oscilloscope.history[id].enabled = e; if (e) subscribeToChannel(id); rebuildOscilloscopeChart(); } };
+window.setOscilloscopeColor = (id, c) => { if (state.oscilloscope.history[id]) { state.oscilloscope.history[id].color = c; rebuildOscilloscopeChart(); } };
+window.setOscilloscopeStyle = (id, s) => { if (state.oscilloscope.history[id]) { state.oscilloscope.history[id].style = s; rebuildOscilloscopeChart(); } };
 
 function addLog(m, t = 'info') {
     const d = document.getElementById('debug-window'), tl = document.getElementById('test-log'); if (!d) return;
@@ -1341,8 +1341,8 @@ async function writeSingleChannel(id) {
     }
 }
 
-window.openQuickWaveform = (id) => {
-    const modal = document.getElementById('modal-quick-waveform');
+window.openQuickOscilloscope = (id) => {
+    const modal = document.getElementById('modal-quick-oscilloscope');
     const container = document.getElementById('quick-wave-container');
     const chanIdSpan = document.getElementById('quick-wave-channel-id');
     if (!modal || !container) return;
@@ -1362,7 +1362,7 @@ window.openQuickWaveform = (id) => {
 
     container.innerHTML = '';
     const opts = {
-        title: "Live Waveform",
+        title: "Live Oscilloscope",
         width: chartContainer.clientWidth,
         height: chartContainer.clientHeight,
         padding: [20, 20, 20, 20], // Add padding around the chart
@@ -1381,13 +1381,13 @@ window.openQuickWaveform = (id) => {
     modal.classList.add('active');
 };
 
-window.closeQuickWaveform = () => {
+window.closeQuickOscilloscope = () => {
     state.quickWave.active = false;
     if (state.quickWave.plotter) {
         state.quickWave.plotter.destroy();
         state.quickWave.plotter = null;
     }
-    closeModal('modal-quick-waveform');
+    closeModal('modal-quick-oscilloscope');
 };
 
 window.toggleQuickWavePause = () => {
@@ -1397,7 +1397,7 @@ window.toggleQuickWavePause = () => {
         btn.innerHTML = state.quickWave.paused ? '<i data-lucide="play"></i> Resume' : '<i data-lucide="pause"></i> Pause';
         lucide.createIcons(btn);
     }
-    addLog(`Quick Waveform ${state.quickWave.paused ? 'Paused' : 'Resumed'}`, 'info');
+    addLog(`Quick Oscilloscope ${state.quickWave.paused ? 'Paused' : 'Resumed'}`, 'info');
 };
 
 window.clearQuickWave = () => {
@@ -1405,7 +1405,7 @@ window.clearQuickWave = () => {
     if (state.quickWave.plotter) {
         state.quickWave.plotter.setData(state.quickWave.data);
     }
-    addLog('Quick Waveform Cleared', 'info');
+    addLog('Quick Oscilloscope Cleared', 'info');
 };
 
 /**

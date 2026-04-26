@@ -69,7 +69,7 @@
                 <button class="nav-item" data-view="widget-mapper" title="Widget Mapper">
                     <i data-lucide="layers"></i>
                 </button>
-                <button class="nav-item" data-view="waveform" title="Waveform Viewer">
+                <button class="nav-item" data-view="oscilloscope" title="Oscilloscope Viewer">
                     <i data-lucide="activity"></i>
                 </button>
                 <button class="nav-item" data-view="test-editor" title="Test Script Editor">
@@ -114,24 +114,24 @@
 
         <!-- HIDDEN VIEW TEMPLATES -->
         <div id="view-templates" style="display: none;">
-            <div id="view-waveform" class="view">
+            <div id="view-oscilloscope" class="view">
                 <div class="view-header">
                     <div class="view-actions">
                         <div class="flex-row" style="gap: 10px;">
-                            <button class="btn btn-outline btn-sm" id="btn-waveform-pause">
+                            <button class="btn btn-outline btn-sm" id="btn-oscilloscope-pause">
                                 <i data-lucide="pause"></i> Pause
                             </button>
-                            <button class="btn btn-outline btn-sm" id="btn-waveform-clear">
+                            <button class="btn btn-outline btn-sm" id="btn-oscilloscope-clear">
                                 <i data-lucide="refresh-cw"></i> Clear
                             </button>
                         </div>
                     </div>
                 </div>
-                <div class="explorer-container" id="waveform-explorer">
-                    <div class="sidebar-toggle" onclick="toggleWaveformSidebar()">
-                        <i data-lucide="chevron-left" id="waveform-toggle-icon"></i>
+                <div class="explorer-container" id="oscilloscope-explorer">
+                    <div class="sidebar-toggle" onclick="toggleOscilloscopeSidebar()">
+                        <i data-lucide="chevron-left" id="oscilloscope-toggle-icon"></i>
                     </div>
-                    <div class="explorer-master" id="waveform-sidebar">
+                    <div class="explorer-master" id="oscilloscope-sidebar">
                         <div class="sidebar-content">
                             <div class="detail-header"
                                 style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -140,26 +140,20 @@
                                     <i data-lucide="plus"></i> Add
                                 </button>
                             </div>
-                            <div id="waveform-channels-list" style="display: flex; flex-direction: column; gap: 10px;">
+                            <div id="oscilloscope-channels-list"
+                                style="display: flex; flex-direction: column; gap: 10px;">
                                 <!-- Populated dynamically -->
                             </div>
                         </div>
                     </div>
-                    <div class="sidebar-resizer" id="waveform-resizer"></div>
-                    <div class="explorer-detail card waveform-chart-card" style="position: relative;">
-                        <div id="waveform-chart-container" style="width: 100%; height: 100%;"></div>
+                    <div class="sidebar-resizer" id="oscilloscope-resizer"></div>
+                    <div class="explorer-detail card oscilloscope-chart-card" style="position: relative;">
+                        <div id="oscilloscope-chart-container" style="width: 100%; height: 100%;"></div>
                     </div>
                 </div>
             </div>
 
             <div id="view-dashboard" class="view">
-                <div class="view-header">
-                    <div class="view-actions">
-                        <div class="flex-row" style="gap: 10px;">
-                            <span class="badge badge-outline">Live Streaming Active</span>
-                        </div>
-                    </div>
-                </div>
                 <div id="dashboard-grid" class="dashboard-grid">
                     <!-- Widgets will be injected here -->
                 </div>
@@ -422,7 +416,7 @@
                     <option value="numeric">Numeric Display</option>
                     <option value="gauge">Gauge</option>
                     <option value="bar">Bar Graph</option>
-                    <option value="waveform">Waveform</option>
+                    <option value="oscilloscope">Oscilloscope</option>
                     <option value="led">Status LED</option>
                     <option value="toggle">Toggle Switch</option>
                     <option value="button">Momentary Button</option>
@@ -562,13 +556,13 @@
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeModal('modal-plot')">Cancel</button>
                 <button class="btn btn-primary" onclick="addPlot()">
-                    <i data-lucide="plus"></i> Add to Waveform
+                    <i data-lucide="plus"></i> Add to Oscilloscope
                 </button>
             </div>
         </div>
     </div>
     <!-- QUICK WAVEFORM MODAL -->
-    <div id="modal-quick-waveform" class="modal">
+    <div id="modal-quick-oscilloscope" class="modal">
         <div class="modal-content card" style="max-width: 800px; width: 90%;">
             <div class="flex-row" style="justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 id="quick-wave-title" style="margin: 0;">Channel View</h2>
@@ -579,7 +573,7 @@
                     <button class="btn btn-outline btn-sm" onclick="clearQuickWave()">
                         <i data-lucide="refresh-cw"></i> Clear
                     </button>
-                    <button class="btn btn-outline btn-sm" onclick="closeQuickWaveform()">Close</button>
+                    <button class="btn btn-outline btn-sm" onclick="closeQuickOscilloscope()">Close</button>
                 </div>
             </div>
             <div id="quick-wave-container"
