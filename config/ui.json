@@ -52,7 +52,7 @@
     {
       "id": "w1777165464686",
       "type": "waveform",
-      "channel": "Engine_RPM_Sensor",
+      "channel": "test",
       "label": "Engine RPM Graph",
       "position": {
         "row": 0,
