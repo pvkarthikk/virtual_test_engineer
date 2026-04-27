@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
+from pydantic import BaseModel
 from core.system import SDTBSystem
 from sse_starlette.sse import EventSourceResponse
 
@@ -6,6 +7,9 @@ router = APIRouter(prefix="/channel", tags=["Channel Management"])
 
 # Access the singleton system instance
 system = SDTBSystem()
+
+class WriteValue(BaseModel):
+    value: float
 
 @router.get("")
 async def list_channels():
@@ -30,7 +34,7 @@ async def read_channel(channel_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{channel_id}")
-async def write_channel(channel_id: str, value: float):
+async def write_channel(channel_id: str, data: WriteValue = Body(...)):
     """
     Writes a scaled signal value to a logical channel.
     Blocks if a test sequence is currently running.
@@ -42,8 +46,8 @@ async def write_channel(channel_id: str, value: float):
         )
         
     try:
-        await system.channel_manager.write_channel(channel_id, value)
-        return {"message": f"Successfully wrote {value} to {channel_id}"}
+        await system.channel_manager.write_channel(channel_id, data.value)
+        return {"message": f"Successfully wrote {data.value} to {channel_id}"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:

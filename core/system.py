@@ -1,12 +1,15 @@
 import logging
 import os
 import asyncio
-from typing import List, Optional
+import math
+import json
+from typing import List, Optional, Dict
+from pydantic import TypeAdapter
 from core.config_manager import ConfigManager
 from core.device_manager import DeviceManager
 from core.channel_manager import ChannelManager
 from core.test_engine import TestEngine
-from core.stream_manager import StreamManager
+from core.stream_manager import StreamManager, SSELogHandler
 from core.flash_manager import FlashManager
 from models.config import SystemConfig, ChannelConfig, UIConfig
 
@@ -52,7 +55,6 @@ class SDTBSystem:
         self.test_engine = TestEngine(self.channel_manager)
         
         # Redirect all standard logging to the SSE stream
-        from core.stream_manager import SSELogHandler
         root_logger = logging.getLogger()
         has_sse_handler = any(isinstance(h, SSELogHandler) for h in root_logger.handlers)
         
@@ -80,9 +82,6 @@ class SDTBSystem:
         
         # 2. Load and initialize channels
         try:
-            from pydantic import TypeAdapter
-            import json
-            
             file_path = self.config_manager.get_file_path("channels")
             if os.path.exists(file_path):
                 with open(file_path, "r") as f:

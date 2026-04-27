@@ -82,7 +82,7 @@ class StreamManager:
             try:
                 queue.put_nowait(message)
             except asyncio.QueueFull:
-                pass
+                logger.warning("Global log queue is full, dropping message.")
 
     def push_channel_update(self, channel_id: str, value: Any):
         """
@@ -98,7 +98,7 @@ class StreamManager:
                 try:
                     queue.put_nowait(update)
                 except asyncio.QueueFull:
-                    pass
+                    logger.warning(f"Channel queue for '{channel_id}' is full, dropping update.")
 
     def push_device_signal_update(self, device_id: str, signal_id: str, value: Any):
         """
@@ -116,4 +116,4 @@ class StreamManager:
                 try:
                     queue.put_nowait(update)
                 except asyncio.QueueFull:
-                    pass
+                    logger.warning(f"Device signal queue for '{key}' is full, dropping update.")

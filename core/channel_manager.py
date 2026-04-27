@@ -1,4 +1,6 @@
 import logging
+import asyncio
+import math
 from typing import Dict, List, Any, Optional
 from core.device_manager import DeviceManager
 from models.config import ChannelConfig
@@ -59,7 +61,6 @@ class ChannelManager:
             raise RuntimeError(f"Device '{cfg.device_id}' for channel '{channel_id}' is not connected")
 
         # Read raw value from device plugin - Offload to thread to avoid blocking event loop
-        import asyncio
         raw_value = await asyncio.to_thread(device.read_signal, cfg.signal_id)
         
         # Apply scaling

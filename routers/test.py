@@ -42,3 +42,10 @@ async def get_test_status():
         "is_running": system.test_engine.is_test_running,
         "abort_requested": system.test_engine._stop_requested
     }
+
+@router.get("/history")
+async def get_test_history():
+    """
+    Returns the history of all executed test steps.
+    """
+    return system.test_engine.history

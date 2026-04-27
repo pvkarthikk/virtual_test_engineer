@@ -18,6 +18,7 @@ class TestEngine:
         
         # Callback for real-time progress reporting (e.g., via SSE)
         self.on_step_complete: Optional[Callable[[TestResult], None]] = None
+        self.history: List[TestResult] = []
 
     async def run_jsonl_script(self, jsonl_content: str):
         """
@@ -98,13 +99,15 @@ class TestEngine:
             message = f"Unexpected error: {str(e)}"
             logger.exception(f"Step {index} failed with error")
 
-        return TestResult(
+        result = TestResult(
             step_index=index,
             action=step.action,
             status=status,
             message=message,
             timestamp=start_time
         )
+        self.history.append(result)
+        return result
 
     def _evaluate_assertion(self, actual: float, condition: str, target: float) -> bool:
         """
