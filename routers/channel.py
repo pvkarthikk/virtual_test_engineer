@@ -20,7 +20,7 @@ async def read_channel(channel_id: str):
     Reads a scaled signal value from a logical channel.
     """
     try:
-        value = system.channel_manager.read_channel(channel_id)
+        value = await system.channel_manager.read_channel(channel_id)
         return {"channel_id": channel_id, "value": value}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -42,7 +42,7 @@ async def write_channel(channel_id: str, value: float):
         )
         
     try:
-        system.channel_manager.write_channel(channel_id, value)
+        await system.channel_manager.write_channel(channel_id, value)
         return {"message": f"Successfully wrote {value} to {channel_id}"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

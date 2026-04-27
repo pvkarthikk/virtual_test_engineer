@@ -38,7 +38,7 @@ class ChannelManager:
             except Exception as e:
                 logger.warning(f"Could not verify signals for device '{cfg.device_id}': {e}")
 
-    def read_channel(self, channel_id: str) -> Any:
+    async def read_channel(self, channel_id: str) -> Any:
         """
         Reads a value from a channel, applying scaling (Raw -> Value).
         Equation: Value = (Raw * Resolution) + Offset
@@ -51,8 +51,9 @@ class ChannelManager:
         if not device or not device.is_connected:
             raise RuntimeError(f"Device '{cfg.device_id}' for channel '{channel_id}' is not connected")
 
-        # Read raw value from device plugin
-        raw_value = device.read_signal(cfg.signal_id)
+        # Read raw value from device plugin - Offload to thread to avoid blocking event loop
+        import asyncio
+        raw_value = await asyncio.to_thread(device.read_signal, cfg.signal_id)
         
         # Apply scaling
         scaled_value = (raw_value * cfg.properties.resolution) + cfg.properties.offset
@@ -63,7 +64,7 @@ class ChannelManager:
             
         return scaled_value
 
-    def write_channel(self, channel_id: str, value: float):
+    async def write_channel(self, channel_id: str, value: float):
         """
         Writes a value to a channel after validation and scaling (Value -> Raw).
         Equation: Raw = (Value - Offset) / Resolution
@@ -84,14 +85,15 @@ class ChannelManager:
             raise RuntimeError(f"Device '{cfg.device_id}' for channel '{channel_id}' is not connected")
 
         # 2. Scaling to Raw value
-        # Handle potential division by zero if resolution is 0 (though it shouldn't be)
         if cfg.properties.resolution == 0:
             raw_value = value - cfg.properties.offset
         else:
             raw_value = (value - cfg.properties.offset) / cfg.properties.resolution
         
         # 3. Hardware Write (Device plugin performs physical signal-level bounds checking)
-        device.write_signal(cfg.signal_id, raw_value)
+        # Offload to thread to avoid blocking event loop
+        import asyncio
+        await asyncio.to_thread(device.write_signal, cfg.signal_id, raw_value)
         
         # 4. Push update to stream subscribers
         if self.stream_manager:

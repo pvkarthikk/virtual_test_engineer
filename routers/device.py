@@ -66,7 +66,7 @@ async def list_device_signals(device_id: str):
 @router.post("/{device_id}/toggle")
 async def toggle_device(device_id: str, enabled: bool):
     try:
-        system.device_manager.toggle_device(device_id, enabled)
+        await system.device_manager.toggle_device(device_id, enabled)
         return {"message": f"Device {device_id} is now {'enabled' if enabled else 'disabled'}"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -82,7 +82,8 @@ async def read_device_signal(device_id: str, signal_id: str):
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
     try:
-        val = device.read_signal(signal_id)
+        import asyncio
+        val = await asyncio.to_thread(device.read_signal, signal_id)
         return {"device_id": device_id, "signal_id": signal_id, "value": val}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -96,7 +97,8 @@ async def write_device_signal(device_id: str, signal_id: str, value: float):
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
     try:
-        device.write_signal(signal_id, value)
+        import asyncio
+        await asyncio.to_thread(device.write_signal, signal_id, value)
         return {"message": "Success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -115,7 +117,8 @@ async def restart_device(device_id: str):
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
     try:
-        device.restart()
+        import asyncio
+        await asyncio.to_thread(device.restart)
         return {"message": f"Device {device_id} restart initiated"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

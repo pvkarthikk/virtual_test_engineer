@@ -17,24 +17,24 @@ async def test_integration():
     system = SDTBSystem(config_dir)
     
     # 1. Startup: Discover and Initialize
-    system.startup()
+    await system.startup()
     
     assert "mock_1" in system.device_manager.devices, "mock_1 device should be discovered"
     assert "ch_temp" in system.channel_manager.channels, "ch_temp channel should be initialized"
     print("Discovery & Initialization OK")
     
     # 2. Connect
-    system.device_manager.connect_all()
+    await system.device_manager.connect_all()
     print("Connection OK")
     
     # 3. Read Channel
-    val = system.channel_manager.read_channel("ch_temp")
+    val = await system.channel_manager.read_channel("ch_temp")
     print(f"Read ch_temp (scaled): {val}")
     assert val == -19.75, f"Expected -19.75, got {val}"
     
     # 4. Write Channel
     print("Writing 20.0 to ch_temp...")
-    system.channel_manager.write_channel("ch_temp", 20.0)
+    await system.channel_manager.write_channel("ch_temp", 20.0)
     
     # Verify write reached mock device correctly
     mock_dev = system.device_manager.get_device("mock_1")
@@ -45,7 +45,7 @@ async def test_integration():
     # 5. Out of bounds check
     print("Testing out of bounds write (expecting ValueError)...")
     try:
-        system.channel_manager.write_channel("ch_temp", 200.0) # max is 150.0
+        await system.channel_manager.write_channel("ch_temp", 200.0) # max is 150.0
         assert False, "Should have raised ValueError for out of bounds"
     except ValueError as e:
         print(f"Caught expected error: {e}")

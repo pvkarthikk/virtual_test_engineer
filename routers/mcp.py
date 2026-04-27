@@ -173,7 +173,7 @@ async def handle_call_tool(
 
         elif name == "read_channel":
             ch_id = arguments.get("channel_id")
-            value = sdtb_system.channel_manager.read_channel(ch_id)
+            value = await sdtb_system.channel_manager.read_channel(ch_id)
             info = sdtb_system.channel_manager.get_channel_info(ch_id)
             unit = info.properties.unit if info else ""
             return [types.TextContent(type="text", text=f"Channel '{ch_id}' current value: {value:.2f} {unit}")]
@@ -181,7 +181,7 @@ async def handle_call_tool(
         elif name == "write_channel":
             ch_id = arguments.get("channel_id")
             value = arguments.get("value")
-            sdtb_system.channel_manager.write_channel(ch_id, value)
+            await sdtb_system.channel_manager.write_channel(ch_id, value)
             return [types.TextContent(type="text", text=f"Successfully set channel '{ch_id}' to {value}")]
 
         elif name == "get_system_summary":
@@ -196,11 +196,11 @@ async def handle_call_tool(
             return [types.TextContent(type="text", text=json.dumps(summary, indent=2))]
 
         elif name == "connect_system":
-            sdtb_system.device_manager.connect_all()
+            await sdtb_system.device_manager.connect_all()
             return [types.TextContent(type="text", text="Hardware connection sequence completed successfully.")]
 
         elif name == "disconnect_system":
-            sdtb_system.device_manager.disconnect_all()
+            await sdtb_system.device_manager.disconnect_all()
             return [types.TextContent(type="text", text="Hardware disconnection sequence completed.")]
 
         elif name == "read_channels":
@@ -208,7 +208,7 @@ async def handle_call_tool(
             results = []
             for ch_id in ch_ids:
                 try:
-                    value = sdtb_system.channel_manager.read_channel(ch_id)
+                    value = await sdtb_system.channel_manager.read_channel(ch_id)
                     info = sdtb_system.channel_manager.get_channel_info(ch_id)
                     results.append({
                         "id": ch_id,
@@ -227,7 +227,7 @@ async def handle_call_tool(
                 ch_id = w.get("channel_id")
                 val = w.get("value")
                 try:
-                    sdtb_system.channel_manager.write_channel(ch_id, val)
+                    await sdtb_system.channel_manager.write_channel(ch_id, val)
                     results.append({"id": ch_id, "status": "success"})
                 except Exception as e:
                     results.append({"id": ch_id, "status": "error", "message": str(e)})
