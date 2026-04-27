@@ -1,8 +1,9 @@
 import logging
 import json
+import asyncio
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form, Request
-from fastapi.responses import StreamingResponse
+from sse_starlette.sse import EventSourceResponse
 from core.system import SDTBSystem
 from core.base_flash import BaseFlashException
 
@@ -24,7 +25,7 @@ async def get_flash_protocols():
 async def connect_flash(flash_id: str):
     """Connect to a specific flash target."""
     try:
-        sdtb_system.flash_manager.connect_target(flash_id)
+        await sdtb_system.flash_manager.connect_target(flash_id)
         return {"message": f"Successfully connected to flash target: {flash_id}"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -37,7 +38,7 @@ async def connect_flash(flash_id: str):
 async def disconnect_flash(flash_id: str):
     """Disconnect from a specific flash target."""
     try:
-        sdtb_system.flash_manager.disconnect_target(flash_id)
+        await sdtb_system.flash_manager.disconnect_target(flash_id)
         return {"message": f"Successfully disconnected from flash target: {flash_id}"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -64,7 +65,7 @@ async def start_flash(
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="Invalid JSON in 'params' field")
 
-        execution_id = sdtb_system.flash_manager.start_flash(flash_id, data, param_dict)
+        execution_id = await sdtb_system.flash_manager.start_flash(flash_id, data, param_dict)
         return {
             "execution_id": execution_id,
             "status": "initiated",
@@ -106,29 +107,29 @@ async def stream_flash_log(flash_id: str, execution_id: str, request: Request):
                 # Only send new logs
                 if len(logs) > last_index:
                     for i in range(last_index, len(logs)):
-                        yield f"data: {logs[i]}\n\n"
+                        yield {"data": logs[i]}
                     last_index = len(logs)
                 
                 # Check if flashing is finished to stop streaming
                 status = sdtb_system.flash_manager.get_flash_status(flash_id, execution_id)
                 current_state = status.get("status", "").lower()
                 if current_state in ["success", "failed", "aborted", "error"]:
-                    yield f"data: FLASH_PROCESS_TERMINATED: {current_state}\n\n"
+                    yield {"data": f"FLASH_PROCESS_TERMINATED: {current_state}"}
                     break
                     
             except Exception as e:
-                yield f"data: Error retrieving logs: {str(e)}\n\n"
+                yield {"data": f"Error retrieving logs: {str(e)}"}
                 break
                 
             await asyncio.sleep(0.5)
 
-    return StreamingResponse(log_generator(), media_type="text/event-stream")
+    return EventSourceResponse(log_generator())
 
 @router.post("/abort")
 async def abort_flash(flash_id: str, execution_id: str):
     """Abort an ongoing flashing operation."""
     try:
-        sdtb_system.flash_manager.abort_flash(flash_id, execution_id)
+        await sdtb_system.flash_manager.abort_flash(flash_id, execution_id)
         return {"message": f"Abort command sent for execution: {execution_id}"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -140,5 +141,3 @@ async def get_flash_history():
     """Retrieve flashing operation history (placeholder)."""
     # In a real implementation, this would query a database
     return {"history": []}
-
-import asyncio # Needed for the generator

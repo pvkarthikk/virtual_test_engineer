@@ -1,5 +1,6 @@
 import logging
 import os
+import asyncio
 from typing import Dict, Optional, Type, List, Any
 from core.base_flash import BaseFlash
 from core.plugin_loader import PluginLoader
@@ -67,30 +68,30 @@ class FlashManager:
     def get_all_configs(self) -> Dict[str, FlashConfig]:
         return self.flash_configs
 
-    def connect_target(self, flash_id: str):
+    async def connect_target(self, flash_id: str):
         """Connects to a specific flash target."""
         protocol = self.get_protocol(flash_id)
         if not protocol:
             raise ValueError(f"Flash protocol {flash_id} not found")
         
         config = self.flash_configs[flash_id]
-        protocol.connect(config.connection_params)
+        await asyncio.to_thread(protocol.connect, config.connection_params)
 
-    def disconnect_target(self, flash_id: str):
+    async def disconnect_target(self, flash_id: str):
         """Disconnects from a specific flash target."""
         protocol = self.get_protocol(flash_id)
         if not protocol:
             raise ValueError(f"Flash protocol {flash_id} not found")
         
-        protocol.disconnect()
+        await asyncio.to_thread(protocol.disconnect)
 
-    def start_flash(self, flash_id: str, data: bytes, params: dict) -> str:
+    async def start_flash(self, flash_id: str, data: bytes, params: dict) -> str:
         """Starts a flash operation."""
         protocol = self.get_protocol(flash_id)
         if not protocol:
             raise ValueError(f"Flash protocol {flash_id} not found")
         
-        return protocol.flash(data, params)
+        return await asyncio.to_thread(protocol.flash, data, params)
 
     def get_flash_status(self, flash_id: str, execution_id: str) -> dict:
         """Gets the status of a flash operation."""
@@ -108,10 +109,10 @@ class FlashManager:
         
         return protocol.get_log(execution_id)
 
-    def abort_flash(self, flash_id: str, execution_id: str):
+    async def abort_flash(self, flash_id: str, execution_id: str):
         """Aborts a flash operation."""
         protocol = self.get_protocol(flash_id)
         if not protocol:
             raise ValueError(f"Flash protocol {flash_id} not found")
         
-        protocol.abort(execution_id)
+        await asyncio.to_thread(protocol.abort, execution_id)
