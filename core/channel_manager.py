@@ -38,6 +38,13 @@ class ChannelManager:
             except Exception as e:
                 logger.warning(f"Could not verify signals for device '{cfg.device_id}': {e}")
 
+    def get_scaled_value(self, cfg: ChannelConfig, raw_value: float) -> float:
+        """
+        Applies scaling (Raw -> Value).
+        Equation: Value = (Raw * Resolution) + Offset
+        """
+        return (raw_value * cfg.properties.resolution) + cfg.properties.offset
+
     async def read_channel(self, channel_id: str) -> Any:
         """
         Reads a value from a channel, applying scaling (Raw -> Value).
@@ -56,7 +63,7 @@ class ChannelManager:
         raw_value = await asyncio.to_thread(device.read_signal, cfg.signal_id)
         
         # Apply scaling
-        scaled_value = (raw_value * cfg.properties.resolution) + cfg.properties.offset
+        scaled_value = self.get_scaled_value(cfg, raw_value)
         
         if self.stream_manager:
             self.stream_manager.push_channel_update(channel_id, scaled_value)

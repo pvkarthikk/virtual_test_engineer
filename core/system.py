@@ -154,7 +154,7 @@ class SDTBSystem:
                                 if ch.device_id == dev_id:
                                     for sig in signals:
                                         if sig.signal_id == ch.signal_id:
-                                            scaled_value = (sig.value * ch.properties.resolution) + ch.properties.offset
+                                            scaled_value = self.channel_manager.get_scaled_value(ch, sig.value)
                                             self.stream_manager.push_channel_update(ch.channel_id, scaled_value)
                                             break
                         except Exception as e:

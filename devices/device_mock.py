@@ -102,6 +102,7 @@ class MockDevice(BaseDevice):
         if not self._connected:
             raise RuntimeError("Device not connected")
         sig = self.get_signal(signal_id)
+        self.validate_signal_value(sig, value)
         sig.value = value
         logger.info(f"MockDevice writing {value} to {signal_id}")
     def update(self) -> None:

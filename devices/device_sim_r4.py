@@ -103,6 +103,7 @@ class ArduinoR4SimDevice(BaseDevice):
             raise ValueError(f"Signal {signal_id} not found")
 
         sig = self._signal_map[signal_id]
+        self.validate_signal_value(sig, value)
         logger.info(f"Writing {signal_id} = {value}")
         
         # In a generic driver, the signal_id (DO1, AO1, etc.) is the command key

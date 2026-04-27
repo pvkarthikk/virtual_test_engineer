@@ -87,6 +87,15 @@ class BaseDevice(ABC):
         """Sets the enabled state of the device."""
         pass
 
+    def validate_signal_value(self, signal: SignalDefinition, value: Any):
+        """Validates that a value is within the physical signal's min/max range."""
+        if not (signal.min <= value <= signal.max):
+            raise BaseDeviceException(
+                f"Hardware value {value} is out of physical bounds for signal '{signal.signal_id}' "
+                f"(Range: {signal.min} to {signal.max})",
+                code="SIGNAL_OUT_OF_BOUNDS"
+            )
+
 class BaseDeviceException(Exception):
     """Base exception class for device-related errors."""
     def __init__(self, message: str, code: str = None):
