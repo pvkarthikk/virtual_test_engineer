@@ -89,4 +89,7 @@ class BaseDevice(ABC):
 
 class BaseDeviceException(Exception):
     """Base exception class for device-related errors."""
-    pass
+    def __init__(self, message: str, code: str = None):
+        super().__init__(message)
+        self.message = message
+        self.code = code
