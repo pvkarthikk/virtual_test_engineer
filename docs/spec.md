@@ -99,6 +99,7 @@ SDTB supports user-defined devices through an extensible plugin architecture:
 - Device files must contain a class extending `BaseDevice`
 - Flash files must contain a class extending `BaseFlash`
 - Each plugin class auto-loads its own configuration at startup
+- **Singleton Guard**: The core `SDTBSystem` uses a dedicated `initialized` flag to prevent partial or duplicate re-initialization during rapid restart cycles
 - Components are auto-detected and registered at system startup
 - Available via `/device` and `/flash` endpoints without any configuration changes
 
@@ -257,10 +258,10 @@ SDTB uses independent configuration files for fault isolation. Each file is back
 ```json
 {
   "device_directory": "C:\\Users\\<user>\\SDTB\\devices",
-  "device_update_rate": 100,
+  "device_update_rate": 100, // Valid range: 10ms to 5000ms. Guards against CPU exhaustion and division-by-zero.
   "server": {
-    "host": "0.0.0.0",
-    "port": 8000
+    "host": "127.0.0.1",
+    "port": 8080
   }
 }
 ```
@@ -394,7 +395,7 @@ Note: Each device plugin (`device_<name>.py`) has a corresponding `device_<name>
 
 - **Channel**: A logical abstraction of physical signals. The Channel Management feature abstracts distinct vendor-specific device signals into a unified pool of logical pathways (Channels) so tests remain technology-agnostic.
 
-- **Flashing**: The critical process of uploading and programming large firmware or software binaries onto a target Electronic Control Unit (ECU). The Software Flashing feature ensures that these large files (>100MB) can be safely uploaded via `multipart/form-data`, tracks the progress of the flash operation, and handles potential timeout or failure conditions robustly.
+- **Flashing**: The critical process of uploading and programming large firmware or software binaries onto a target Electronic Control Unit (ECU). The Software Flashing feature ensures that these large files can be safely uploaded via `multipart/form-data`. To prevent Out-Of-Memory (OOM) errors, the system enforces a **10MB file size cap** and performs a dual-layer size check (HTTP `file.size` and raw `len(data)`).
 
 - **Tests**: Programmable scripts (e.g., JSONL) executed by the framework to automatically orchestrate channels and flashing.
 
@@ -445,7 +446,7 @@ The system shall validate values against the min/max range defined by the target
 | `/system/diagnostics` | GET | Run system diagnostics and return health report | 200 OK, 503 Service Unavailable |
 | `/system/metrics` | GET | Retrieve system performance metrics | 200 OK |
 | `/system/restart` | POST | Restart the system (auto-disconnect, re-initialize, re-discover) | 200 OK, 503 Service Unavailable |
-| `/system/logs/stream` | GET | Stream live system logs and command flow via SSE | 200 OK |
+| `/system/logs/stream` | GET | Stream live system logs and command flow via SSE (Includes handler de-duplication logic to prevent log stacking on system restarts) | 200 OK |
 
 **Requirements**
 
@@ -515,6 +516,7 @@ Note: Each device's configuration is stored in its own `device_<name>.json` file
 | F02.14 | Each device shall expose its own signal types as part of device capabilities | High | Integration Test |
 | F02.15 | BaseDeviceException shall be used by plugin developers for error handling | High | Unit Test |
 | F02.16 | System shall allow enabling/disabling devices individually via API, persisting state in device config | High | Integration Test |
+| F02.17 | Hardware drivers shall use the standard `logging` module to ensure internal driver events are visible in the global SSE stream | Medium | Integration Test |
 
 #### F03: Signal Management
 
@@ -557,7 +559,7 @@ Each raw signal shall expose the following properties to define its physical cha
 | Endpoint | Method | Description | Status Codes |
 |----------|--------|-------------|--------------|
 | `/device/{device_id}/signal` | GET | Retrieve a list of all available signals for the device | 200 OK, 404 Not Found |
-| `/device/{device_id}/signal/{signal_id}` | PUT | Configure or write to a raw device signal (type specified in JSON payload) | 200 OK, 400 Bad Request, 404 Not Found |
+| `/device/{device_id}/signal/{signal_id}` | PUT | Write to a raw device signal using a `WriteValue` request body (Pydantic validated) | 200 OK, 400 Bad Request, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}` | GET | Read a raw device signal | 200 OK, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}/info` | GET | Retrieve signal metadata and properties (resolution, unit, min, max, offset) | 200 OK, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}/stream` | GET | Stream live data from a signal (e.g., CAN, LIN, UART) | 200 OK, 404 Not Found |
@@ -603,7 +605,7 @@ Note: Channel endpoints are for reading and writing logical signal values. Chann
 |----------|--------|-------------|--------------|
 | `/channel` | GET | List all available channels across all devices | 200 OK |
 | `/channel/{channel_id}` | GET | Read signal value from channel | 200 OK, 404 Not Found |
-| `/channel/{channel_id}` | PUT | Write signal value to channel | 200 OK, 400 Bad Request, 404 Not Found |
+| `/channel/{channel_id}` | PUT | Write signal value to channel using a `WriteValue` request body (Pydantic validated) | 200 OK, 400 Bad Request, 404 Not Found |
 | `/channel/{channel_id}/info` | GET | Retrieve detailed meta information about channel | 200 OK, 404 Not Found |
 | `/channel/{channel_id}/status` | GET | Retrieve current status of channel | 200 OK, 404 Not Found |
 | `/channel/{channel_id}/stream` | GET | Stream live data from the channel's mapped signal | 200 OK, 404 Not Found |
@@ -676,7 +678,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 
 **Non-Functional Requirements**
 - Flash operations shall support progress reporting (percentage complete)
-- System shall handle large firmware files (>100MB) efficiently
+- System shall enforce a **10MB maximum file size** for firmware uploads to ensure server stability
 - Flash timeout configuration shall be configurable per device type
 - System shall verify firmware integrity post-flash when supported by hardware
 
@@ -712,7 +714,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 | F06.05 | User shall be able to abort ongoing test executions safely and cleanly | High | Integration Test |
 | F06.06 | System shall support test pausing and resuming where test design permits | Medium | Integration Test |
 | F06.07 | Only one active session permitted at any time; multiple run requests within a session shall be queued | High | Integration Test |
-| F06.08 | System shall maintain comprehensive test execution history for audit and regression analysis | Medium | Integration Test |
+| F06.08 | System shall maintain a test execution history, capped at the **last 1000 results** to prevent memory leaks during long-running automation | Medium | Integration Test |
 | F06.09 | System shall capture and store execution logs for debugging purposes | Medium | Integration Test |
 | F06.10 | Test definitions shall be referenced by ID or name, allowing for version management | High | Integration Test |
 | F06.11 | System shall support parameterized test execution with runtime variable substitution | Medium | Integration Test |
@@ -954,6 +956,7 @@ offline → idle → busy → idle
 3. User calls `PUT /channel/{channel_id}` with value in payload
 4. System validates the value against the **channel's** min/max range
 5. System converts channel value to raw signal value (reverse offset/calibration)
+   - **Resolution Guard**: Scaling logic includes a zero-check for `resolution` to prevent division-by-zero errors.
 6. System validates the converted value against the **signal's** min/max range
 7. System writes the raw value to the device
 
@@ -964,7 +967,8 @@ offline → idle → busy → idle
 1. User calls `GET /channel/{channel_id}/stream` or `GET /device/{device_id}/signal/{signal_id}/stream`
 2. System opens an **SSE (Server-Sent Events)** connection
 3. System continuously reads the signal value and pushes data frames to the client
-4. Each data frame includes: value, timestamp, and unit
+4. **Change Detection**: System implements a delta filter using `math.isclose` (rel_tol=1e-5) to only push data frames when values change significantly, reducing bandwidth and client load.
+5. Each data frame includes: value, timestamp, and unit
 5. Client disconnects to terminate the stream
 6. System stops reading when the client disconnects
 
@@ -987,7 +991,7 @@ offline → idle → busy → idle
 {"step": 1, "action": "write", "channel": "ch_voltage_1", "value": 3.3}
 {"step": 2, "action": "wait", "duration_ms": 500}
 {"step": 3, "action": "read", "channel": "ch_current_1", "assert": {"min": 0.9, "max": 1.1}}
-{"step": 4, "action": "read", "channel": "ch_temperature_1", "assert": {"equals": 25.0, "tolerance": 0.5}}
+{"step": 4, "action": "read", "channel": "ch_temperature_1", "assert": {"operator": "==", "target": 25.0, "tolerance": 0.1}}
 {"step": 5, "action": "fault", "channel": "ch_throttle_sensor", "type": "short_to_ground", "duration_ms": 1000}
 ```
 
@@ -1018,7 +1022,7 @@ offline → idle → busy → idle
 | W04.01 | Write operations shall validate at both channel and signal layers independently | High | Unit Test |
 | W05.01 | Live streaming shall use Server-Sent Events (SSE) protocol | High | Integration Test |
 | W06.01 | Test scripts shall reference channels, not raw device signals | High | Unit Test |
-| W06.02 | Test execution shall follow JSONL format with step, action, channel, and optional assertions | High | Integration Test |
+| W06.02 | Test execution shall follow JSONL format with step, action, channel, and assertions supporting **6 comparison operators** (`>`, `>=`, `==`, `!=`, `<`, `<=`) and floating-point tolerance via `math.isclose` | High | Integration Test |
 | W07.01 | Only one test execution shall be actively running at any time | High | Integration Test |
 | W07.02 | Additional run requests during active execution shall be queued | High | Integration Test |
 | W07.03 | User write operations (channel and signal) shall be blocked during active test execution | High | Integration Test |
