@@ -179,6 +179,8 @@ async def handle_call_tool(
             return [types.TextContent(type="text", text=f"Channel '{ch_id}' current value: {value:.2f} {unit}")]
 
         elif name == "write_channel":
+            if sdtb_system.test_engine.is_test_running:
+                return [types.TextContent(type="text", text="Error: Cannot perform manual write: A test sequence is currently running.")]
             ch_id = arguments.get("channel_id")
             value = arguments.get("value")
             await sdtb_system.channel_manager.write_channel(ch_id, value)
@@ -221,6 +223,8 @@ async def handle_call_tool(
             return [types.TextContent(type="text", text=json.dumps(results, indent=2))]
 
         elif name == "write_channels":
+            if sdtb_system.test_engine.is_test_running:
+                return [types.TextContent(type="text", text="Error: Cannot perform manual write: A test sequence is currently running.")]
             writes = arguments.get("writes", [])
             results = []
             for w in writes:
