@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 from typing import Dict, Optional, Type, List
 from core.base_device import BaseDevice
 from core.plugin_loader import PluginLoader
@@ -39,8 +40,8 @@ class DeviceManager:
                     data = json.load(f)
                     if "plugin" in data:
                         referenced_plugins.add(data["plugin"])
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Error reading config {filename}: {e}")
 
         # For plugins not referenced anywhere, create a default JSON
         for plugin_name in plugin_map:

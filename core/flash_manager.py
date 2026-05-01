@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 import asyncio
 from typing import Dict, Optional, Type, List, Any
 from core.base_flash import BaseFlash
@@ -45,8 +46,8 @@ class FlashManager:
                     data = json.load(f)
                     if "plugin" in data:
                         referenced_plugins.add(data["plugin"])
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Error reading flash config {filename}: {e}")
 
         # For plugins not referenced anywhere, create a default JSON
         for plugin_name in plugin_map:

@@ -1,7 +1,0 @@
-{
-  "id": "arduinor4simdevice_1",
-  "plugin": "ArduinoR4SimDevice",
-  "enabled": false,
-  "connection_params": {},
-  "settings": {}
-}

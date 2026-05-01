@@ -824,7 +824,7 @@ async function showDeviceSignals(id) {
 
 window.toggleDevice = async (id, enabled) => {
     try {
-        await apiPost(`/device/${id}/toggle?enabled=${enabled}`);
+        await apiPost(`/device/${id}/toggle`, { enabled: enabled });
         addLog(`Device ${id} ${enabled ? 'enabled' : 'disabled'}`, 'info');
         refreshDevices();
     } catch (e) {

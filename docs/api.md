@@ -4,8 +4,8 @@ The Software Defined Test Bench (SDTB) exposes a REST API built with FastAPI. Al
 
 ## System Management
 
-### GET `/system/status`
-Returns the current operational status of the SDTB system.
+### GET `/system/config`
+Get current system configuration.
 
 ### POST `/system/connect`
 Initiates the system connection sequence (discovery and hardware mapping).
@@ -15,6 +15,9 @@ Safely disconnects all hardware and stops background loops.
 
 ### POST `/system/restart`
 Performs a full system restart.
+
+### POST `/system/fault/clear`
+Global safety mechanism to clear all faults on all devices.
 
 ### GET `/system/logs/stream`
 SSE endpoint for real-time system logs.
@@ -33,8 +36,31 @@ Retrieves detailed information about a specific device.
 Enable or disable a specific device.
 - **Body**: `{"enabled": boolean}` (JSON)
 
-### GET `/device/{device_id}/signal`
+### POST `/device/{device_id}/restart`
+Re-initialize and restart a specific hardware device.
+
+### GET `/device/{device_id}/signals`
 Lists all raw hardware signals exposed by the device.
+
+### GET `/device/{device_id}/signal/{signal_id}`
+Read raw hardware signal value.
+
+### PUT `/device/{device_id}/signal/{signal_id}`
+Write raw hardware signal value.
+- **Body**: `{"value": float}`
+
+### GET `/device/{device_id}/signal/{signal_id}/stream`
+SSE stream for real-time raw signal updates.
+
+### GET `/device/{device_id}/signal/{signal_id}/fault`
+List available fault injection types for the signal.
+
+### POST `/device/{device_id}/signal/{signal_id}/fault`
+Inject a hardware fault.
+- **Body**: `{"fault_id": string}`
+
+### DELETE `/device/{device_id}/signal/{signal_id}/fault`
+Clear active hardware fault on the signal.
 
 ---
 
@@ -51,6 +77,12 @@ Reads the scaled value of a channel.
 ### PUT `/channel/{channel_id}`
 Writes a scaled value to a channel.
 - **Body**: `{"value": float}`
+
+### GET `/channel/{channel_id}/info`
+Get detailed channel metadata and scaling info.
+
+### GET `/channel/{channel_id}/status`
+Get current operational status of the channel.
 
 ### GET `/channel/{channel_id}/stream`
 SSE endpoint for real-time updates of a channel's scaled value.
@@ -93,6 +125,13 @@ Gets the status of a flash operation.
 
 ### GET `/flash/log`
 SSE endpoint to stream logs for a specific flash operation.
+
+### POST `/flash/abort`
+Aborts an ongoing flashing operation.
+- **Query Params**: `flash_id`, `execution_id`
+
+### GET `/flash/history`
+Retrieve history of flashing operations.
 
 ---
 
