@@ -62,7 +62,10 @@ Responsible for discovering and instantiating `BaseDevice` implementations.
 ### 3.3 Channel Abstraction Layer
 The translation engine between user space (Channels) and hardware space (Signals).
 - Validates properties independently (Channel constraints vs. Signal constraints).
-- Implements linear scaling: `Target_Value = (Raw_Value * Resolution) + Offset`.
+- Implements the Strategy pattern via Pydantic models for physical unit conversion. Available converters include:
+  - **LinearConverter**: `Target = (Raw * Resolution) + Offset`
+  - **PolynomialConverter**: `Target = c0 + c1*Raw + c2*Raw^2 + ...`
+  - **LUTConverter**: 1D Lookup Table with linear interpolation.
 
 ### 3.4 Test Execution Engine
 An asynchronous queue manager running in a background task.
@@ -237,6 +240,12 @@ class SignalDefinition:
     value: float
     description: str
 
+# Helper classes for rapid plugin development
+class SignalAnalog(SignalDefinition): pass
+class SignalPWM(SignalDefinition): pass
+class SignalSwitch(SignalDefinition): pass
+class SignalCurrent(SignalDefinition): pass
+
 class BaseDevice(ABC):
     @property
     @abstractmethod
@@ -319,8 +328,8 @@ class BaseFlash(ABC):
 The SDTB uses Server-Sent Events (SSE) to push high-frequency data to the browser, minimizing overhead compared to WebSockets or long-polling. This is critical for the UI Dashboard.
 
 ### 7.1 SSE Endpoints
-- `/channel/{id}/stream`: Pushes value updates (`text/event-stream`) when a channel's underlying signal is sampled.
-- `/system/logs/stream`: Pushes formatted command logs to populate the UI Debug Window.
+- `/system/stream`: A unified, multiplexed stream that pushes all live data events (Logs, Channel Updates, and Device Signal Updates) over a single HTTP/1.1 connection to prevent browser connection exhaustion. Events are differentiated by a JSON `type` field (`{"type": "channel", ...}`).
+- `/flash/stream`: Pushes high-frequency log lines during firmware target programming.
 
 ### 7.2 UI Architecture (GoldenLayout)
 The UI is built on **GoldenLayout v1.5.9**, which manages dockable panels. The entire layout state is serialized and cached in the browser's `localStorage` (`sdtb-layout-v1`).
@@ -368,7 +377,7 @@ Tests are uploaded as JSON Lines (JSONL) files, making them streamable and easil
 
 ### 7.4 Waveform Viewer Architecture
 The Waveform Viewer is a high-performance, multi-channel visualization panel.
-- **Data Acquisition**: Consumes multiple SSE streams (`/channel/{id}/stream`) simultaneously.
+- **Data Acquisition**: Consumes the unified `/system/stream` and filters for relevant channel IDs.
 - **Rendering**: Utilizes a canvas-based rendering engine for smooth real-time plotting of thousands of data points.
 - **State Management**: Maintains a local circular buffer of signal values to support pausing, zooming, and historical scrubbing.
 - **Line Styles**: Supports dynamic line rendering patterns (Solid, Dashed, Dotted, Points).

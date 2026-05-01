@@ -220,7 +220,7 @@ Describes the metadata and physical characteristics of a device signal:
 class SignalDefinition:
     signal_id: str        # Unique identifier within the device
     name: str             # Human-readable signal name
-    type: str             # Signal type (e.g., "analog", "digital", "pwm", "can")
+    type: str             # Signal type (validated against config/signal_types.json)
     direction: str        # "input", "output", or "bidirectional"
     resolution: int       # Number of bits or smallest increment
     unit: str             # Measurement unit (e.g., "V", "mA", "%")
@@ -229,6 +229,12 @@ class SignalDefinition:
     max: float            # Maximum valid range value
     value: float          # Initial or last known value
     description: str      # Physical connection info (e.g., "J1-Pin3", "ECU Connector A, Pin 12")
+
+# Helper classes for rapid plugin development
+class SignalAnalog(SignalDefinition): pass
+class SignalPWM(SignalDefinition): pass
+class SignalSwitch(SignalDefinition): pass
+class SignalCurrent(SignalDefinition): pass
 ```
 
 **BaseDeviceException**
@@ -292,8 +298,11 @@ Note: Each device plugin (`device_<name>.py`) has a corresponding `device_<name>
       "unit": "\u00b0C",
       "min": -40.0,
       "max": 150.0,
-      "resolution": 0.1,
-      "offset": -0.05
+      "conversion": {
+        "type": "lut",
+        "table": [ [100.0, 150.0], [4000.0, -40.0] ]
+      },
+      "value": 0.0
     }
   }
 ]
@@ -446,7 +455,7 @@ The system shall validate values against the min/max range defined by the target
 | `/system/diagnostics` | GET | Run system diagnostics and return health report | 200 OK, 503 Service Unavailable |
 | `/system/metrics` | GET | Retrieve system performance metrics | 200 OK |
 | `/system/restart` | POST | Restart the system (auto-disconnect, re-initialize, re-discover) | 200 OK, 503 Service Unavailable |
-| `/system/logs/stream` | GET | Stream live system logs and command flow via SSE (Includes handler de-duplication logic to prevent log stacking on system restarts) | 200 OK |
+| `/system/stream` | GET | Multiplexed SSE stream for real-time logs, channel values, and device signal updates over a single connection | 200 OK |
 
 **Requirements**
 
@@ -564,7 +573,6 @@ Each raw signal shall expose the following properties to define its physical cha
 | `/device/{device_id}/signal/{signal_id}` | PUT | Write to a raw device signal using a `WriteValue` request body (Pydantic validated) | 200 OK, 400 Bad Request, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}` | GET | Read a raw device signal | 200 OK, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}/info` | GET | Retrieve signal metadata and properties (resolution, unit, min, max, offset) | 200 OK, 404 Not Found |
-| `/device/{device_id}/signal/{signal_id}/stream` | GET | Stream live data from a signal (e.g., CAN, LIN, UART) | 200 OK, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}/fault` | GET | Retrieve a list of available fault simulation capabilities for this specific signal | 200 OK, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}/fault` | POST | Activate a specific fault simulation on the signal (requires `fault_id` in JSON payload) | 200 OK, 400 Bad Request, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}/fault` | DELETE | Clear any active fault on the signal and restore normal operation | 200 OK, 404 Not Found |
@@ -584,8 +592,8 @@ Each raw signal shall expose the following properties to define its physical cha
 | F03.05 | User shall be able to read digital signal input states with debouncing configuration | High | Integration Test |
 | F03.06 | User shall be able to configure PWM signal parameters (frequency, duty cycle, polarity) | High | Integration Test |
 | F03.07 | User shall be able to read PWM signal input measurements (frequency, duty cycle) | High | Integration Test |
-| F03.08 | System shall support real-time signal streaming/subscription for monitoring applications | Medium | Integration Test |
-| F03.09 | Signal configuration shall validate against hardware capabilities and reject invalid parameters | High | Unit Test |
+| F03.08 | System shall support real-time signal streaming via the multiplexed `/system/stream` endpoint | Medium | Integration Test |
+| F03.09 | Signal configuration shall validate against the Signal Registry (`config/signal_types.json`) | High | Unit Test |
 | F03.10 | System shall provide signal buffering capabilities for oscilloscope generation/capture where supported | Low | Integration Test |
 | F03.11 | All signal operations shall be timestamped for synchronization purposes | Medium | Integration Test |
 | F03.12 | System shall support signal triggering capabilities (external trigger sources) | Low | Integration Test |
@@ -610,7 +618,6 @@ Note: Channel endpoints are for reading and writing logical signal values. Chann
 | `/channel/{channel_id}` | PUT | Write signal value to channel using a `WriteValue` request body (Pydantic validated) | 200 OK, 400 Bad Request, 404 Not Found |
 | `/channel/{channel_id}/info` | GET | Retrieve detailed meta information about channel | 200 OK, 404 Not Found |
 | `/channel/{channel_id}/status` | GET | Retrieve current status of channel | 200 OK, 404 Not Found |
-| `/channel/{channel_id}/stream` | GET | Stream live data from the channel's mapped signal | 200 OK, 404 Not Found |
 
 **Channel Properties**
 
@@ -618,9 +625,8 @@ Each channel shall expose the following properties for proper signal handling:
 
 | Property | Type | Description | Example |
 |----------|------|-------------|---------|
-| `resolution` | Integer | Number of bits or smallest increment | 12 (bits), 0.001 (V) |
+| `conversion` | Object | The conversion strategy (linear, polynomial, lut) | `{"type": "linear", "resolution": 1.0}` |
 | `unit` | String | Measurement unit | "V", "mA", "%", "Hz" |
-| `offset` | Float | Calibration offset applied to raw value | 0.0, -0.05 |
 | `min` | Float | Minimum valid range value | 0.0, -10.0 |
 | `max` | Float | Maximum valid range value | 3.3, 10.0, 100.0 |
 | `value` | Float | Initial or last known value | 0.0, 2.5 |
