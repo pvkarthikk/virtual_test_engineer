@@ -10,41 +10,45 @@ if source_path not in sys.path:
 
 from main import app
 
-client = TestClient(app)
+@pytest.fixture
+def client():
+    """Provides a TestClient with lifespan support to ensure startup/shutdown logic runs."""
+    with TestClient(app) as c:
+        yield c
 
-def test_system_status():
+def test_system_status(client):
     response = client.get("/system")
     assert response.status_code == 200
     data = response.json()
     assert "status" in data
     assert "devices_discovered" in data
 
-def test_system_config():
+def test_system_config(client):
     response = client.get("/system/config")
     assert response.status_code == 200
     data = response.json()
     assert "device_directory" in data
 
-def test_list_devices():
+def test_list_devices(client):
     response = client.get("/device")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
 
-def test_list_channels():
+def test_list_channels(client):
     response = client.get("/channel")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
 
-def test_flash_protocols():
+def test_flash_protocols(client):
     response = client.get("/flash/protocols")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
 
 @pytest.mark.asyncio
-async def test_device_toggle_contract():
+async def test_device_toggle_contract(client):
     # This test verifies the contract (JSON body)
     # We use a mock-like approach or just check the 404/422 behavior
     response = client.post("/device/non_existent/toggle", json={"enabled": True})
@@ -52,7 +56,7 @@ async def test_device_toggle_contract():
     assert response.status_code == 404
     assert response.json()["detail"] == "Device non_existent not found"
 
-def test_fault_clear_contract():
+def test_fault_clear_contract(client):
     response = client.post("/system/fault/clear")
     # Should return 200 if asyncio is correctly imported and to_thread works
     assert response.status_code == 200

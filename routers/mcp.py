@@ -114,6 +114,31 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["writes"],
             },
         ),
+        types.Tool(
+            name="inject_fault",
+            description="Injects a specific fault into a hardware signal.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {"type": "string", "description": "The ID of the target device."},
+                    "signal_id": {"type": "string", "description": "The ID of the signal to affect."},
+                    "fault_id": {"type": "string", "description": "The type of fault to inject (e.g., 'short_to_ground')."}
+                },
+                "required": ["device_id", "signal_id", "fault_id"],
+            },
+        ),
+        types.Tool(
+            name="clear_fault",
+            description="Clears an active fault from a hardware signal.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {"type": "string", "description": "The ID of the target device."},
+                    "signal_id": {"type": "string", "description": "The ID of the signal to clear."}
+                },
+                "required": ["device_id", "signal_id"],
+            },
+        ),
     ]
 
 @mcp_server.list_resources()
@@ -236,6 +261,27 @@ async def handle_call_tool(
                 except Exception as e:
                     results.append({"id": ch_id, "status": "error", "message": str(e)})
             return [types.TextContent(type="text", text=json.dumps(results, indent=2))]
+
+        elif name == "inject_fault":
+            dev_id = arguments.get("device_id")
+            sig_id = arguments.get("signal_id")
+            fault_id = arguments.get("fault_id")
+            device = sdtb_system.device_manager.get_device(dev_id)
+            if not device:
+                return [types.TextContent(type="text", text=f"Error: Device '{dev_id}' not found.")]
+            import asyncio
+            await asyncio.to_thread(device.inject_fault, sig_id, fault_id)
+            return [types.TextContent(type="text", text=f"Successfully injected fault '{fault_id}' on {dev_id}/{sig_id}")]
+
+        elif name == "clear_fault":
+            dev_id = arguments.get("device_id")
+            sig_id = arguments.get("signal_id")
+            device = sdtb_system.device_manager.get_device(dev_id)
+            if not device:
+                return [types.TextContent(type="text", text=f"Error: Device '{dev_id}' not found.")]
+            import asyncio
+            await asyncio.to_thread(device.clear_fault, sig_id)
+            return [types.TextContent(type="text", text=f"Successfully cleared fault on {dev_id}/{sig_id}")]
 
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]

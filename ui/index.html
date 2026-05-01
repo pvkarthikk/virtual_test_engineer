@@ -22,8 +22,7 @@
             <span><strong>Backend Lost:</strong> The SDTB server is not responding. All background operations are
                 paused.</span>
         </div>
-        <button class="btn btn-outline btn-sm" onclick="location.reload()"
-            style="color: white; border-color: white;">Retry Now</button>
+        <button class="btn btn-outline btn-sm text-white border-white" onclick="location.reload()">Retry Now</button>
     </div>
     <div class="app-container">
         <!-- TOP TOOLBAR -->
@@ -106,18 +105,18 @@
                 <i data-lucide="git-branch"></i>
                 <span id="status-channels">0 Channels</span>
             </div>
-            <div class="status-group" style="min-width: 80px;">
+            <div class="status-group min-w-80">
                 <i data-lucide="clock"></i>
                 <span id="status-time">--:--:--</span>
             </div>
         </footer>
 
         <!-- HIDDEN VIEW TEMPLATES -->
-        <div id="view-templates" style="display: none;">
+        <div id="view-templates" class="hidden">
             <div id="view-oscilloscope" class="view">
                 <div class="view-header">
                     <div class="view-actions">
-                        <div class="flex-row" style="gap: 10px;">
+                        <div class="flex-row gap-2">
                             <button class="btn btn-outline btn-sm" id="btn-oscilloscope-pause">
                                 <i data-lucide="pause"></i> Pause
                             </button>
@@ -133,22 +132,20 @@
                     </div>
                     <div class="explorer-master" id="oscilloscope-sidebar">
                         <div class="sidebar-content">
-                            <div class="detail-header"
-                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div class="detail-header flex-row justify-between align-center mb-15">
                                 <h3>Active Plots</h3>
                                 <button id="btn-add-plot" class="btn btn-outline btn-sm" onclick="openPlotModal()">
                                     <i data-lucide="plus"></i> Add
                                 </button>
                             </div>
-                            <div id="oscilloscope-channels-list"
-                                style="display: flex; flex-direction: column; gap: 10px;">
+                            <div id="oscilloscope-channels-list" class="flex-col gap-2">
                                 <!-- Populated dynamically -->
                             </div>
                         </div>
                     </div>
                     <div class="sidebar-resizer" id="oscilloscope-resizer"></div>
-                    <div class="explorer-detail card oscilloscope-chart-card" style="position: relative;">
-                        <div id="oscilloscope-chart-container" style="width: 100%; height: 100%;"></div>
+                    <div class="explorer-detail card oscilloscope-chart-card relative">
+                        <div id="oscilloscope-chart-container" class="full-width full-height"></div>
                     </div>
                 </div>
             </div>
@@ -236,21 +233,21 @@
                         <button id="btn-run-test" class="btn btn-primary btn-sm">
                             <i data-lucide="play"></i> Run Test
                         </button>
-                        <button id="btn-stop-test" class="btn btn-outline btn-sm" style="color: var(--accent-danger); border-color: var(--accent-danger);">
+                        <button id="btn-stop-test" class="btn btn-outline btn-sm text-danger border-danger">
                             <i data-lucide="square"></i> Stop
                         </button>
                     </div>
                 </div>
-                <div class="test-editor-container" style="display: flex; flex-direction: column; gap: 15px;">
-                    <div class="card" style="flex: 1; overflow-y: auto; padding: 15px;">
+                <div class="test-editor-container flex-col gap-4">
+                    <div class="card flex-1 overflow-y-auto p-15">
                         <table class="table" id="test-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 100px;">CMD</th>
+                                    <th class="w-100">CMD</th>
                                     <th>Channel</th>
-                                    <th style="width: 120px;">Value</th>
-                                    <th style="width: 80px;">Assert</th>
-                                    <th style="width: 50px;"></th>
+                                    <th class="w-120">Value</th>
+                                    <th class="w-80">Assert</th>
+                                    <th class="w-50"></th>
                                 </tr>
                             </thead>
                             <tbody id="test-table-body">
@@ -265,26 +262,21 @@
             </div>
 
             <div id="view-debug" class="view">
-                <div class="view-header" style="flex-wrap: wrap; gap: 10px;">
-                    <div class="view-actions" style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
-                        <div id="log-filters"
-                            style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border-color);">
-                            <label
-                                style="font-size: 0.8rem; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <div class="view-header flex-wrap gap-2">
+                    <div class="view-actions align-center flex-wrap gap-2">
+                        <div id="log-filters" class="align-center gap-2 bg-dark-glass p-4 rounded-6 border">
+                            <label class="text-sm align-center gap-2 cursor-pointer">
                                 <input type="checkbox" id="filter-system" checked onchange="updateLogFilters()">
                                 System
                             </label>
-                            <label
-                                style="font-size: 0.8rem; display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--accent-primary);">
+                            <label class="text-sm align-center gap-2 cursor-pointer text-primary">
                                 <input type="checkbox" id="filter-debug" onchange="updateLogFilters()"> Debug
                             </label>
-                            <div id="device-log-filters"
-                                style="display: flex; gap: 10px; border-left: 1px solid var(--border-color); padding-left: 10px;">
+                            <div id="device-log-filters" class="gap-2 border-left pl-10">
                                 <!-- Device filters injected here -->
                             </div>
                         </div>
-                        <label
-                            style="font-size: 0.8rem; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <label class="text-sm align-center gap-2 cursor-pointer">
                             <input type="checkbox" id="chk-autoscroll" checked> AutoScroll
                         </label>
                     </div>
@@ -297,7 +289,7 @@
             <div id="view-flash" class="view">
                 <!-- <div class="view-header">
                     <div class="view-actions">
-                        <div class="flex-row" style="gap: 10px;">
+                        <div class="flex-row gap-2">
                             <span class="badge badge-outline">Flash Subsystem Active</span>
                         </div>
                     </div>
@@ -309,47 +301,43 @@
                             <label>Protocol / Target</label>
                             <select id="flash-protocol-select" class="table-input full-width"></select>
                         </div>
-                        <div class="flex-row" style="gap: 10px; margin-top: 10px;">
-                            <button id="btn-flash-connect" class="btn btn-outline btn-sm" style="flex: 1;">
+                        <div class="flex-row gap-2 mt-10">
+                            <button id="btn-flash-connect" class="btn btn-outline btn-sm flex-1">
                                 <i data-lucide="link"></i> Connect
                             </button>
-                            <button id="btn-flash-disconnect" class="btn btn-outline btn-sm hidden" style="flex: 1;">
+                            <button id="btn-flash-disconnect" class="btn btn-outline btn-sm hidden flex-1">
                                 <i data-lucide="link-2"></i> Disconnect
                             </button>
                         </div>
 
-                        <div class="form-group" style="margin-top: 20px;">
+                        <div class="form-group mt-20">
                             <label>Firmware Image</label>
                             <div id="flash-drop-zone" class="drop-zone">
                                 <i data-lucide="upload-cloud"></i>
                                 <p>Drag & Drop file or <span>Browse</span></p>
                                 <input type="file" id="flash-file-input" hidden>
                             </div>
-                            <div id="flash-file-info" class="hidden" style="margin-top: 10px;">
-                                <div class="flex-row" style="justify-content: space-between; align-items: center;">
-                                    <span id="flash-file-name"
-                                        style="font-size: 0.9rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;">image.bin</span>
+                            <div id="flash-file-info" class="hidden mt-10">
+                                <div class="flex-row justify-between align-center">
+                                    <span id="flash-file-name" class="text-normal font-medium max-w-150">image.bin</span>
                                     <span id="flash-file-size" class="badge">0 KB</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="form-group" style="margin-top: 20px;">
+                        <div class="form-group mt-20">
                             <label>Flash Parameters (JSON)</label>
-                            <textarea id="flash-params" class="table-input full-width"
-                                style="height: 60px; font-family: monospace;">{}</textarea>
+                            <textarea id="flash-params" class="table-input full-width h-60 font-mono">{}</textarea>
                         </div>
 
-                        <button id="btn-flash-start" class="btn btn-primary btn-block" style="margin-top: 20px;"
-                            disabled>
+                        <button id="btn-flash-start" class="btn btn-primary btn-block mt-20" disabled>
                             <i data-lucide="zap"></i> Start Flashing
                         </button>
                     </div>
 
                     <div class="flash-main">
                         <div class="card flash-progress-card">
-                            <div class="flex-row"
-                                style="justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div class="flex-row justify-between align-center mb-10">
                                 <h3>Progress</h3>
                                 <span id="flash-progress-text" class="badge">Ready</span>
                             </div>
@@ -358,10 +346,9 @@
                             </div>
                         </div>
 
-                        <div class="card flash-log-card"
-                            style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                        <div class="card flash-log-card flex-1 flex-col min-h-0">
                             <h3>Operation Logs</h3>
-                            <div id="flash-log" class="debug-window" style="flex: 1; margin-top: 10px;">
+                            <div id="flash-log" class="debug-window flex-1 mt-10">
                                 <div class="log-entry system">Waiting for operation...</div>
                             </div>
                         </div>
@@ -388,11 +375,9 @@
                         <label>Server Port</label>
                         <input type="number" id="setting-port" class="table-input">
                     </div>
-                    <div class="form-group"
-                        style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                    <div class="form-group mt-30 pt-20 border-top">
                         <label>Workspace Management</label>
-                        <button class="btn btn-outline btn-block" onclick="resetLayout()"
-                            style="color: var(--accent-danger)">
+                        <button class="btn btn-outline btn-block text-danger" onclick="resetLayout()">
                             <i data-lucide="layout"></i> Reset to Default Layout
                         </button>
                     </div>
@@ -426,7 +411,7 @@
                     <option value="slider">Range Slider</option>
                 </select>
             </div>
-            <div class="flex-row" style="gap: 10px; margin-top: 20px; justify-content: flex-end;">
+            <div class="flex-row gap-2 mt-20 justify-end">
                 <button id="btn-widget-cancel" class="btn btn-outline">Cancel</button>
                 <button id="btn-widget-save" class="btn btn-primary">Save Widget</button>
             </div>
@@ -449,27 +434,27 @@
                 <label>Signal</label>
                 <select id="chan-signal" class="table-input"></select>
             </div>
-            <div class="flex-row" style="gap: 15px">
-                <div class="form-group" style="flex: 1">
+            <div class="flex-row gap-4">
+                <div class="form-group flex-1">
                     <label>Unit</label>
                     <input type="text" id="chan-unit" class="table-input" placeholder="e.g. RPM">
                 </div>
-                <div class="form-group" style="flex: 1">
+                <div class="form-group flex-1">
                     <label>Scale Factor</label>
                     <input type="number" id="chan-scale" class="table-input" value="1">
                 </div>
             </div>
-            <div class="flex-row" style="gap: 15px">
-                <div class="form-group" style="flex: 1">
+            <div class="flex-row gap-4">
+                <div class="form-group flex-1">
                     <label>Min</label>
                     <input type="number" id="chan-min" class="table-input" value="0">
                 </div>
-                <div class="form-group" style="flex: 1">
+                <div class="form-group flex-1">
                     <label>Max</label>
                     <input type="number" id="chan-max" class="table-input" value="100">
                 </div>
             </div>
-            <div class="flex-row" style="gap: 10px; margin-top: 20px; justify-content: flex-end;">
+            <div class="flex-row gap-2 mt-20 justify-end">
                 <button id="btn-chan-cancel" class="btn btn-outline">Cancel</button>
                 <button id="btn-chan-save" class="btn btn-primary">Save Channel</button>
             </div>
@@ -566,10 +551,10 @@
     </div>
     <!-- QUICK WAVEFORM MODAL -->
     <div id="modal-quick-oscilloscope" class="modal">
-        <div class="modal-content card" style="max-width: 800px; width: 90%;">
-            <div class="flex-row" style="justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 id="quick-wave-title" style="margin: 0;">Channel View</h2>
-                <div class="flex-row" style="gap: 10px;">
+        <div class="modal-content card max-w-800 w-90pc">
+            <div class="flex-row justify-between align-center mb-20">
+                <h2 id="quick-wave-title" class="m-0">Channel View</h2>
+                <div class="flex-row gap-2">
                     <button class="btn btn-outline btn-sm" id="btn-quick-pause" onclick="toggleQuickWavePause()">
                         <i data-lucide="pause"></i> Pause
                     </button>
@@ -579,10 +564,9 @@
                     <button class="btn btn-outline btn-sm" onclick="closeQuickOscilloscope()">Close</button>
                 </div>
             </div>
-            <div id="quick-wave-container"
-                style="width: 100%; height: 400px; background: rgba(0,0,0,0.2); border-radius: 8px; overflow: hidden;">
+            <div id="quick-wave-container" class="full-width h-400 bg-dark-glass rounded-8 overflow-hidden">
             </div>
-            <div style="margin-top: 15px; font-size: 0.8rem; color: var(--text-muted);">
+            <div class="mt-15 text-sm text-muted">
                 Live data stream for <span id="quick-wave-channel-id" class="badge"></span>
             </div>
         </div>

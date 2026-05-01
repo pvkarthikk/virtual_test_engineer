@@ -3,15 +3,17 @@ import asyncio
 import time
 import logging
 import math
-from typing import List, Optional, Callable
-from models.test import TestStep, WriteStep, WaitStep, AssertStep, TestResult
+from typing import List, Optional, Callable, Any
+from models.test import TestStep, WriteStep, WaitStep, AssertStep, FaultStep, TestResult
 from core.channel_manager import ChannelManager
 
 logger = logging.getLogger(__name__)
 
 class TestEngine:
-    def __init__(self, channel_manager: ChannelManager):
+    __test__ = False
+    def __init__(self, channel_manager: ChannelManager, device_manager: Optional[Any] = None):
         self.channel_manager = channel_manager
+        self.device_manager = device_manager
         self.is_test_running = False
         self._stop_requested = False
         self._current_task: Optional[asyncio.Task] = None
@@ -94,6 +96,22 @@ class TestEngine:
                     status = "fail"
                     message = f"Assertion failed: Expected {step.condition} {step.value}, got {actual_value}"
                     
+            elif isinstance(step, FaultStep):
+                if not self.device_manager:
+                    raise RuntimeError("DeviceManager not available in TestEngine")
+                
+                logger.info(f"Step {index}: Injecting fault '{step.fault_id}' on {step.device}/{step.signal}")
+                device = self.device_manager.get_device(step.device)
+                if not device:
+                    raise ValueError(f"Device {step.device} not found")
+                
+                await asyncio.to_thread(device.inject_fault, step.signal, step.fault_id)
+                
+                if step.duration_ms:
+                    logger.info(f"Step {index}: Keeping fault for {step.duration_ms}ms")
+                    await asyncio.sleep(step.duration_ms / 1000.0)
+                    logger.info(f"Step {index}: Clearing fault '{step.fault_id}'")
+                    await asyncio.to_thread(device.clear_fault, step.signal)
         except Exception as e:
             status = "error"
             message = f"Unexpected error: {str(e)}"

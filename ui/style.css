@@ -34,6 +34,49 @@
 .mt-2 { margin-top: 8px; }
 .mb-2 { margin-bottom: 8px; }
 .p-4 { padding: 16px; }
+.p-15 { padding: 15px; }
+.m-0 { margin: 0; }
+.mt-10 { margin-top: 10px; }
+.mt-20 { margin-top: 20px; }
+.mt-30 { margin-top: 30px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-15 { margin-bottom: 15px; }
+.mb-20 { margin-bottom: 20px; }
+.pt-20 { padding-top: 20px; }
+.pl-10 { padding-left: 10px; }
+.min-w-80 { min-width: 80px; }
+.min-h-0 { min-height: 0; }
+.max-w-150 { max-width: 150px; }
+.full-width { width: 100%; }
+.full-height { height: 100%; }
+.h-400 { height: 400px; }
+.h-60 { height: 60px; }
+.w-50 { width: 50px; }
+.w-80 { width: 80px; }
+.w-100 { width: 100px; }
+.w-120 { width: 120px; }
+.w-90pc { width: 90%; }
+.max-w-800 { max-width: 800px; }
+.flex-wrap { flex-wrap: wrap; }
+.justify-end { justify-content: flex-end; }
+.overflow-y-auto { overflow-y: auto; }
+.font-mono { font-family: 'Fira Code', monospace; }
+.text-sm { font-size: 0.8rem; }
+.text-normal { font-size: 0.9rem; }
+.font-medium { font-weight: 500; }
+.cursor-pointer { cursor-pointer: pointer; }
+.relative { position: relative; }
+.text-white { color: white; }
+.border-white { border-color: white; }
+.text-danger { color: var(--accent-danger); }
+.border-danger { border-color: var(--accent-danger); }
+.border-left { border-left: 1px solid var(--border-color); }
+.border-top { border-top: 1px solid var(--border-color); }
+.bg-dark-glass { background: rgba(0,0,0,0.2); }
+.rounded-6 { border-radius: 6px; }
+.rounded-8 { border-radius: 8px; }
+.text-primary { color: var(--accent-primary); }
+.border { border: 1px solid var(--border-color); }
 
 :root.light-theme {
     --bg-main: #f8fafc;

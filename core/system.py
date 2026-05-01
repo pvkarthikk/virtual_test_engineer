@@ -44,7 +44,7 @@ class SDTBSystem:
         self.stream_manager = StreamManager()
         self.flash_manager = FlashManager(self.system_config.device_directory, self.config_manager)
         self.channel_manager = ChannelManager(self.device_manager, self.stream_manager)
-        self.test_engine = TestEngine(self.channel_manager)
+        self.test_engine = TestEngine(self.channel_manager, self.device_manager)
         
         # Redirect all standard logging to the SSE stream
         root_logger = logging.getLogger()
@@ -66,6 +66,11 @@ class SDTBSystem:
         """
         Performs the system startup sequence: discovery and channel mapping.
         """
+        if hasattr(self, 'is_started') and self.is_started:
+            logger.info("SDTB System already started, skipping startup sequence.")
+            return
+        
+        self.is_started = True
         logger.info("Starting up SDTB System...")
         
         # 1. Discover and initialize devices and flash protocols
@@ -96,6 +101,10 @@ class SDTBSystem:
         """
         Performs system shutdown: disconnects devices and stops update loop.
         """
+        if not getattr(self, 'is_started', False):
+            return
+        self.is_started = False
+        
         logger.info("Shutting down SDTB System...")
         if self.update_task:
             self.update_task.cancel()

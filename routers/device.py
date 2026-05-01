@@ -86,6 +86,22 @@ async def toggle_device(device_id: str, req: DeviceToggleRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{device_id}/signal/{signal_id}/info")
+async def get_signal_info(device_id: str, signal_id: str):
+    """
+    Retrieves metadata for a specific hardware signal.
+    """
+    device = system.device_manager.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
+    
+    signals = device.get_signals()
+    for sig in signals:
+        if sig.signal_id == signal_id:
+            return sig
+            
+    raise HTTPException(status_code=404, detail=f"Signal '{signal_id}' not found on device '{device_id}'")
+
 @router.get("/{device_id}/signal/{signal_id}")
 async def read_device_signal(device_id: str, signal_id: str):
     """

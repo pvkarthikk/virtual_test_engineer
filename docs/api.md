@@ -10,6 +10,10 @@ Returns overall system health, status, and version information.
 ### GET `/system/config`
 Get current system configuration.
 
+### PUT `/system/config`
+Updates the system configuration.
+- **Body**: `SystemConfig` object.
+
 ### POST `/system/connect`
 Initiates the system connection sequence (discovery and hardware mapping).
 
@@ -51,6 +55,9 @@ Re-initialize and restart a specific hardware device.
 
 ### GET `/device/{device_id}/signal`
 Lists all raw hardware signals exposed by the device.
+
+### GET `/device/{device_id}/signal/{signal_id}/info`
+Retrieves detailed metadata for a specific hardware signal.
 
 ### GET `/device/{device_id}/signal/{signal_id}`
 Read raw hardware signal value.
@@ -111,6 +118,9 @@ Aborts the currently running test sequence.
 ### GET `/test/status`
 Returns the status of the test engine.
 
+### GET `/test/history`
+Retrieves the history of recent test execution results.
+
 ---
 
 ## Flashing Protocols
@@ -146,6 +156,17 @@ Aborts an ongoing flashing operation.
 
 ### GET `/flash/history`
 Retrieve history of flashing operations.
+
+---
+
+## UI Configuration
+
+### GET `/ui/config`
+Retrieves the current UI layout and widget configuration.
+
+### PUT `/ui/config`
+Updates the UI layout and widget configuration.
+- **Body**: `UIConfig` object.
 
 ---
 
