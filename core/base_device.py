@@ -9,12 +9,12 @@ class SignalDefinition:
     type: str        # e.g., "analog", "digital", "pwm", "can"
     direction: str   # "input", "output", or "bidirectional"
     resolution: float
-    unit: str        # Measurement unit
-    offset: float    # Calibration offset
-    min: float       # Minimum valid range value
-    max: float       # Maximum valid range value
-    value: float     # Initial or last known value
-    description: str # Physical connection info
+    unit: str        = ""# Measurement unit
+    offset: float    = 0.0# Calibration offset
+    min: float       = 0.0# Minimum valid range value
+    max: float       = 0.0# Maximum valid range value
+    value: float     = 0.0# Initial or last known value
+    description: str = ""# Physical connection info
 
 class BaseDevice(ABC):
     @property

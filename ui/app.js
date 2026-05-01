@@ -562,8 +562,9 @@ async function renderChannelMapper() {
     table.innerHTML = '';
     state.channels.forEach(ch => {
         const row = document.createElement('tr');
-        row.innerHTML = `<td>${ch.channel_id}</td><td>${ch.device_id}</td><td>${ch.signal_id}</td><td>${ch.properties.unit}</td><td>${ch.properties.min}</td><td>${ch.properties.max}</td><td><input type="number" step="any" class="table-input" id="read-${ch.channel_id}"></td><td><div class="flex-row" style="gap: 5px"><button class="btn btn-outline btn-sm" onclick="writeSingleChannel('${ch.channel_id}')" title="Write"><i data-lucide="edit-3"></i></button><button class="btn btn-outline btn-sm" onclick="readSingleChannel('${ch.channel_id}')" title="Read"><i data-lucide="refresh-cw"></i></button><button class="btn btn-outline btn-sm" onclick="editChannel('${ch.channel_id}')" title="Edit Mapping"><i data-lucide="edit"></i></button><button class="btn btn-outline btn-sm" onclick="removeChannel('${ch.channel_id}')" title="Delete"><i data-lucide="trash-2" style="color: var(--accent-danger)"></i></button></div></td>`;
+        row.innerHTML = `<td>${ch.channel_id}</td><td>${ch.device_id}</td><td>${ch.signal_id}</td><td>${ch.properties.unit}</td><td>${ch.properties.min}</td><td>${ch.properties.max}</td><td><input type="number" step="any" class="table-input" id="read-${ch.channel_id}"></td><td><div class="flex-row" style="gap: 5px"><button class="btn btn-outline btn-sm" onclick="writeSingleChannel('${ch.channel_id}')" title="Write"><i data-lucide="edit-3"></i></button><button class="btn btn-outline btn-sm" onclick="editChannel('${ch.channel_id}')" title="Edit Mapping"><i data-lucide="edit"></i></button><button class="btn btn-outline btn-sm" onclick="removeChannel('${ch.channel_id}')" title="Delete"><i data-lucide="trash-2" style="color: var(--accent-danger)"></i></button></div></td>`;
         table.appendChild(row);
+        subscribeToChannel(ch.channel_id);
     });
     lucide.createIcons();
 }
@@ -754,6 +755,12 @@ function subscribeToChannel(id) {
         // Update live value in oscilloscope config bar
         const waveValEl = document.getElementById(`wave-val-${id}`);
         if (waveValEl) waveValEl.innerText = val.toFixed(2);
+
+        // Update live value in channel mapper table
+        const tableInput = document.getElementById(`read-${id}`);
+        if (tableInput && document.activeElement !== tableInput) {
+            tableInput.value = val.toFixed(2);
+        }
     };
 }
 
@@ -771,6 +778,12 @@ function subscribeToDeviceSignal(devId, sigId) {
         }
         const waveValEl = document.getElementById(`wave-val-${id}`);
         if (waveValEl) waveValEl.innerText = val.toFixed(2);
+
+        // Update live value in device explorer
+        const explorerInput = document.getElementById(`sig-input-${devId}-${sigId}`);
+        if (explorerInput && document.activeElement !== explorerInput) {
+            explorerInput.value = val.toFixed(2);
+        }
     };
 }
 
@@ -851,7 +864,7 @@ window.closeModal = (id) => {
 window.readDeviceSignal = async (deviceId, signalId) => {
     try {
         const data = await apiGet(`/device/${deviceId}/signal/${signalId}`);
-        const input = document.getElementById(`sig-input-${signalId}`);
+        const input = document.getElementById(`sig-input-${deviceId}-${signalId}`);
         if (input) input.value = Number(data.value).toFixed(2);
         addLog(`Read ${signalId} from ${deviceId}: ${data.value}`, 'success');
     } catch (e) {
@@ -861,7 +874,7 @@ window.readDeviceSignal = async (deviceId, signalId) => {
 
 window.writeDeviceSignal = async (deviceId, signalId) => {
     try {
-        const input = document.getElementById(`sig-input-${signalId}`);
+        const input = document.getElementById(`sig-input-${deviceId}-${signalId}`);
         if (!input) return;
         const val = parseFloat(input.value);
         await apiPut(`/device/${deviceId}/signal/${signalId}`, { value: Number(val) });
@@ -909,18 +922,16 @@ async function updateDeviceSignalsList(id) {
                 <td>${s.min}</td>
                 <td>${s.max}</td>
                 <td><span class="text-muted" style="font-size:0.75rem">${s.unit}</span></td>
-                <td><input type="number" step="any" class="table-input" id="sig-input-${s.signal_id}" value="${val}"></td>
+                <td><input type="number" step="any" class="table-input" id="sig-input-${id}-${s.signal_id}" value="${val}"></td>
                 <td>
                     <div class="flex-row" style="gap: 4px">
                         <button class="btn btn-outline btn-sm" onclick="writeDeviceSignal('${id}', '${s.signal_id}')" title="Write">
                             <i data-lucide="edit-3" style="width:12px; height:12px"></i>
                         </button>
-                        <button class="btn btn-outline btn-sm" onclick="readDeviceSignal('${id}', '${s.signal_id}')" title="Read">
-                            <i data-lucide="refresh-cw" style="width:12px; height:12px"></i>
-                        </button>
                     </div>
                 </td>
             </tr>`;
+            subscribeToDeviceSignal(id, s.signal_id);
         });
         det.innerHTML = h + '</tbody></table>';
         lucide.createIcons();

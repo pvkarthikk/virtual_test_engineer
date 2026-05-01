@@ -1,90 +1,25 @@
 [
   {
-    "channel_id": "Ignition_Switch",
-    "device_id": "arduino_r4_sim",
-    "signal_id": "DO1",
+    "channel_id": "engine_speed",
+    "device_id": "mock_1",
+    "signal_id": "J1_01",
     "properties": {
-      "unit": "",
+      "unit": "rpm",
       "min": 0.0,
-      "max": 100.0,
+      "max": 5000.0,
       "resolution": 1.0,
       "offset": 0.0,
       "value": 0.0
     }
   },
   {
-    "channel_id": "Engine_RPM_Sensor",
-    "device_id": "arduino_r4_sim",
-    "signal_id": "AO1",
-    "properties": {
-      "unit": "RPM",
-      "min": 0.0,
-      "max": 4095.0,
-      "resolution": 1.0,
-      "offset": 0.0,
-      "value": 0.0
-    }
-  },
-  {
-    "channel_id": "Battery_Voltage",
-    "device_id": "arduino_r4_sim",
-    "signal_id": "AO2",
-    "properties": {
-      "unit": "V",
-      "min": 0.0,
-      "max": 4095.0,
-      "resolution": 1.0,
-      "offset": 0.0,
-      "value": 0.0
-    }
-  },
-  {
-    "channel_id": "Oil_Pressure_Sensor",
-    "device_id": "arduino_r4_sim",
-    "signal_id": "AO3",
-    "properties": {
-      "unit": "psi",
-      "min": 0.0,
-      "max": 4095.0,
-      "resolution": 1.0,
-      "offset": 0.0,
-      "value": 0.0
-    }
-  },
-  {
-    "channel_id": "Accelerator_Pedal",
-    "device_id": "arduino_r4_sim",
-    "signal_id": "AO4",
+    "channel_id": "throttle",
+    "device_id": "mock_1",
+    "signal_id": "J1_02",
     "properties": {
       "unit": "%",
       "min": 0.0,
-      "max": 4095.0,
-      "resolution": 1.0,
-      "offset": 0.0,
-      "value": 0.0
-    }
-  },
-  {
-    "channel_id": "Check_Engine_Light",
-    "device_id": "arduino_r4_sim",
-    "signal_id": "IN1",
-    "properties": {
-      "unit": "",
-      "min": 0.0,
-      "max": 100.0,
-      "resolution": 1.0,
-      "offset": 0.0,
-      "value": 0.0
-    }
-  },
-  {
-    "channel_id": "Throttle_Valve_CMD",
-    "device_id": "arduino_r4_sim",
-    "signal_id": "IN2",
-    "properties": {
-      "unit": "%",
-      "min": 0.0,
-      "max": 4095.0,
+      "max": 256.0,
       "resolution": 1.0,
       "offset": 0.0,
       "value": 0.0

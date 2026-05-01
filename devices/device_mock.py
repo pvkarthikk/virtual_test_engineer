@@ -2,43 +2,78 @@ from core.base_device import BaseDevice, SignalDefinition
 from typing import List, Any, Dict, Optional
 import logging
 import random
+import time
 
 logger = logging.getLogger(__name__)
 def generate_mock_value(signal: SignalDefinition):
     val = random.uniform(signal.min, signal.max)
     return round(val / signal.resolution) * signal.resolution
 
+
+class EngineMock:
+    def __init__(self):
+        self._throttle_pwm = 0 # 0 - 255 PWM
+        self._engine_speed = 0 # 0 - 4095 volt
+        self._throttle_percent = 0 # 0 - 100 %
+        self._engine_speed_rpm = 0 # 0 - 5000 rpm
+        self._idle_rpm = 800
+        self._max_rpm = 5000
+    
+    @property
+    def throttle_pwm(self) -> int:
+        return self._throttle_pwm
+
+    @throttle_pwm.setter
+    def throttle_pwm(self, value: int):
+        self._throttle_pwm = max(0, min(255, value))
+        self._throttle_percent = self._throttle_pwm / 255.0 * 100.0
+
+    @property
+    def engine_speed(self) -> int:
+        return self._engine_speed
+
+    def update(self):
+        # calculate engine rpm based on the throttle percent
+        target_rpm = self._idle_rpm + (self._max_rpm - self._idle_rpm) * (self._throttle_percent / 100.0)
+        
+        # Add some jitter/noise
+        noise = random.uniform(-50, 50)
+        self._engine_speed_rpm = target_rpm + noise
+        
+        # Clamp RPM to physical limits
+        self._engine_speed_rpm = max(0, min(self._max_rpm + 500, self._engine_speed_rpm))
+        
+        # convert engine rpm to the engine speed (0-4095 range for 0-5000 RPM)
+        # We allow it to go slightly above 4095 if RPM exceeds 5000 due to momentum/noise
+        raw_val = self._engine_speed_rpm * 4095.0 / 5000.0
+        self._engine_speed = max(0, min(4095, round(raw_val)))
+
 class MockDevice(BaseDevice):
     def __init__(self):
+        self._engine = EngineMock()
         self._connected = False
         self._enabled = True
         self._signals = [
             SignalDefinition(
-                signal_id="AI0",
-                name="Analog Input 0",
-                type="analog",
+                signal_id="J1_01",
+                name="Engine Speed Feedback", 
+                value=0, 
                 direction="input",
-                resolution=0.01,
-                unit="V",
-                offset=0,
-                min=0,
-                max=5,
-                value=2.5,
-                description="Mock AI 0"
-            ),
+                type="uint16", 
+                min=0, 
+                max=4095, 
+                resolution=1, 
+                unit="mV"),
             SignalDefinition(
-                signal_id="DO0",
-                name="Digital Output 0",
-                type="digital",
+                signal_id="J1_02",
+                name="Throttle Command",
                 direction="output",
-                resolution=1,
-                unit="bool",
-                offset=0,
-                min=0,
-                max=1,
-                value=0,
-                description="Mock DO 0"
-            )
+                value=0, 
+                type="uint8", 
+                min=0, 
+                max=255, 
+                resolution=1, 
+                unit="PWM"),
         ]
 
     @property
@@ -80,7 +115,6 @@ class MockDevice(BaseDevice):
         logger.info("MockDevice restarting...")
         self.disconnect()
         # Simulated delay
-        import time
         time.sleep(0.5)
         self._connected = True
         logger.info("MockDevice restarted")
@@ -102,16 +136,23 @@ class MockDevice(BaseDevice):
         if not self._connected:
             raise RuntimeError("Device not connected")
         sig = self.get_signal(signal_id)
-        self.validate_signal_value(sig, value)
         sig.value = value
         logger.info(f"MockDevice writing {value} to {signal_id}")
+
     def update(self) -> None:
         if not self._connected:
             return
-        for sig in self._signals:
-            if sig.direction == "input":
-                sig.value = generate_mock_value(sig)
-
+        
+        # 1. Read commands from system
+        self._engine.throttle_pwm = self.get_signal("J1_02").value
+        
+        # 2. Update engine state
+        self._engine.update()
+        
+        # 3. Push feedback to system
+        self.get_signal("J1_01").value = self._engine.engine_speed
+        
+        
     def inject_fault(self, signal_id: str, fault_id: str) -> None:
         """Mock implementation of fault injection."""
         logger.info(f"Mock Injecting fault '{fault_id}' on signal '{signal_id}'")
@@ -128,8 +169,5 @@ class MockDevice(BaseDevice):
     def get_available_faults(self, signal_id: str) -> List[Dict[str, str]]:
         """Returns standard fault types for mock."""
         return [
-            {"id": "SHORT_TO_GROUND", "name": "Short to Ground"},
-            {"id": "SHORT_TO_BATT", "name": "Short to Battery"},
-            {"id": "OPEN_CIRCUIT", "name": "Open Circuit"}
         ]
     
