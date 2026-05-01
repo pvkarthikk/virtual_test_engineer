@@ -17,13 +17,13 @@
 
 <body>
     <div id="backend-lost-banner" class="backend-lost-banner hidden">
-        <div style="display: flex; align-items: center; gap: 15px;">
+        <div class="flex-row align-center gap-3">
             <i data-lucide="alert-triangle"></i>
             <span><strong>Backend Lost:</strong> The SDTB server is not responding. All background operations are
                 paused.</span>
         </div>
         <button class="btn btn-outline btn-sm" onclick="location.reload()"
-            style="color: white; border-color: white; padding: 2px 10px;">Retry Now</button>
+            style="color: white; border-color: white;">Retry Now</button>
     </div>
     <div class="app-container">
         <!-- TOP TOOLBAR -->
@@ -48,7 +48,7 @@
                 <button id="btn-restart" class="btn btn-outline btn-sm">
                     <i data-lucide="refresh-cw"></i> Restart
                 </button>
-                <button id="btn-theme-toggle" class="btn-icon" title="Toggle Day/Night Mode" style="margin-left: 10px;">
+                <button id="btn-theme-toggle" class="btn-icon ml-2" title="Toggle Day/Night Mode">
                     <span id="theme-icon-container"><i data-lucide="moon"></i></span>
                 </button>
             </div>
@@ -88,7 +88,7 @@
             </aside>
 
             <!-- MAIN CONTENT AREA -->
-            <main id="layout-container" style="flex: 1; height: 100%;"></main>
+            <main id="layout-container" class="flex-1 h-full"></main>
         </div>
 
         <!-- STATUS BAR -->
@@ -235,6 +235,9 @@
                         </button>
                         <button id="btn-run-test" class="btn btn-primary btn-sm">
                             <i data-lucide="play"></i> Run Test
+                        </button>
+                        <button id="btn-stop-test" class="btn btn-outline btn-sm" style="color: var(--accent-danger); border-color: var(--accent-danger);">
+                            <i data-lucide="square"></i> Stop
                         </button>
                     </div>
                 </div>

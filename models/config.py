@@ -20,9 +20,9 @@ class SystemServerConfig(BaseModel):
     port: int = 8000
 
 class SystemConfig(BaseModel):
-    device_directory: str
+    device_directory: str = "devices"
     device_update_rate: int = Field(default=100, ge=10, le=5000)
-    server: SystemServerConfig
+    server: SystemServerConfig = Field(default_factory=SystemServerConfig)
 
 class DeviceConfig(BaseModel):
     id: str
@@ -45,8 +45,8 @@ class WidgetConfig(BaseModel):
     max: Optional[float] = None
 
 class UIConfig(BaseModel):
-    layout: str
-    widgets: List[WidgetConfig]
+    layout: str = "dashboard"
+    widgets: List[WidgetConfig] = []
 
 class FlashConfig(BaseModel):
     id: str

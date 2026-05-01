@@ -20,6 +20,7 @@ class FlashManager:
     def discover_and_initialize(self):
         """
         Discovers flash plugins and initializes them with their respective configs.
+        Creates default JSON configs for discovered flash plugins if none exist.
         """
         plugin_classes = PluginLoader.discover_plugins(
             self.device_dir, 
@@ -31,33 +32,63 @@ class FlashManager:
         # Temporary ConfigManager pointed at device directory for per-protocol configs
         flash_config_manager = ConfigManager(self.device_dir)
 
-        # Look for all .json files in the device directory starting with flash_
+        # 1. Check for plugins without any config and create defaults
+        existing_json_files = []
         if os.path.exists(self.device_dir):
-            for filename in os.listdir(self.device_dir):
-                if filename.endswith(".json") and filename.startswith("flash_"):
-                    config_name = filename[:-5]
-                    try:
-                        # Load flash-specific configuration
-                        config = flash_config_manager.load_config(config_name, FlashConfig)
-                        
-                        plugin_class = plugin_map.get(config.plugin)
-                        if not plugin_class:
-                            logger.error(f"Flash plugin class '{config.plugin}' not found for protocol '{config.id}'")
-                            continue
+            existing_json_files = [f for f in os.listdir(self.device_dir) if f.endswith(".json") and f.startswith("flash_")]
+        
+        # Track which plugins are referenced in existing JSONs
+        referenced_plugins = set()
+        for filename in existing_json_files:
+            try:
+                with open(os.path.join(self.device_dir, filename), 'r') as f:
+                    data = json.load(f)
+                    if "plugin" in data:
+                        referenced_plugins.add(data["plugin"])
+            except:
+                pass
 
-                        # Instantiate the protocol
-                        flash_instance = plugin_class()
-                        flash_instance.enabled = config.enabled
-                        
-                        # Store by the ID specified in the config
-                        flash_id = config.id
-                        self.flash_protocols[flash_id] = flash_instance
-                        self.flash_configs[flash_id] = config
-                        self.flash_config_files[flash_id] = config_name
-                        
-                        logger.info(f"Initialized flash protocol: {flash_id} using {config.plugin} plugin ({config_name}.json)")
-                    except Exception as e:
-                        logger.error(f"Failed to initialize flash config {filename}: {e}")
+        # For plugins not referenced anywhere, create a default JSON
+        for plugin_name in plugin_map:
+            if plugin_name not in referenced_plugins:
+                default_config_name = f"flash_{plugin_name.lower()}"
+                if not os.path.exists(os.path.join(self.device_dir, f"{default_config_name}.json")):
+                    config = FlashConfig(
+                        id=f"{plugin_name.lower()}_1",
+                        plugin=plugin_name,
+                        enabled=False,
+                        connection_params={},
+                        settings={}
+                    )
+                    flash_config_manager.save_config(default_config_name, config)
+                    logger.info(f"Created default config for new flash plugin: {default_config_name}.json")
+                    existing_json_files.append(f"{default_config_name}.json")
+
+        # 2. Load all flash-specific configurations
+        for filename in existing_json_files:
+            config_name = filename[:-5]
+            try:
+                # Load flash-specific configuration
+                config = flash_config_manager.load_config(config_name, FlashConfig)
+                
+                plugin_class = plugin_map.get(config.plugin)
+                if not plugin_class:
+                    logger.error(f"Flash plugin class '{config.plugin}' not found for protocol '{config.id}'")
+                    continue
+
+                # Instantiate the protocol
+                flash_instance = plugin_class()
+                flash_instance.enabled = config.enabled
+                
+                # Store by the ID specified in the config
+                flash_id = config.id
+                self.flash_protocols[flash_id] = flash_instance
+                self.flash_configs[flash_id] = config
+                self.flash_config_files[flash_id] = config_name
+                
+                logger.info(f"Initialized flash protocol: {flash_id} using {config.plugin} plugin ({config_name}.json)")
+            except Exception as e:
+                logger.error(f"Failed to initialize flash config {filename}: {e}")
 
     def get_protocol(self, flash_id: str) -> Optional[BaseFlash]:
         return self.flash_protocols.get(flash_id)

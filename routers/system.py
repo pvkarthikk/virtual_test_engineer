@@ -31,10 +31,18 @@ async def get_system_status():
 async def connect_system():
     """
     Connects all configured hardware devices.
+    Returns a summary of connection results.
     """
     try:
-        await system.device_manager.connect_all()
-        return {"message": "Hardware connection sequence completed"}
+        results = await system.device_manager.connect_all()
+        # Check if any device failed
+        has_errors = any(r["status"] == "error" for r in results.values())
+        
+        return {
+            "message": "Hardware connection sequence completed",
+            "has_errors": has_errors,
+            "results": results
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -6,3 +6,5 @@ python-multipart
 pymata4==1.15
 pyserial
 mcp
+pytest
+pytest-asyncio

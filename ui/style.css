@@ -17,6 +17,24 @@
     --statusbar-height: 26px;
 }
 
+/* UTILITY CLASSES */
+.flex-row { display: flex; flex-direction: row; }
+.flex-col { display: flex; flex-direction: column; }
+.align-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.flex-1 { flex: 1; }
+.h-full { height: 100%; }
+.w-full { width: 100%; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.ml-2 { margin-left: 8px; }
+.mr-2 { margin-right: 8px; }
+.mt-2 { margin-top: 8px; }
+.mb-2 { margin-bottom: 8px; }
+.p-4 { padding: 16px; }
+
 :root.light-theme {
     --bg-main: #f8fafc;
     --bg-sidebar: #f1f5f9;

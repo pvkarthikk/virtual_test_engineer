@@ -16,7 +16,7 @@
     {
       "id": "w1777140829528",
       "type": "numeric",
-      "channel": "test",
+      "channel": "Engine_RPM_Sensor",
       "label": "Engine RPM Feedback",
       "position": {
         "row": 0,
@@ -51,8 +51,8 @@
     },
     {
       "id": "w1777165464686",
-      "type": "waveform",
-      "channel": "test",
+      "type": "oscilloscope",
+      "channel": "Engine_RPM_Sensor",
       "label": "Engine RPM Graph",
       "position": {
         "row": 0,

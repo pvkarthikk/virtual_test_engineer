@@ -37,15 +37,7 @@ class SDTBSystem:
         self.config_manager = ConfigManager(self.config_dir)
         
         # Load System Configuration
-        try:
-            self.system_config = self.config_manager.load_config("system", SystemConfig)
-        except Exception as e:
-            logger.error(f"Critical failure loading system config: {e}")
-            # In a real app, we might provide defaults here
-            self.system_config = SystemConfig(
-                device_directory=os.path.join(os.getcwd(), "devices"),
-                server={"host": "0.0.0.0", "port": 8000}
-            )
+        self.system_config = self.config_manager.load_config("system", SystemConfig)
 
         # Initialize core managers
         self.device_manager = DeviceManager(self.system_config.device_directory, self.config_manager)

@@ -47,13 +47,14 @@ class ConfigManager:
                 logger.error(f"Failed to load backup config {bak_path}: {e}.")
 
         # If both fail, create a fresh default or raise if no defaults
-        logger.warning(f"No valid config found for {config_type}. Attempting to return default.")
+        logger.warning(f"No valid config found for {config_type}. Attempting to return default and persist it.")
         try:
             # This will only work if all fields in model_class are optional or have defaults
-            return model_class()
-        except Exception:
-            logger.error(f"Could not create default config for {config_type}. Model requires mandatory fields.")
-            # For system/channels, we might need to handle this more gracefully with predefined defaults
+            config = model_class()
+            self.save_config(config_type, config)
+            return config
+        except Exception as e:
+            logger.error(f"Could not create default config for {config_type}: {e}")
             raise
 
     def save_config(self, config_type: str, config: BaseModel):

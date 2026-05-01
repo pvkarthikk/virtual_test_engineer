@@ -24,7 +24,7 @@ const state = {
         history: {}, // channelId -> { data: [{t, v}], color, style, enabled }
         plotter: null
     },
-    testSteps: [{ cmd: 'WRITE', channel: '', value: '', assert: false }],
+    testSteps: [{ cmd: 'WRITE', channel: '', value: '', condition: '==' }],
     logFilters: { system: true, devices: {}, showDebug: false },
     isBackendAlive: true,
     heartbeatTimer: null,
@@ -477,7 +477,7 @@ function updateOscilloscope(poly, val, widget) {
     poly.setAttribute('points', oscilloscopeHistory[widget.id].map((v, i) => `${i * 2},${v}`).join(' '));
 }
 
-window.widgetWrite = async (id, val) => { try { await apiPut(`/channel/${id}?value=${val}`, {}); } catch (e) { addLog(`Write failed: ${e.message}`, 'error'); } };
+window.widgetWrite = async (id, val) => { try { await apiPut(`/channel/${id}`, { value: Number(val) }); } catch (e) { addLog(`Write failed: ${e.message}`, 'error'); } };
 
 async function refreshAllData() {
     console.log('[SDTB] refreshAllData: starting...');
@@ -632,44 +632,50 @@ async function loadSettings() {
 
 function setupTestEditor() {
     const btnRun = document.getElementById('btn-run-test');
+    const btnStop = document.getElementById('btn-stop-test');
     const btnAdd = document.getElementById('btn-add-test-step');
 
     if (btnAdd) btnAdd.onclick = () => {
-        state.testSteps.push({ cmd: 'WRITE', channel: '', value: '', assert: false });
+        state.testSteps.push({ cmd: 'WRITE', channel: '', value: '', condition: '==' });
         renderTestTable();
+    };
+
+    if (btnStop) btnStop.onclick = async () => {
+        try {
+            await apiPost('/test/stop');
+            addLog('Stop signal sent to test engine', 'info');
+        } catch (e) {
+            addLog(`Stop failed: ${e.message}`, 'error');
+        }
     };
 
     if (btnRun) btnRun.onclick = async () => {
         const log = document.getElementById('test-log');
         if (log) log.innerHTML = '';
-        addLog('Starting Test Sequence...', 'info');
+        addLog('Preparing Test Sequence for backend...', 'info');
 
-        for (let i = 0; i < state.testSteps.length; i++) {
-            const step = state.testSteps[i];
-            const stepNum = i + 1;
-            try {
-                if (step.cmd === 'WRITE') {
-                    addLog(`Step ${stepNum}: Writing ${step.value} to ${step.channel}`, 'info');
-                    await apiPut(`/channel/${step.channel}?value=${step.value}`, {});
-                    addLog(`Step ${stepNum}: Success`, 'success');
-                } else if (step.cmd === 'READ') {
-                    addLog(`Step ${stepNum}: Reading ${step.channel}`, 'info');
-                    const res = await apiGet(`/channel/${step.channel}`);
-                    addLog(`Step ${stepNum}: Value = ${res.value}`, 'success');
-                    if (step.assert) {
-                        if (parseFloat(res.value) === parseFloat(step.value)) {
-                            addLog(`Step ${stepNum}: Assert PASSED (${res.value} == ${step.value})`, 'success');
-                        } else {
-                            addLog(`Step ${stepNum}: Assert FAILED (${res.value} != ${step.value})`, 'error');
-                        }
-                    }
-                }
-            } catch (e) {
-                addLog(`Step ${stepNum}: Failed - ${e.message}`, 'error');
-                break;
+        const jsonl = state.testSteps.map((step, i) => {
+            if (step.cmd === 'WRITE') {
+                return JSON.stringify({ action: 'write', channel: step.channel, value: parseFloat(step.value) || 0 });
+            } else if (step.cmd === 'WAIT') {
+                return JSON.stringify({ action: 'wait', duration_ms: parseInt(step.value) || 0 });
+            } else if (step.cmd === 'ASSERT') {
+                return JSON.stringify({ action: 'assert', channel: step.channel, condition: step.condition || '==', value: parseFloat(step.value) || 0 });
             }
+            return null;
+        }).filter(s => s !== null).join('\n');
+
+        if (!jsonl) {
+            addLog('Error: Test sequence is empty', 'error');
+            return;
         }
-        addLog('Test Sequence Complete', 'info');
+
+        try {
+            await apiPost('/test/run', jsonl, 'text/plain');
+            addLog('Test sequence accepted by backend engine', 'success');
+        } catch (e) {
+            addLog(`Test failed to start: ${e.message}`, 'error');
+        }
     };
     renderTestTable();
 }
@@ -680,19 +686,29 @@ function renderTestTable() {
     tbody.innerHTML = '';
     state.testSteps.forEach((step, index) => {
         const row = document.createElement('tr');
-        const cmdHtml = `<select class="table-input" onchange="state.testSteps[${index}].cmd = this.value; renderTestTable();"><option value="WRITE" ${step.cmd === 'WRITE' ? 'selected' : ''}>WRITE</option><option value="READ" ${step.cmd === 'READ' ? 'selected' : ''}>READ</option></select>`;
+        const cmdHtml = `<select class="table-input" onchange="state.testSteps[${index}].cmd = this.value; renderTestTable();"><option value="WRITE" ${step.cmd === 'WRITE' ? 'selected' : ''}>WRITE</option><option value="WAIT" ${step.cmd === 'WAIT' ? 'selected' : ''}>WAIT</option><option value="ASSERT" ${step.cmd === 'ASSERT' ? 'selected' : ''}>ASSERT</option></select>`;
 
         // Populate channels from state.channels
         let channelOptions = '<option value="">Select...</option>';
         state.channels.forEach(ch => {
             channelOptions += `<option value="${ch.channel_id}" ${step.channel === ch.channel_id ? 'selected' : ''}>${ch.channel_id}</option>`;
         });
-        const chanHtml = `<select class="table-input" onchange="state.testSteps[${index}].channel = this.value">${channelOptions}</select>`;
+        const chanHtml = step.cmd === 'WAIT' ? `<select class="table-input" disabled><option>N/A</option></select>` : `<select class="table-input" onchange="state.testSteps[${index}].channel = this.value">${channelOptions}</select>`;
 
-        const valHtml = `<input type="number" class="table-input" value="${step.value}" onchange="state.testSteps[${index}].value = this.value" placeholder="Value">`;
-        const assertHtml = step.cmd === 'READ' ? `<input type="checkbox" ${step.assert ? 'checked' : ''} onchange="state.testSteps[${index}].assert = this.checked">` : `<input type="checkbox" disabled>`;
+        const valHtml = `<input type="number" class="table-input" value="${step.value}" onchange="state.testSteps[${index}].value = this.value" placeholder="${step.cmd === 'WAIT' ? 'ms' : 'Value'}">`;
+        
+        const condHtml = step.cmd === 'ASSERT' ? 
+            `<select class="table-input" onchange="state.testSteps[${index}].condition = this.value">
+                <option value="==" ${step.condition === '==' ? 'selected' : ''}>==</option>
+                <option value="!=" ${step.condition === '!=' ? 'selected' : ''}>!=</option>
+                <option value=">" ${step.condition === '>' ? 'selected' : ''}>&gt;</option>
+                <option value=">=" ${step.condition === '>=' ? 'selected' : ''}>&gt;=</option>
+                <option value="<" ${step.condition === '<' ? 'selected' : ''}>&lt;</option>
+                <option value="<=" ${step.condition === '<=' ? 'selected' : ''}>&lt;=</option>
+            </select>` : 
+            `<select class="table-input" disabled><option>N/A</option></select>`;
         const actionsHtml = `<button class="btn-icon" onclick="removeTestStep(${index})"><i data-lucide="trash-2" style="color: #ef4444"></i></button>`;
-        row.innerHTML = `<td>${cmdHtml}</td><td>${chanHtml}</td><td>${valHtml}</td><td>${assertHtml}</td><td><div class="flex-row">${actionsHtml}</div></td>`;
+        row.innerHTML = `<td>${cmdHtml}</td><td>${chanHtml}</td><td>${valHtml}</td><td>${condHtml}</td><td><div class="flex-row">${actionsHtml}</div></td>`;
         tbody.appendChild(row);
     });
     lucide.createIcons();
@@ -848,7 +864,7 @@ window.writeDeviceSignal = async (deviceId, signalId) => {
         const input = document.getElementById(`sig-input-${signalId}`);
         if (!input) return;
         const val = parseFloat(input.value);
-        await apiPut(`/device/${deviceId}/signal/${signalId}?value=${val}`);
+        await apiPut(`/device/${deviceId}/signal/${signalId}`, { value: Number(val) });
         addLog(`Wrote ${val} to ${signalId} on ${deviceId}`, 'success');
     } catch (e) {
         addLog(`Write failed for ${signalId}: ${e.message}`, 'error');
@@ -1334,7 +1350,7 @@ async function writeSingleChannel(id) {
         const i = document.getElementById(`read-${id}`);
         if (!i) return;
         const val = parseFloat(i.value);
-        await apiPut(`/channel/${id}?value=${val}`, {});
+        await apiPut(`/channel/${id}`, { value: Number(val) });
         addLog(`Wrote ${val} to channel ${id}`, 'success');
     } catch (e) {
         addLog(`Write fail: ${e.message}`, 'error');
@@ -1363,8 +1379,8 @@ window.openQuickOscilloscope = (id) => {
     container.innerHTML = '';
     const opts = {
         title: "Live Oscilloscope",
-        width: chartContainer.clientWidth,
-        height: chartContainer.clientHeight,
+        width: container.clientWidth || 600,
+        height: container.clientHeight || 400,
         padding: [20, 20, 20, 20], // Add padding around the chart
         scales: {
             x: { time: true },
