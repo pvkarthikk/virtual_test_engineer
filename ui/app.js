@@ -743,6 +743,11 @@ function setupSSE() {
 
 function handleChannelUpdate(id, val) {
     val = Number(val);
+    
+    // Update local cache so values persist across tab switches
+    const ch = state.channels.find(c => c.channel_id === id);
+    if (ch && ch.properties) ch.properties.value = val;
+
     state.uiConfig.widgets.forEach(w => { if (w.channel === id) updateWidgetValue(w, val); });
 
     // Update oscilloscope chart data
@@ -1148,7 +1153,28 @@ function setupOscilloscopeViewer() {
             Object.keys(state.oscilloscope.history).forEach(id => {
                 if (!uplotGlobal.y[id]) uplotGlobal.y[id] = new Array(uplotGlobal.x.length - 1).fill(null);
                 const chan = state.oscilloscope.history[id];
-                const latest = chan.data.length > 0 ? chan.data[chan.data.length - 1].v : null;
+                
+                let latest = null;
+                if (chan.data.length > 0) {
+                    latest = chan.data[chan.data.length - 1].v;
+                } else {
+                    // Fallback for static signals that haven't received SSE updates yet
+                    const ch = state.channels.find(c => c.channel_id === id);
+                    if (ch && ch.properties && ch.properties.value !== undefined) {
+                        latest = ch.properties.value;
+                    } else if (id.startsWith('dev:')) {
+                        const parts = id.split(':');
+                        const explorerInput = document.getElementById(`sig-input-${parts[1]}-${parts[2]}`);
+                        if (explorerInput && explorerInput.value !== '') {
+                            latest = Number(explorerInput.value);
+                        }
+                    }
+                }
+                
+                // Update the UI value display
+                const valEl = document.getElementById(`wave-val-${id}`);
+                if (valEl) valEl.innerText = latest !== null ? latest.toFixed(2) : '--';
+
                 uplotGlobal.y[id].push(latest);
             });
 

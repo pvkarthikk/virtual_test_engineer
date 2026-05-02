@@ -170,6 +170,7 @@ class ChannelManager:
         # 4. Push update to stream subscribers
         if self.stream_manager:
             self.stream_manager.push_channel_update(channel_id, value)
+            cfg.properties.value = value  # Update memory cache
             logger.info(f"Channel WRITE: {channel_id} = {value} {cfg.properties.unit} (Raw: {raw_value:.2f})")
 
     def get_channel_info(self, channel_id: str) -> Optional[ChannelConfig]:

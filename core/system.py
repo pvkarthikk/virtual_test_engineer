@@ -164,6 +164,7 @@ class SDTBSystem:
                                     for sig in signals:
                                         if sig.signal_id == ch.signal_id:
                                             scaled_value = self.channel_manager.get_scaled_value(ch, sig.value)
+                                            ch.properties.value = scaled_value  # Keep memory state updated
                                             cache_key = f"ch:{ch.channel_id}"
                                             last_val = self._last_pushed_values.get(cache_key)
                                             if last_val is None or not math.isclose(last_val, scaled_value, rel_tol=1e-5):

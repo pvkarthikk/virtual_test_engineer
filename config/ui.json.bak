@@ -1,4 +1,41 @@
 {
   "layout": "dashboard",
-  "widgets": []
+  "widgets": [
+    {
+      "id": "w1777630826753",
+      "type": "bar",
+      "channel": "engine_speed",
+      "label": "engine_speed",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1777630834209",
+      "type": "slider",
+      "channel": "throttle",
+      "label": "throttle",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1777704522947",
+      "type": "numeric",
+      "channel": "coolant_temp",
+      "label": "coolant_temp",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    }
+  ]
 }

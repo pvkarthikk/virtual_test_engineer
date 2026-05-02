@@ -69,14 +69,17 @@ class EngineMock:
         else:
             self._temperature_c += (90.0 - self._temperature_c) * 0.01
 
+        # Add slight thermal noise so it visibly updates in the UI
+        temp_with_noise = self._temperature_c + random.uniform(-0.5, 0.5)
+
         # NTC Inverse relation mapping to 12-bit ADC:
-        if self._temperature_c <= -40: self._temperature_raw = 4000
-        elif self._temperature_c <= 20: 
-            self._temperature_raw = 4000 - ((self._temperature_c - -40) / 60.0) * 1500
-        elif self._temperature_c <= 90:
-            self._temperature_raw = 2500 - ((self._temperature_c - 20) / 70.0) * 1700
-        elif self._temperature_c <= 150:
-            self._temperature_raw = 800 - ((self._temperature_c - 90) / 60.0) * 700
+        if temp_with_noise <= -40: self._temperature_raw = 4000
+        elif temp_with_noise <= 20: 
+            self._temperature_raw = 4000 - ((temp_with_noise - -40) / 60.0) * 1500
+        elif temp_with_noise <= 90:
+            self._temperature_raw = 2500 - ((temp_with_noise - 20) / 70.0) * 1700
+        elif temp_with_noise <= 150:
+            self._temperature_raw = 800 - ((temp_with_noise - 90) / 60.0) * 700
         else:
             self._temperature_raw = 100
         self._temperature_raw = max(0, min(4095, round(self._temperature_raw)))
@@ -86,6 +89,8 @@ class EngineMock:
         # ----------------------------------------------------
         # Higher throttle = less vacuum = higher pressure
         pressure_kpa = 30.0 + (self._throttle_percent * 0.7) - ((self._engine_speed_rpm - 800) * 0.005)
+        # Add slight pressure fluctuations
+        pressure_kpa += random.uniform(-1.0, 1.0)
         pressure_kpa = max(10.0, min(105.0, pressure_kpa))
         
         # Sensor curve: P(kPa) = 10.0 + 0.015*raw + 0.000002*(raw^2)
