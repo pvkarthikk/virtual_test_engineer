@@ -88,8 +88,8 @@ SDTB supports user-defined devices through an extensible plugin architecture:
 | Device Plugins | User-created device implementations (device_*.py) | Current working directory (`./devices`) by default. |
 | Flash Plugins | User-created flashing protocols (flash_*.py) | Current working directory (`./devices`) by default. |
 | system.json | System-level configuration (server settings, device directory path) | Current working directory (`./config`) by default. |
-| device_<name>.json | Per-device configuration file (connection params, settings) co-located with plugin | Current working directory (`./config`) by default. |
-| flash_<name>.json | Per-protocol configuration file (timeouts, retry logic) co-located with plugin | Current working directory (`./config`) by default. |
+| `device_<name>.json` | Per-device configuration file (connection params, settings) co-located with plugin | Current working directory (`./config`) by default. |
+| `flash_<name>.json` | Per-protocol configuration file (timeouts, retry logic) co-located with plugin | Current working directory (`./config`) by default. |
 | channels.json | Channel-to-signal mappings with independent properties | Current working directory (`./config`) by default. |
 | ui.json | UI dashboard layout and widget-to-channel mappings | Current working directory (`./config`) by default. |
 
@@ -296,7 +296,7 @@ SDTB uses independent configuration files for fault isolation. Each file is back
 
 ```json
 {
-  "device_directory": "C:\\Users\\<USER>\\SDTB\\devices",
+  "device_directory": "./devices",
   "device_update_rate": 100,
   "server": {
     "host": "127.0.0.1",
@@ -305,7 +305,7 @@ SDTB uses independent configuration files for fault isolation. Each file is back
 }
 ```
 
-**device_<name>.json** — Per-device configuration (co-located with device_<name>.py in device directory):
+**`device_<name>.json`** — Per-device configuration (co-located with `device_<name>.py` in device directory):
 
 ```json
 {
@@ -479,7 +479,7 @@ The system shall validate values against the min/max range defined by the target
 
 **Description**: Provide system-level control and monitoring capabilities for the SDTB infrastructure itself.
 
-**API Endpoints**
+##### F01 API Endpoints
 
 | Endpoint | Method | Description | Status Codes |
 | ---------- | -------- | ------------- | -------------- |
@@ -495,13 +495,13 @@ The system shall validate values against the min/max range defined by the target
 | `/system/restart` | POST | Restart the system (auto-disconnect, re-initialize, re-discover) | 200 OK, 503 Service Unavailable |
 | `/system/stream` | GET | Multiplexed SSE stream for real-time logs, channel values, and device signal updates over a single connection | 200 OK |
 
-**Requirements**
+##### F01 Requirements
 
 | ID | Requirement | Priority | Verification Method |
 | ---- | ------------- | ---------- | --------------------- |
 | F01.01 | System shall provide a base endpoint (/system) indicating overall operational readiness and version information | High | Integration Test |
 | F01.02 | User shall be able to connect/disconnect hardware devices gracefully | High | Integration Test |
-| F01.03 | System shall maintain configuration persistence across restarts using independent config files (system.json, channels.json, and per-device device_<name>.json) | High | Integration Test |
+| F01.03 | System shall maintain configuration persistence across restarts using independent config files (system.json, channels.json, and per-device `device_<name>.json`) | High | Integration Test |
 | F01.04 | System shall provide diagnostic capabilities for troubleshooting | Medium | Integration Test |
 | F01.05 | System shall expose performance metrics (throughput, latency, resource utilization) | Low | Integration Test |
 | F01.06 | System shall handle graceful degradation when subsystems fail | Medium | Integration Test |
@@ -519,7 +519,7 @@ The system shall validate values against the min/max range defined by the target
 
 **Description**: Manage physical hardware instruments, their auto-discovery, and operational status.
 
-**API Endpoints**
+##### F02 API Endpoints
 
 | Endpoint | Method | Description | Response Object | Status Codes |
 | ---------- | -------- | ------------- | ----------------- | -------------- |
@@ -545,7 +545,7 @@ Note: Devices are auto-detected from device directory at startup. POST /device i
 
 Note: Each device's configuration is stored in its own `device_<name>.json` file co-located with the plugin file. The device class auto-loads its own configuration at startup.
 
-**Requirements**
+##### F02 Requirements
 
 | ID | Requirement | Priority | Verification Method |
 | ---- | ------------- | ---------- | --------------------- |
@@ -559,9 +559,9 @@ Note: Each device's configuration is stored in its own `device_<name>.json` file
 | F02.08 | System shall provide BaseDevice Python class for user to extend | High | Unit Test |
 | F02.09 | User devices shall use naming pattern device_*.py in device directory | High | Integration Test |
 | F02.10 | User devices shall be auto-detected at system startup | High | Integration Test |
-| F02.11 | Each device plugin (device_<name>.py) shall have a corresponding device_<name>.json in the device directory | High | Integration Test |
-| F02.12 | device_<name>.json shall contain device instance configuration (connection params, settings) | High | Integration Test |
-| F02.13 | If device_<name>.json not found, system shall create one with default values | High | Integration Test |
+| F02.11 | Each device plugin (`device_<name>.py`) shall have a corresponding `device_<name>.json` in the device directory | High | Integration Test |
+| F02.12 | `device_<name>.json` shall contain device instance configuration (connection params, settings) | High | Integration Test |
+| F02.13 | If `device_<name>.json` not found, system shall create one with default values | High | Integration Test |
 | F02.14 | Each device shall expose its own signal types as part of device capabilities | High | Integration Test |
 | F02.15 | BaseDeviceException shall be used by plugin developers for error handling | High | Unit Test |
 | F02.16 | System shall allow enabling/disabling devices individually via API, persisting state in device config | High | Integration Test |
@@ -603,7 +603,7 @@ Each raw signal shall expose the following properties to define its physical cha
 | `value` | Float | Initial or last known value | 0.0, 2.5 |
 | `description` | String | Physical connection info (pin, connector, wiring notes) | "J1-Pin3", "ECU Connector A, Pin 12" |
 
-**API Endpoints**
+##### F03 API Endpoints
 
 | Endpoint | Method | Description | Status Codes |
 | -------- | ------ | ----------- | ----------- |
@@ -616,10 +616,10 @@ Each raw signal shall expose the following properties to define its physical cha
 | `/device/{device_id}/signal/{signal_id}/fault` | DELETE | Clear any active fault on the signal and restore normal operation | 200 OK, 404 Not Found |
 
 > **TODO**: Streaming endpoints for LIN and SENT are placeholders for future support. Will be reviewed later.
-
+>
 > **TODO**: Signal streaming implementation details (keepalive, reconnection, termination) are pending review.
 
-**Requirements**
+##### F03 Requirements
 
 | ID | Requirement | Priority | Verification Method |
 | ---- | ------------- | ---------- | --------------------- |
@@ -645,7 +645,7 @@ Each raw signal shall expose the following properties to define its physical cha
 
 **Core Principle**: No breaking API changes required for device channel additions, modifications, or removals.
 
-**API Endpoints**
+##### F04 API Endpoints
 
 Note: Channel endpoints are for reading and writing logical signal values. Channel configuration (mapping channel to device signal) is handled via `/system/config/channels`.
 
@@ -669,7 +669,7 @@ Each channel shall expose the following properties for proper signal handling:
 | `max` | Float | Maximum valid range value | 3.3, 10.0, 100.0 |
 | `value` | Float | Initial or last known value | 0.0, 2.5 |
 
-**Requirements**
+##### F04 Requirements
 
 | ID | Requirement | Priority | Verification Method |
 | ---- | ------------- | ---------- | --------------------- |
@@ -688,7 +688,7 @@ Each channel shall expose the following properties for proper signal handling:
 
 **Description**: Enable users to flash firmware/software to target devices through programmable endpoints with full lifecycle management capabilities. Supports uploading large binary files (up to 10MB) via `multipart/form-data`.
 
-**API Endpoints**
+##### F05 API Endpoints
 
 | Endpoint | Method | Description | Status Codes |
 | -------- | ------ | ----------- | ----------- |
@@ -702,7 +702,7 @@ Each channel shall expose the following properties for proper signal handling:
 
 Note: Flash connection is independent of `/system/connect`. The flash target must be connected via `/flash/connect` before any flashing operation can be initiated.
 
-**Requirements**
+##### F05 Requirements
 
 | ID | Requirement | Priority | Verification Method |
 | ---- | ------------- | ---------- | --------------------- |
@@ -732,7 +732,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 
 **Description**: Manage the complete lifecycle of test execution from initiation through completion with result retrieval and test abortion capabilities.
 
-**API Endpoints**
+##### F06 API Endpoints
 
 | Endpoint | Method | Description | Status Codes |
 | -------- | ------ | ----------- | ----------- |
@@ -741,7 +741,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 | `/test/status` | GET | Retrieve the current operational status of the test engine | 200 OK |
 | `/test/history` | GET | Retrieve the step execution history of all executed tests | 200 OK |
 
-**Requirements**
+##### F06 Requirements
 
 | ID | Requirement | Priority | Verification Method |
 | ---- | ------------- | ---------- | --------------------- |
@@ -764,7 +764,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 
 **Description**: Provide a browser-based dashboard served by the SDTB server that enables visual system control, channel-widget mapping, live monitoring, and test script editing without direct API interaction.
 
-**API Endpoints**
+##### F07 API Endpoints
 
 | Endpoint | Method | Description | Status Codes |
 | -------- | ------ | ----------- | ----------- |
@@ -774,7 +774,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 
 The UI uses **GoldenLayout v1.5.9**, a sophisticated dockable panel manager that allows users to fully customize their workspace by dragging, resizing, and stacking views. The layout state is persisted in the browser's `localStorage` (`sdtb-layout-v1`), ensuring the workspace remains exactly as the user left it across page refreshes.
 
-```
+```text
 +----------------------------------------------------------+
 |  Toolbar / Menubar                                       |
 |  [Connect] [Disconnect] [Reset Layout] [About]           |
@@ -795,7 +795,7 @@ The UI uses **GoldenLayout v1.5.9**, a sophisticated dockable panel manager that
 +----------------------------------------------------------+
 ```
 
-**Toolbar / Menubar**
+##### Toolbar / Menubar
 
 | Menu Item | Description |
 | --------- | ----------- |
@@ -803,7 +803,7 @@ The UI uses **GoldenLayout v1.5.9**, a sophisticated dockable panel manager that
 | About | System information, SDTB version, API version |
 | Preference | Opens system configuration (system.json) as a form overlay dialog |
 
-**Sidebar Views**
+##### Sidebar Views
 
 The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the center content area.
 
@@ -817,7 +817,7 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 | Debug Window | Live scrolling log of command flow via SSE. |
 | Test Editor | JSONL test script editor with integrated execution controls. |
 
-**Supported Widget Types**
+##### Supported Widget Types
 
 | Widget Type | Description | Typical Channel Mapping |
 | ----------- | ----------- | ---------------- |
@@ -863,13 +863,13 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 
 **Architecture Integration**: The MCP server is integrated directly into the FastAPI application as a sub-app, sharing the same hardware connection lifecycle and system state as the REST API and Web UI.
 
-**MCP Resources**
+##### MCP Resources
 
 | URI | Name | Description |
 | --- | ---- | ----------- |
 | `sdtb://docs/control-guide` | SDTB Control Guide | Markdown documentation explaining the hardware lifecycle (Connect -> Discover -> Interact -> Disconnect). |
 
-**MCP Tools**
+##### MCP Tools
 
 | Tool Name | Description | Key Parameters |
 | --------- | ----------- | -------------- |
@@ -885,7 +885,7 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 | `connect_system` | Connects all physical hardware (Arduinos, etc.). | None |
 | `disconnect_system` | Safely closes all hardware connections. | None |
 
-**Requirements**
+##### F08 Requirements
 
 | ID | Requirement | Priority | Verification Method |
 | ---- | ------------- | ---------- | --------------------- |
@@ -909,7 +909,7 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 | `/device/{device_id}/signal/{signal_id}/fault` | DELETE | Clear the active fault on the signal | 200 OK |
 | `/system/fault/clear` | POST | Global safety mechanism to clear all faults across all devices | 200 OK |
 
-**Fault Types**
+##### Fault Types
 
 | Fault Type | Description |
 | ---------- | ----------- |
@@ -920,7 +920,7 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 | Signal Noise | Injects random noise into an analog signal |
 | Packet Loss | Simulates intermittent communication failure (CAN/LIN) |
 
-**Requirements**
+##### F09 Requirements
 
 | ID | Requirement | Priority | Verification Method |
 | ---- | ------------- | ---------- | --------------------- |
@@ -980,13 +980,13 @@ offline → idle → busy → idle
 
 #### W04: Signal & Channel Read/Write
 
-**Raw Signal Access (Advanced/Debugging):**
+##### Raw Signal Access (Advanced/Debugging)
 
 1. User calls `GET /device/{device_id}/signal/{signal_id}` to read a raw value
 2. User calls `PUT /device/{device_id}/signal/{signal_id}` with value in payload
 3. System validates the value against the **signal's** min/max range before writing
 
-**Channel Access (Standard User):**
+##### Channel Access (Standard User)
 
 1. User calls `GET /channel/{channel_id}` to read a logical value
 2. System resolves channel → device + signal, reads raw value, applies channel offset/calibration
@@ -1011,16 +1011,16 @@ offline → idle → busy → idle
 
 #### W06: Test Execution Lifecycle
 
-1. **Define**: User uploads a test definition via `POST /test` or references an existing one
-2. **Execute**: User calls `POST /run` (inline JSONL) or `POST /run/test/{test_id}`
+1. **Define**: User prepares a JSONL test script
+2. **Execute**: User calls `POST /test/run` with the JSONL script as the request body
 3. System validates the test script and enqueues the execution
-4. System returns `202 Accepted` with a unique `execution_id`
-5. **Run**: System dequeues and executes test steps sequentially
+4. System returns `202 OK` confirming the test has started in the background
+5. **Run**: System executes test steps sequentially
    - Test steps reference **channels** (not raw signals)
    - Each step result (value, pass/fail, timestamp) is logged
-6. **Monitor**: User polls `GET /run/{execution_id}` for progress
-7. **Complete**: Results available via `GET /run/{execution_id}/results`
-8. **Abort**: User can call `POST /run/{execution_id}/abort` at any time
+6. **Monitor**: User polls `GET /test/status` for current engine state
+7. **Complete**: Results available via `GET /test/history`
+8. **Abort**: User can call `POST /test/stop` at any time
 
 #### 3.4.2 JSONL Test Script Format
 
@@ -1035,18 +1035,17 @@ offline → idle → busy → idle
 #### W07: Session & Concurrency Rules
 
 1. Only **one test execution** can be actively running at any time
-2. If a test is running and the user submits another `POST /run`, the new request is **queued**
+2. If a test is running and the user submits another `POST /test/run`, the new request is **rejected with 409 Conflict**
 3. The currently running test is considered the active "session"
 4. While a test is running, **no user write operations** are permitted via the API (both channel and signal writes are blocked) — this prevents interference with the active test
 5. **Read operations** remain available during test execution for monitoring purposes
-6. Queued runs execute in order once the active run completes or is aborted
 
 #### 3.4.3 Workflow Requirements
 
 | ID | Requirement | Priority | Verification Method |
 | ---- | ------------- | ---------- | --------------------- |
 | W01.01 | System shall discover device plugins at startup without connecting to hardware | High | Integration Test |
-| W01.02 | Each device plugin shall auto-load its own device_<NAME>.json; if missing, a default shall be created | High | Integration Test |
+| W01.02 | Each device plugin shall auto-load its own `device_<NAME>.json`; if missing, a default shall be created | High | Integration Test |
 | W01.03 | System shall create a backup (.bak) of each config file before every write operation | High | Integration Test |
 | W01.04 | On startup, if a config file is corrupted, system shall fall back to its .bak copy | High | Integration Test |
 | W01.05 | If both primary and backup config files are corrupted, system shall create fresh defaults and log a warning | High | Integration Test |
@@ -1059,9 +1058,9 @@ offline → idle → busy → idle
 | W04.01 | Write operations shall validate at both channel and signal layers independently | High | Unit Test |
 | W05.01 | Live streaming shall use Server-Sent Events (SSE) protocol | High | Integration Test |
 | W06.01 | Test scripts shall reference channels, not raw device signals | High | Unit Test |
-| W06.02 | Test execution shall follow JSONL format with step, action, channel, and assertions supporting **6 comparison operators** (`>`, `>=`, `==`, `!=`, `<`, `<=`) and floating-point tolerance via `math.isclose` | High | Integration Test |
+| W06.02 | Test execution shall follow JSONL format with step, action, channel, and assertions supporting **6 comparison operators** (`>`, `>=`, `==`, `!=`, `\<`, `\<=`) and floating-point tolerance via `math.isclose` | High | Integration Test |
 | W07.01 | Only one test execution shall be actively running at any time | High | Integration Test |
-| W07.02 | Additional run requests during active execution shall be queued | High | Integration Test |
+| W07.02 | Additional run requests during active execution shall be rejected with `409 Conflict` | High | Integration Test |
 | W07.03 | User write operations (channel and signal) shall be blocked during active test execution | High | Integration Test |
 | W07.04 | User read operations shall remain available during active test execution | High | Integration Test |
 
