@@ -4,6 +4,7 @@
     "device_id": "mock_1",
     "signal_id": "J1_01",
     "properties": {
+      "signal_type": null,
       "unit": "rpm",
       "min": 0.0,
       "max": 5000.0,
@@ -12,7 +13,7 @@
         "resolution": 1.221,
         "offset": 0.0
       },
-      "value": 0.0
+      "value": 1920.633
     }
   },
   {
@@ -29,7 +30,7 @@
         "resolution": 0.00305,
         "offset": 0.0
       },
-      "value": 0.0
+      "value": 33.60749057898669
     }
   },
   {
@@ -44,13 +45,25 @@
       "conversion": {
         "type": "lut",
         "table": [
-            [100.0, 150.0],
-            [800.0, 90.0],
-            [2500.0, 20.0],
-            [4000.0, -40.0]
+          [
+            100.0,
+            150.0
+          ],
+          [
+            800.0,
+            90.0
+          ],
+          [
+            2500.0,
+            20.0
+          ],
+          [
+            4000.0,
+            -40.0
+          ]
         ]
       },
-      "value": 0.0
+      "value": 89.95882352941176
     }
   },
   {
@@ -58,12 +71,34 @@
     "device_id": "mock_1",
     "signal_id": "J1_04",
     "properties": {
+      "signal_type": null,
       "unit": "kPa",
       "min": 10.0,
       "max": 105.0,
       "conversion": {
         "type": "polynomial",
-        "coefficients": [10.0, 0.015, 0.000002]
+        "coefficients": [
+          10.0,
+          0.015,
+          2e-06
+        ]
+      },
+      "value": 47.632512
+    }
+  },
+  {
+    "channel_id": "eco_mode",
+    "device_id": "mock_1",
+    "signal_id": "J1_05",
+    "properties": {
+      "signal_type": null,
+      "unit": "",
+      "min": 0.0,
+      "max": 100.0,
+      "conversion": {
+        "type": "linear",
+        "resolution": 1.0,
+        "offset": 0.0
       },
       "value": 0.0
     }

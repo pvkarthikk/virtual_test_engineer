@@ -960,7 +960,7 @@ body {
 }
 .bar-fill {
     height: 100%;
-    width: 0%;
+    width: var(--progress, 0%);
     background: linear-gradient(90deg, var(--accent-primary), #60a5fa);
     border-radius: 5px;
     transition: width 0.3s ease-out;

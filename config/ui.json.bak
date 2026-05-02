@@ -15,7 +15,7 @@
     },
     {
       "id": "w1777630834209",
-      "type": "slider",
+      "type": "knob",
       "channel": "throttle",
       "label": "throttle",
       "position": {
@@ -54,6 +54,18 @@
       "type": "gauge",
       "channel": "engine_speed",
       "label": "engine_speed_chart",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1777748184905",
+      "type": "toggle",
+      "channel": "eco_mode",
+      "label": "",
       "position": {
         "row": 0,
         "col": 0

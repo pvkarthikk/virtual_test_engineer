@@ -1,4 +1,4 @@
-from core.base_device import BaseDevice, SignalDefinition, SignalAnalog, SignalPWM
+from core.base_device import BaseDevice, SignalDefinition, SignalAnalog, SignalPWM, SignalSwitch
 from typing import List, Any, Dict, Optional
 import logging
 import random
@@ -23,7 +23,17 @@ class EngineMock:
         self._temperature_c = 20.0  # Starts at 20C
         self._temperature_raw = 2500
         self._map_raw = 500
+        self._last_update = time.time()
+        self._eco_mode = False
     
+    @property
+    def eco_mode(self) -> bool:
+        return self._eco_mode
+
+    @eco_mode.setter
+    def eco_mode(self, value: bool):
+        self._eco_mode = value
+
     @property
     def throttle_pwm(self) -> int:
         return self._throttle_pwm
@@ -47,8 +57,16 @@ class EngineMock:
         return self._map_raw
 
     def update(self):
+        # Calculate delta time for natural physics simulation
+        now = time.time()
+        dt = now - self._last_update
+        self._last_update = now
+
         # calculate engine rpm based on the throttle percent
-        target_rpm = self._idle_rpm + (self._max_rpm - self._idle_rpm) * (self._throttle_percent / 100.0)
+        # Eco Mode reduces available power by 20%
+        power_multiplier = 0.8 if self._eco_mode else 1.0
+        dynamic_range = (self._max_rpm - self._idle_rpm) * power_multiplier
+        target_rpm = self._idle_rpm + dynamic_range * (self._throttle_percent / 100.0)
         
         # Add some jitter/noise
         noise = random.uniform(-50, 50)
@@ -64,13 +82,21 @@ class EngineMock:
         # ----------------------------------------------------
         # Simulate Coolant Temperature (Warms up as engine runs)
         # ----------------------------------------------------
+        # User Request: Increase ~1.0 C / second
+        # Use random range around 1.0 to feel "natural"
+        base_rate = random.uniform(0.8, 1.2) 
+        
         if self._engine_speed_rpm > 1000:
-            self._temperature_c += (90.0 - self._temperature_c) * 0.05
+            # Heating: Targets 90.0 C
+            if self._temperature_c < 90.0:
+                self._temperature_c += base_rate * dt
         else:
-            self._temperature_c += (90.0 - self._temperature_c) * 0.01
+            # Cooling: Very slowly drops toward ambient 20.0 C
+            if self._temperature_c > 20.0:
+                self._temperature_c -= (base_rate * 0.1) * dt
 
         # Add slight thermal noise so it visibly updates in the UI
-        temp_with_noise = self._temperature_c + random.uniform(-0.5, 0.5)
+        temp_with_noise = self._temperature_c + random.uniform(-0.1, 0.1)
 
         # NTC Inverse relation mapping to 12-bit ADC:
         if temp_with_noise <= -40: self._temperature_raw = 4000
@@ -132,6 +158,12 @@ class MockDevice(BaseDevice):
                 name="MAP Sensor ADC",
                 direction="input",
                 description="12-bit ADC for MAP sensor. Scaled by Polynomial channel."
+            ),
+            SignalSwitch(
+                signal_id="J1_05",
+                name="Eco Mode Switch",
+                direction="output",
+                description="Binary switch to toggle Engine Eco Mode (1=On, 0=Off)."
             ),
         ]
 
@@ -204,6 +236,7 @@ class MockDevice(BaseDevice):
         
         # 1. Read commands from system
         self._engine.throttle_pwm = self.get_signal("J1_02").value
+        self._engine.eco_mode = bool(self.get_signal("J1_05").value)
         
         # 2. Update engine state
         self._engine.update()

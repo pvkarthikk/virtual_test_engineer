@@ -451,6 +451,12 @@ function renderDashboard() {
             content: buildWidgetHTML(widget)
         });
         subscribeToChannel(widget.channel);
+
+        // Sync initial value from state
+        const ch = state.channels.find(c => c.channel_id === widget.channel);
+        if (ch && ch.properties) {
+            setTimeout(() => updateWidgetValue(widget, ch.properties.value), 0);
+        }
     });
 
     lucide.createIcons();
@@ -681,7 +687,13 @@ function openWidgetModal(w = null) {
     modal.classList.add('active');
     document.getElementById('btn-widget-cancel').onclick = () => modal.classList.remove('active');
     document.getElementById('btn-widget-save').onclick = () => {
-        const newW = { id: w ? w.id : `w${Date.now()}`, label: inputLabel.value, channel: selectChannel.value, type: selectType.value, position: { row: 0, col: 0 } };
+        const newW = { 
+            id: w ? w.id : `w${Date.now()}`, 
+            label: inputLabel.value || selectChannel.value, 
+            channel: selectChannel.value, 
+            type: selectType.value, 
+            position: { row: 0, col: 0 } 
+        };
         if (state.editingWidgetIndex !== null) state.uiConfig.widgets[state.editingWidgetIndex] = newW;
         else state.uiConfig.widgets.push(newW);
         modal.classList.remove('active');
@@ -704,7 +716,7 @@ async function renderChannelMapper() {
     table.innerHTML = '';
     state.channels.forEach(ch => {
         const row = document.createElement('tr');
-        row.innerHTML = `<td>${ch.channel_id}</td><td>${ch.device_id}</td><td>${ch.signal_id}</td><td>${ch.properties.unit}</td><td>${ch.properties.min}</td><td>${ch.properties.max}</td><td><input type="number" step="any" class="table-input" id="read-${ch.channel_id}" aria-label="Current value for ${ch.channel_id}"></td><td><div class="flex-row" style="gap: 5px"><button class="btn btn-outline btn-sm" onclick="writeSingleChannel('${ch.channel_id}')" title="Write" aria-label="Write to ${ch.channel_id}"><i data-lucide="edit-3"></i></button><button class="btn btn-outline btn-sm" onclick="editChannel('${ch.channel_id}')" title="Edit Mapping" aria-label="Edit mapping for ${ch.channel_id}"><i data-lucide="edit"></i></button><button class="btn btn-outline btn-sm" onclick="removeChannel('${ch.channel_id}')" title="Delete" aria-label="Delete channel ${ch.channel_id}"><i data-lucide="trash-2" style="color: var(--accent-danger)"></i></button></div></td>`;
+        row.innerHTML = `<td>${ch.channel_id}</td><td>${ch.device_id}</td><td>${ch.signal_id}</td><td>${ch.properties.unit}</td><td>${ch.properties.min}</td><td>${ch.properties.max}</td><td><input type="number" step="any" class="table-input" id="read-${ch.channel_id}" value="${Number(ch.properties.value || 0).toFixed(2)}" aria-label="Current value for ${ch.channel_id}"></td><td><div class="flex-row" style="gap: 5px"><button class="btn btn-outline btn-sm" onclick="writeSingleChannel('${ch.channel_id}')" title="Write" aria-label="Write to ${ch.channel_id}"><i data-lucide="edit-3"></i></button><button class="btn btn-outline btn-sm" onclick="editChannel('${ch.channel_id}')" title="Edit Mapping" aria-label="Edit mapping for ${ch.channel_id}"><i data-lucide="edit"></i></button><button class="btn btn-outline btn-sm" onclick="removeChannel('${ch.channel_id}')" title="Delete" aria-label="Delete channel ${ch.channel_id}"><i data-lucide="trash-2" style="color: var(--accent-danger)"></i></button></div></td>`;
         table.appendChild(row);
         subscribeToChannel(ch.channel_id);
     });
