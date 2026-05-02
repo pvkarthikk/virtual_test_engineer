@@ -59,48 +59,57 @@ async def test_non_blocking():
     SDTBSystem._reset_instance()
     system = SDTBSystem()
     
-    # Inject our mock device
-    dev = SlowMockDevice()
-    system.device_manager.devices["slow_dev"] = dev
-    system.device_manager._system_connected = True
-    dev.connect({})
-    
-    # Setup a channel for it
-    from models.config import ChannelConfig, ChannelProperties
-    ch_cfg = ChannelConfig(
-        channel_id="ch_slow",
-        device_id="slow_dev",
-        signal_id="S1",
-        properties=ChannelProperties(unit="V", min=0, max=10, resolution=1, offset=0)
-    )
-    system.channel_manager.channels["ch_slow"] = ch_cfg
-    
-    # Measure time for a concurrent task
-    start_time = time.time()
-    
-    # Run the slow read and a "fast" task concurrently
-    async def fast_task():
-        await asyncio.sleep(0.1)
-        print("Fast task finished while hardware is blocking!")
-        return time.time() - start_time
+    try:
+        # Inject our mock device
+        dev = SlowMockDevice()
+        system.device_manager.devices["slow_dev"] = dev
+        system.device_manager._system_connected = True
+        dev.connect({})
+        
+        # Setup a channel for it
+        from models.config import ChannelConfig, ChannelProperties, LinearConversion
+        ch_cfg = ChannelConfig(
+            channel_id="ch_slow",
+            device_id="slow_dev",
+            signal_id="S1",
+            properties=ChannelProperties(
+                unit="V", 
+                min=0, 
+                max=10, 
+                conversion=LinearConversion(resolution=1.0, offset=0.0)
+            )
+        )
+        system.channel_manager.channels["ch_slow"] = ch_cfg
+        
+        # Measure time for a concurrent task
+        start_time = time.time()
+        
+        # Run the slow read and a "fast" task concurrently
+        async def fast_task():
+            await asyncio.sleep(0.1)
+            print("Fast task finished while hardware is blocking!")
+            return time.time() - start_time
 
-    print("Starting concurrent tasks...")
-    # These should run concurrently. If blocking, fast_task will wait 2s.
-    results = await asyncio.gather(
-        system.channel_manager.read_channel("ch_slow"),
-        fast_task()
-    )
-    
-    total_time = time.time() - start_time
-    fast_task_time = results[1]
-    
-    print(f"Total time: {total_time:.2f}s")
-    print(f"Fast task took: {fast_task_time:.2f}s")
-    
-    # Verification
-    assert fast_task_time < 0.5, "Fast task should have finished immediately despite slow hardware"
-    assert total_time >= 2.0, "Slow hardware should have taken at least 2s"
-    print("SUCCESS: Hardware read did NOT block the event loop!")
+        print("Starting concurrent tasks...")
+        # These should run concurrently. If blocking, fast_task will wait 2s.
+        results = await asyncio.gather(
+            system.channel_manager.read_channel("ch_slow"),
+            fast_task()
+        )
+        
+        total_time = time.time() - start_time
+        fast_task_time = results[1]
+        
+        print(f"Total time: {total_time:.2f}s")
+        print(f"Fast task took: {fast_task_time:.2f}s")
+        
+        # Verification
+        assert fast_task_time < 0.5, "Fast task should have finished immediately despite slow hardware"
+        assert total_time >= 2.0, "Slow hardware should have taken at least 2s"
+        print("SUCCESS: Hardware read did NOT block the event loop!")
+    finally:
+        await system.shutdown()
+        SDTBSystem._reset_instance()
 
 if __name__ == "__main__":
     try:

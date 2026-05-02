@@ -85,8 +85,8 @@ SDTB supports user-defined devices through an extensible plugin architecture:
 | BaseDevice | Base Python class that users extend to create custom devices | Built-in |
 | BaseFlash | Base Python class that users extend to create custom flashing protocols | Built-in |
 | BaseDeviceException | Exception class for device plugin errors | Built-in |
-| Device Plugins | User-created device implementations (device_*.py) | Current working directory (`./config`) by default. |
-| Flash Plugins | User-created flashing protocols (flash_*.py) | Current working directory (`./config`) by default. |
+| Device Plugins | User-created device implementations (device_*.py) | Current working directory (`./devices`) by default. |
+| Flash Plugins | User-created flashing protocols (flash_*.py) | Current working directory (`./devices`) by default. |
 | system.json | System-level configuration (server settings, device directory path) | Current working directory (`./config`) by default. |
 | device_<name>.json | Per-device configuration file (connection params, settings) co-located with plugin | Current working directory (`./config`) by default. |
 | flash_<name>.json | Per-protocol configuration file (timeouts, retry logic) co-located with plugin | Current working directory (`./config`) by default. |
@@ -409,7 +409,7 @@ Note: Each device plugin (`device_<NAME>.py`) has a corresponding `device_<NAME>
 
 #### 2.3.3 Technology Stack
 
-- **Primary Language**: Python 3.8+
+- **Primary Language**: Python 3.13+
 - **REST Framework**: FastAPI (Recommended) or Flask
 - **MCP Implementation**: Custom or standard MCP library
 - **Async Support**: AsyncIO for concurrent operations
