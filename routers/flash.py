@@ -10,13 +10,15 @@ from core.base_flash import BaseFlashException
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/flash", tags=["Flash"])
 
-sdtb_system = SDTBSystem()
+# Access the singleton system instance via call to ensure we always have the current instance
+def get_system():
+    return SDTBSystem()
 
 @router.get("/protocols")
 async def get_flash_protocols():
     """List all discovered flash protocols and their configurations."""
     try:
-        configs = sdtb_system.flash_manager.get_all_configs()
+        configs = get_system().flash_manager.get_all_configs()
         return [cfg.model_dump() for cfg in configs.values()]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -25,7 +27,7 @@ async def get_flash_protocols():
 async def connect_flash(flash_id: str):
     """Connect to a specific flash target."""
     try:
-        await sdtb_system.flash_manager.connect_target(flash_id)
+        await get_system().flash_manager.connect_target(flash_id)
         return {"message": f"Successfully connected to flash target: {flash_id}"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -38,7 +40,7 @@ async def connect_flash(flash_id: str):
 async def disconnect_flash(flash_id: str):
     """Disconnect from a specific flash target."""
     try:
-        await sdtb_system.flash_manager.disconnect_target(flash_id)
+        await get_system().flash_manager.disconnect_target(flash_id)
         return {"message": f"Successfully disconnected from flash target: {flash_id}"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -73,7 +75,7 @@ async def start_flash(
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="Invalid JSON in 'params' field")
 
-        execution_id = await sdtb_system.flash_manager.start_flash(flash_id, data, param_dict)
+        execution_id = await get_system().flash_manager.start_flash(flash_id, data, param_dict)
         return {
             "execution_id": execution_id,
             "status": "initiated",
@@ -90,7 +92,7 @@ async def start_flash(
 async def get_flash_status(flash_id: str, execution_id: str):
     """Retrieve current flashing operation status."""
     try:
-        status = sdtb_system.flash_manager.get_flash_status(flash_id, execution_id)
+        status = get_system().flash_manager.get_flash_status(flash_id, execution_id)
         return status
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -104,13 +106,14 @@ async def stream_flash_log(flash_id: str, execution_id: str, request: Request):
     """
     async def log_generator():
         last_index = 0
+        system = get_system()
         while True:
             # Check if client is still connected
             if await request.is_disconnected():
                 break
                 
             try:
-                logs = sdtb_system.flash_manager.get_flash_log(flash_id, execution_id)
+                logs = system.flash_manager.get_flash_log(flash_id, execution_id)
                 
                 # Only send new logs
                 if len(logs) > last_index:
@@ -119,7 +122,7 @@ async def stream_flash_log(flash_id: str, execution_id: str, request: Request):
                     last_index = len(logs)
                 
                 # Check if flashing is finished to stop streaming
-                status = sdtb_system.flash_manager.get_flash_status(flash_id, execution_id)
+                status = system.flash_manager.get_flash_status(flash_id, execution_id)
                 current_state = status.get("status", "").lower()
                 if current_state in ["success", "failed", "aborted", "error"]:
                     yield {"data": f"FLASH_PROCESS_TERMINATED: {current_state}"}
@@ -137,7 +140,7 @@ async def stream_flash_log(flash_id: str, execution_id: str, request: Request):
 async def abort_flash(flash_id: str, execution_id: str):
     """Abort an ongoing flashing operation."""
     try:
-        await sdtb_system.flash_manager.abort_flash(flash_id, execution_id)
+        await get_system().flash_manager.abort_flash(flash_id, execution_id)
         return {"message": f"Abort command sent for execution: {execution_id}"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

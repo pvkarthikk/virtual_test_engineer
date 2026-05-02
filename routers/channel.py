@@ -5,8 +5,9 @@ from sse_starlette.sse import EventSourceResponse
 
 router = APIRouter(prefix="/channel", tags=["Channel Management"])
 
-# Access the singleton system instance
-system = SDTBSystem()
+# Access the singleton system instance via call to ensure we always have the current instance
+def get_system():
+    return SDTBSystem()
 
 class WriteValue(BaseModel):
     value: float
@@ -16,7 +17,7 @@ async def list_channels():
     """
     Lists all available channels across all devices.
     """
-    return system.channel_manager.get_all_channels()
+    return get_system().channel_manager.get_all_channels()
 
 @router.get("/{channel_id}")
 async def read_channel(channel_id: str):
@@ -24,7 +25,7 @@ async def read_channel(channel_id: str):
     Reads a scaled signal value from a logical channel.
     """
     try:
-        value = await system.channel_manager.read_channel(channel_id)
+        value = await get_system().channel_manager.read_channel(channel_id)
         return {"channel_id": channel_id, "value": value}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -39,6 +40,7 @@ async def write_channel(channel_id: str, data: WriteValue = Body(...)):
     Writes a scaled signal value to a logical channel.
     Blocks if a test sequence is currently running.
     """
+    system = get_system()
     if system.test_engine.is_test_running:
         raise HTTPException(
             status_code=409, 
@@ -60,7 +62,7 @@ async def get_channel_info(channel_id: str):
     """
     Retrieves detailed meta information about a specific channel.
     """
-    info = system.channel_manager.get_channel_info(channel_id)
+    info = get_system().channel_manager.get_channel_info(channel_id)
     if not info:
         raise HTTPException(status_code=404, detail=f"Channel '{channel_id}' not found")
     return info
@@ -70,6 +72,7 @@ async def stream_channel(channel_id: str):
     """
     Server-Sent Events (SSE) stream for real-time updates of a specific channel's value.
     """
+    system = get_system()
     if not system.channel_manager.get_channel_info(channel_id):
         raise HTTPException(status_code=404, detail=f"Channel '{channel_id}' not found")
     return EventSourceResponse(system.stream_manager.subscribe_channel(channel_id))
@@ -79,6 +82,7 @@ async def get_channel_status(channel_id: str):
     """
     Retrieves current status of a channel.
     """
+    system = get_system()
     info = system.channel_manager.get_channel_info(channel_id)
     if not info:
         raise HTTPException(status_code=404, detail=f"Channel '{channel_id}' not found")

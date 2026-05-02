@@ -8,14 +8,16 @@ from sse_starlette.sse import EventSourceResponse
 
 router = APIRouter(prefix="/system", tags=["System Management"])
 
-# Access the singleton system instance
-system = SDTBSystem()
+# Access the singleton system instance via call to ensure we always have the current instance
+def get_system():
+    return SDTBSystem()
 
 @router.get("")
 async def get_system_status():
     """
     Returns overall system health, status, and version information.
     """
+    system = get_system()
     devices = system.device_manager.get_all_devices()
     is_connected = any(dev.is_connected for dev in devices.values()) if devices else False
     
@@ -35,6 +37,7 @@ async def connect_system():
     Returns a summary of connection results.
     """
     try:
+        system = get_system()
         results = await system.device_manager.connect_all()
         # Check if any device failed
         has_errors = any(r["status"] == "error" for r in results.values())
@@ -53,7 +56,7 @@ async def disconnect_system():
     Gracefully disconnects all hardware devices.
     """
     try:
-        await system.device_manager.disconnect_all()
+        await get_system().device_manager.disconnect_all()
         return {"message": "Hardware disconnection sequence completed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -64,7 +67,7 @@ async def restart_system():
     Restarts the system: auto-disconnect, re-initialize, and re-discover.
     """
     try:
-        await system.restart()
+        await get_system().restart()
         return {"message": "System restart completed successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -74,7 +77,7 @@ async def get_system_config():
     """
     Retrieves current system configuration (system.json).
     """
-    return system.system_config
+    return get_system().system_config
 
 @router.put("/config")
 async def update_system_config(config: SystemConfig):
@@ -82,6 +85,7 @@ async def update_system_config(config: SystemConfig):
     Updates the system configuration file.
     """
     try:
+        system = get_system()
         system.config_manager.save_config("system", config)
         system.system_config = config
         return {"message": "System configuration updated successfully"}
@@ -93,7 +97,7 @@ async def get_channel_configs():
     """
     Retrieves channel-to-signal mapping configuration.
     """
-    return system.channel_manager.get_all_channels()
+    return get_system().channel_manager.get_all_channels()
 
 @router.put("/config/channels")
 async def update_channel_configs(channels: List[ChannelConfig]):
@@ -101,6 +105,7 @@ async def update_channel_configs(channels: List[ChannelConfig]):
     Configures channel-to-device-signal mappings.
     """
     try:
+        system = get_system()
         # Save to file
         # We need a way to save a list in ConfigManager or handle it here
         # For now, let's assume we can save it as 'channels'
@@ -128,14 +133,14 @@ async def stream_logs():
     """
     Server-Sent Events (SSE) stream for real-time system logs and test progress.
     """
-    return EventSourceResponse(system.stream_manager.subscribe_logs())
+    return EventSourceResponse(get_system().stream_manager.subscribe_logs())
 
 @router.get("/stream")
 async def stream_all():
     """
     Unified Server-Sent Events (SSE) stream multiplexing logs, channels, and device signals.
     """
-    return EventSourceResponse(system.stream_manager.subscribe_all())
+    return EventSourceResponse(get_system().stream_manager.subscribe_all())
 
 @router.post("/fault/clear")
 async def clear_all_faults():
@@ -143,6 +148,7 @@ async def clear_all_faults():
     Global safety mechanism to clear all faults across all devices.
     """
     try:
+        system = get_system()
         devices = system.device_manager.get_all_devices()
         for device_id, device in devices.items():
             # BaseDevice now has clear_all_faults or we loop signals

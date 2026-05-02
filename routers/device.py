@@ -7,8 +7,9 @@ from core.system import SDTBSystem
 
 router = APIRouter(prefix="/device", tags=["Device Management"])
 
-# Access the singleton system instance
-system = SDTBSystem()
+# Access the singleton system instance via call to ensure we always have the current instance
+def get_system():
+    return SDTBSystem()
 
 class WriteValue(BaseModel):
     value: float
@@ -24,6 +25,7 @@ async def list_devices():
     """
     Lists all available devices across all configured instruments.
     """
+    system = get_system()
     devices = system.device_manager.get_all_devices()
     result = []
     for dev_id, dev in devices.items():
@@ -49,6 +51,7 @@ async def get_device_details(device_id: str):
     """
     Retrieves detailed information about a specific device.
     """
+    system = get_system()
     device = system.device_manager.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
@@ -67,6 +70,7 @@ async def list_device_signals(device_id: str):
     """
     Lists all raw signals exposed by a specific hardware device.
     """
+    system = get_system()
     device = system.device_manager.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
@@ -79,7 +83,7 @@ async def list_device_signals(device_id: str):
 @router.post("/{device_id}/toggle")
 async def toggle_device(device_id: str, req: DeviceToggleRequest):
     try:
-        await system.device_manager.toggle_device(device_id, req.enabled)
+        await get_system().device_manager.toggle_device(device_id, req.enabled)
         return {"message": f"Device {device_id} {'enabled' if req.enabled else 'disabled'}"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -91,6 +95,7 @@ async def get_signal_info(device_id: str, signal_id: str):
     """
     Retrieves metadata for a specific hardware signal.
     """
+    system = get_system()
     device = system.device_manager.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
@@ -107,6 +112,7 @@ async def read_device_signal(device_id: str, signal_id: str):
     """
     Reads a single signal value from hardware.
     """
+    system = get_system()
     device = system.device_manager.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
@@ -121,6 +127,7 @@ async def write_device_signal(device_id: str, signal_id: str, data: WriteValue =
     """
     Writes a value to a single hardware signal.
     """
+    system = get_system()
     device = system.device_manager.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
@@ -135,10 +142,11 @@ async def stream_device_signal(device_id: str, signal_id: str):
     """
     Server-Sent Events (SSE) stream for a raw hardware signal.
     """
-    return EventSourceResponse(system.stream_manager.subscribe_device_signal(device_id, signal_id))
+    return EventSourceResponse(get_system().stream_manager.subscribe_device_signal(device_id, signal_id))
 
 @router.post("/{device_id}/restart")
 async def restart_device(device_id: str):
+    system = get_system()
     device = system.device_manager.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
@@ -153,6 +161,7 @@ async def get_signal_faults(device_id: str, signal_id: str):
     """
     Retrieves a list of available faults for the signal.
     """
+    system = get_system()
     device = system.device_manager.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
@@ -168,6 +177,7 @@ async def inject_signal_fault(device_id: str, signal_id: str, req: FaultInjectio
     """
     Triggers a specific fault on the signal.
     """
+    system = get_system()
     device = system.device_manager.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
@@ -183,6 +193,7 @@ async def clear_signal_fault(device_id: str, signal_id: str):
     """
     Clears active fault on the signal.
     """
+    system = get_system()
     device = system.device_manager.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")

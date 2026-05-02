@@ -40,21 +40,21 @@ class TestEngine:
         """
         Parses and executes a JSONL test script.
         """
-        # If a token is provided, verify it matches the active reservation.
-        # If no token is provided, attempt a fresh lock.
-        if token is not None:
-            if token != self._active_token:
-                raise RuntimeError("Invalid or expired execution token.")
-            # Token validated, engine already marked as running by claim_engine()
-            self._active_token = None # Consume token
-        else:
-            if self.is_test_running:
-                raise RuntimeError("A test is already running. Concurrency is not allowed.")
-            self.is_test_running = True
-        
-        self._stop_requested = False
-
         try:
+            # If a token is provided, verify it matches the active reservation.
+            # If no token is provided, attempt a fresh lock.
+            if token is not None:
+                if token != self._active_token:
+                    raise RuntimeError("Invalid or expired execution token.")
+                # Token validated, engine already marked as running by claim_engine()
+                self._active_token = None # Consume token
+            else:
+                if self.is_test_running:
+                    raise RuntimeError("A test is already running. Concurrency is not allowed.")
+                self.is_test_running = True
+            
+            self._stop_requested = False
+
             # 1. Parse JSONL
             steps = []
             for i, line in enumerate(jsonl_content.splitlines()):
@@ -92,6 +92,7 @@ class TestEngine:
 
         finally:
             self.is_test_running = False
+            self._active_token = None # Ensure token is always cleared
 
     async def _execute_step(self, index: int, step: TestStep) -> TestResult:
         """

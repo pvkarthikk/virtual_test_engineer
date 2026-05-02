@@ -21,8 +21,8 @@ app = FastAPI(
 
 from routers import system, device, channel, test, ui, mcp, flash
 
-# Access the singleton system instance
-sdtb_system = system.system
+# Access the singleton system instance via call
+sdtb_system = system.get_system()
 
 app.include_router(system.router)
 app.include_router(device.router)

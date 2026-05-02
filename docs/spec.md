@@ -33,7 +33,7 @@ To provide a unified, programmable interface for hardware validation that abstra
 #### 2.1.1 Why REST API?
 
 | Consideration | Rationale |
-|---------------|-----------|
+| ------------- | --------- |
 | **Ubiquitous Standard** | REST APIs are widely adopted across the industry, making integration with existing tools, CI/CD pipelines, and third-party systems straightforward |
 | **Stateless Operations** | Each request is independent, enabling easier scaling, debugging, and load balancing |
 | **Tooling Ecosystem** | Extensive off-the-shelf tooling available (Postman, curl, API clients) reduces custom client development effort |
@@ -45,7 +45,7 @@ To provide a unified, programmable interface for hardware validation that abstra
 #### 2.1.2 Why MCP (Model Context Protocol)?
 
 | Consideration | Rationale |
-|---------------|-----------|
+| ------------- | --------- |
 | **Contextual Awareness** | MCP provides rich context management that goes beyond simple request-response, enabling smarter test orchestration |
 | **AI/ML Integration** | Designed to work with AI/ML systems for intelligent test automation and optimization |
 | **Tool Abstraction** | MCP can wrap multiple backend systems (REST, gRPC, custom) under a unified interface |
@@ -56,7 +56,7 @@ To provide a unified, programmable interface for hardware validation that abstra
 #### 2.1.3 Why Python?
 
 | Consideration | Rationale |
-|---------------|-----------|
+| ------------- | --------- |
 | **Extensive Libraries** | Rich ecosystem of libraries for hardware communication (pySerial, pyUSB, GPIO libraries), test frameworks (pytest), and data analysis |
 | **Hardware Integration** | Excellent support for various hardware interfaces including GPIO, I2C, SPI, UART, USB, and SCPI protocols |
 | **FastAPI/Flask Support** | Mature web frameworks (FastAPI, Flask) with excellent async support for high-performance APIs |
@@ -70,7 +70,7 @@ To provide a unified, programmable interface for hardware validation that abstra
 #### 2.1.4 Alternative Technologies Considered
 
 | Technology | Considered And Rejected | Reason for Rejection |
-|------------|------------------------|---------------------|
+| ------------ | ------------------------ | --------------------- |
 | Node.js/Express | Yes | Less hardware library support compared to Python; team expertise preference |
 | gRPC | No (complementary) | Binary format not as accessible for manual testing; better suited for internal service communication |
 | GraphQL | No | Overkill for test automation use cases; adds unnecessary complexity for our read-heavy patterns |
@@ -81,7 +81,7 @@ To provide a unified, programmable interface for hardware validation that abstra
 SDTB supports user-defined devices through an extensible plugin architecture:
 
 | Component | Description | Location |
-|-----------|------------|----------|
+| ----------- | ------------ | ---------- |
 | BaseDevice | Base Python class that users extend to create custom devices | Built-in |
 | BaseFlash | Base Python class that users extend to create custom flashing protocols | Built-in |
 | BaseDeviceException | Exception class for device plugin errors | Built-in |
@@ -93,7 +93,7 @@ SDTB supports user-defined devices through an extensible plugin architecture:
 | channels.json | Channel-to-signal mappings with independent properties | Current working directory (`./config`) by default. |
 | ui.json | UI dashboard layout and widget-to-channel mappings | Current working directory (`./config`) by default. |
 
-**Plugin Discovery Mechanism**
+### 2.1.6 Plugin Discovery Mechanism
 
 - System scans device directory for files matching pattern `device_*.py` and `flash_*.py`
 - Each plugin file must have a corresponding `.json` configuration file (`device_*.json` or `flash_*.json`)
@@ -105,7 +105,7 @@ SDTB supports user-defined devices through an extensible plugin architecture:
 - **Robust Path Handling**: The system validates that the configured `device_directory` is a valid directory before scanning. If the path is missing, `ConfigManager` attempts to create it; if the path exists but is a file, an error is logged and discovery is skipped to prevent `NotADirectoryError` crashes.
 - Available via `/device` and `/flash` endpoints without any configuration changes
 
-**BaseDevice Class Interface**
+### 2.1.7 BaseDevice Class Interface
 
 The BaseDevice abstract class defines the contract for all device plugins:
 
@@ -160,7 +160,7 @@ class BaseDevice(ABC):
         pass
 ```
 
-**BaseFlash Class Interface**
+### 2.1.8 BaseFlash Class Interface
 
 The BaseFlash abstract class defines the contract for all flashing protocol plugins:
 
@@ -213,7 +213,7 @@ class BaseFlash(ABC):
         pass
 ```
 
-**SignalDefinition**
+### 2.1.9 SignalDefinition
 
 Describes the metadata and physical characteristics of a device signal:
 
@@ -239,7 +239,7 @@ class SignalSwitch(SignalDefinition): pass
 class SignalCurrent(SignalDefinition): pass
 ```
 
-**BaseDeviceException**
+### 2.1.10 BaseDeviceException
 
 Custom exception for device plugin errors. Raised by plugin developers and captured by REST layer to report meaningful errors to API consumers.
 
@@ -248,7 +248,7 @@ class BaseDeviceException(Exception):
     def __init__(self, message: str, code: str = None): pass
 ```
 
-**BaseFlashException**
+### 2.1.11 BaseFlashException
 
 Custom exception for flashing protocol errors. Raised by protocol developers during connection or flashing operations to report specific failures (e.g., "Handshake Timeout", "CRC Mismatch").
 
@@ -257,7 +257,7 @@ class BaseFlashException(Exception):
     def __init__(self, message: str, code: str = None): pass
 ```
 
-**Configuration Files**
+### 2.1.12 Configuration Files
 
 SDTB uses independent configuration files for fault isolation. Each file is backed up (`.bak`) before every write. On startup, if a file is corrupted, the system falls back to its `.bak` copy. If both are corrupted, a fresh default is created and a warning is logged.
 
@@ -265,7 +265,7 @@ SDTB uses independent configuration files for fault isolation. Each file is back
 
 ```json
 {
-  "device_directory": "C:\\Users\\<user>\\SDTB\\devices",
+  "device_directory": "C:\\Users\\<USER>\\SDTB\\devices",
   "device_update_rate": 100,
   "server": {
     "host": "127.0.0.1",
@@ -286,7 +286,7 @@ SDTB uses independent configuration files for fault isolation. Each file is back
 }
 ```
 
-Note: Each device plugin (`device_<name>.py`) has a corresponding `device_<name>.json` in the same directory. The device class auto-loads its own configuration file at startup. If the JSON file is missing, a default is created.
+Note: Each device plugin (`device_<NAME>.py`) has a corresponding `device_<NAME>.json` in the same directory. The device class auto-loads its own configuration file at startup. If the JSON file is missing, a default is created.
 
 **channels.json** — Channel-to-signal mappings:
 
@@ -338,7 +338,7 @@ Note: Each device plugin (`device_<name>.py`) has a corresponding `device_<name>
 
 ### 2.2 High-Level Architecture
 
-```
+```text
 +----------------------+
 |   MCP Server Layer   |  ← Wrapper Layer (Python)
 +----------------------+
@@ -389,7 +389,7 @@ Note: Each device plugin (`device_<name>.py`) has a corresponding `device_<name>
 ### 3.1 Feature Map
 
 | Feature ID | Feature Name | Priority | Status |
-|------------|--------------|----------|--------|
+| ------------ | -------------- | ---------- | -------- |
 | F01 | System Management | High | Implemented |
 | F02 | Device Management | High | Implemented |
 | F03 | Signal Management | High | Implemented |
@@ -400,9 +400,9 @@ Note: Each device plugin (`device_<name>.py`) has a corresponding `device_<name>
 | F08 | Agentic Control (MCP) | Medium | Implemented |
 | F09 | Fault Injection | Low | Defined |
 
-### 3.1.1 Feature Descriptions
+### 3.1.2 Feature Descriptions
 
-- **System**: The core SDTB infrastructure handles the global configuration, hardware connection lifecycles, health status, and logging. It acts as the backbone that loads configuration files (`system.json`, `channels.json`, and per-device `device_<name>.json`), instantiates device drivers, and manages role-based access. Through the `/system` endpoints, administrators can cleanly connect or disconnect the entire test bench in one go.
+- **System**: The core SDTB infrastructure handles the global configuration, hardware connection lifecycles, health status, and logging. It acts as the backbone that loads configuration files (`system.json`, `channels.json`, and per-device `device_<NAME>.json`), instantiates device drivers, and manages role-based access. Through the `/system` endpoints, administrators can cleanly connect or disconnect the entire test bench in one go.
 
 - **Device**: Physical hardware instruments (e.g., multimeters, power supplies, CAN sniffers) are represented as software "Devices" in the system. The Device Management feature is responsible for discovering these plugin drivers dynamically on startup, tracking their health, and managing their configurations.
 
@@ -450,7 +450,7 @@ The system shall validate values against the min/max range defined by the target
 **API Endpoints**
 
 | Endpoint | Method | Description | Status Codes |
-|----------|--------|-------------|--------------|
+| ---------- | -------- | ------------- | -------------- |
 | `/system` | GET | Retrieve overall system health, status, and version information | 200 OK |
 | `/system/connect` | POST | Connect all configured hardware devices | 200 OK, 503 Service Unavailable |
 | `/system/disconnect` | POST | Gracefully disconnect all hardware devices | 200 OK, 503 Service Unavailable |
@@ -466,7 +466,7 @@ The system shall validate values against the min/max range defined by the target
 **Requirements**
 
 | ID | Requirement | Priority | Verification Method |
-|----|-------------|----------|---------------------|
+| ---- | ------------- | ---------- | --------------------- |
 | F01.01 | System shall provide a base endpoint (/system) indicating overall operational readiness and version information | High | Integration Test |
 | F01.02 | User shall be able to connect/disconnect hardware devices gracefully | High | Integration Test |
 | F01.03 | System shall maintain configuration persistence across restarts using independent config files (system.json, channels.json, and per-device device_<name>.json) | High | Integration Test |
@@ -490,17 +490,17 @@ The system shall validate values against the min/max range defined by the target
 **API Endpoints**
 
 | Endpoint | Method | Description | Response Object | Status Codes |
-|----------|--------|-------------|-----------------|--------------|
+| ---------- | -------- | ------------- | ----------------- | -------------- |
 | `/device` | GET | Retrieve list of all available devices | List[DeviceStatus] | 200 OK |
 | `/device/{device_id}/toggle` | POST | Enable or disable a device and save state to config | Message | 200 OK, 404 Not Found |
 | `/device/{device_id}` | GET | Retrieve detailed information for specific device | DeviceDetail | 200 OK, 404 Not Found |
 | `/device/{device_id}/status` | GET | Retrieve current operational status of device | DeviceStatus | 200 OK, 404 Not Found |
 | `/device/{device_id}/restart` | POST | Restart the hardware device | Message | 200 OK, 500 Internal Error |
 
-**DeviceStatus / DeviceDetail Properties**
+#### 3.3.1 DeviceStatus / DeviceDetail Properties
 
 | Property | Type | Description |
-|----------|------|-------------|
+| -------- | ---- | ----------- |
 | `id` | String | Unique device identifier specified in config |
 | `vendor` | String | Device manufacturer (from plugin) |
 | `model` | String | Device model (from plugin) |
@@ -516,7 +516,7 @@ Note: Each device's configuration is stored in its own `device_<name>.json` file
 **Requirements**
 
 | ID | Requirement | Priority | Verification Method |
-|----|-------------|----------|---------------------|
+| ---- | ------------- | ---------- | --------------------- |
 | F02.01 | System shall provide device discovery mechanism to enumerate available devices | High | Integration Test |
 | F02.02 | Each device shall expose unique identifier and human-readable name | High | Unit Test |
 | F02.03 | System shall maintain device metadata including vendor, model, capabilities, firmware version | Medium | Integration Test |
@@ -539,10 +539,10 @@ Note: Each device's configuration is stored in its own `device_<name>.json` file
 
 **Description**: Provide comprehensive control and monitoring capabilities for various signal types originating from or targeting connected devices.
 
-**Supported Signal Types**
+#### 3.3.2 Supported Signal Types
 
 | Signal Type | Description | Typical Use Cases |
-|-------------|-------------|-------------------|
+| ----------- | ----------- | ----------------- |
 | Passive Analog | Passive analog signal input (voltage sensing without excitation) | Voltage monitoring, sensor reading without excitation |
 | Active Analog | Active analog signal input/output (with excitation) | Thermistor, RTD sensors, load simulation |
 | Switch to Ground | Digital input that switches to ground reference | Button inputs, ground-referenced switches |
@@ -557,12 +557,12 @@ Note: Each device's configuration is stored in its own `device_<name>.json` file
 | LIN | Local Interconnect Network communication (TBD - future support) | Simple vehicle sensors, body electronics |
 | SENT | Single Edge Nibble Transmission (TBD - future support) | High-resolution sensor communication |
 
-**Signal Properties**
+#### 3.3.3 Signal Properties
 
 Each raw signal shall expose the following properties to define its physical characteristics:
 
 | Property | Type | Description | Example |
-|----------|------|-------------|---------|
+| -------- | ---- | ----------- | ------- |
 | `resolution` | Float | Number of bits or smallest increment | 12 (bits), 0.001 (V) |
 | `unit` | String | Measurement unit | "V", "mA", "%", "Hz" |
 | `offset` | Float | Calibration offset applied to raw value | 0.0, -0.05 |
@@ -574,7 +574,7 @@ Each raw signal shall expose the following properties to define its physical cha
 **API Endpoints**
 
 | Endpoint | Method | Description | Status Codes |
-|----------|--------|-------------|--------------|
+| -------- | ------ | ----------- | ----------- |
 | `/device/{device_id}/signal` | GET | Retrieve a list of all available signals for the device | 200 OK, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}` | PUT | Write to a raw device signal using a `WriteValue` request body (Pydantic validated) | 200 OK, 400 Bad Request, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}` | GET | Read a raw device signal | 200 OK, 404 Not Found |
@@ -590,7 +590,7 @@ Each raw signal shall expose the following properties to define its physical cha
 **Requirements**
 
 | ID | Requirement | Priority | Verification Method |
-|----|-------------|----------|---------------------|
+| ---- | ------------- | ---------- | --------------------- |
 | F03.01 | User shall be able to configure analog signal output parameters (voltage/current range, precision) | High | Integration Test |
 | F03.02 | User shall be able to read analog signal input with configurable sampling rates | High | Integration Test |
 | F03.03 | System shall support both single-ended and differential analog signal modes where hardware permits | Medium | Integration Test |
@@ -618,19 +618,19 @@ Each raw signal shall expose the following properties to define its physical cha
 Note: Channel endpoints are for reading and writing logical signal values. Channel configuration (mapping channel to device signal) is handled via `/system/config/channels`.
 
 | Endpoint | Method | Description | Status Codes |
-|----------|--------|-------------|--------------|
+| -------- | ------ | ----------- | ----------- |
 | `/channel` | GET | List all available channels across all devices | 200 OK |
 | `/channel/{channel_id}` | GET | Read signal value from channel | 200 OK, 404 Not Found |
 | `/channel/{channel_id}` | PUT | Write signal value to channel using a `WriteValue` request body (Pydantic validated) | 200 OK, 400 Bad Request, 404 Not Found |
 | `/channel/{channel_id}/info` | GET | Retrieve detailed meta information about channel | 200 OK, 404 Not Found |
 | `/channel/{channel_id}/status` | GET | Retrieve current status of channel | 200 OK, 404 Not Found |
 
-**Channel Properties**
+#### 3.3.4 Channel Properties
 
 Each channel shall expose the following properties for proper signal handling:
 
 | Property | Type | Description | Example |
-|----------|------|-------------|---------|
+| -------- | ---- | ----------- | ------- |
 | `conversion` | Object | The conversion strategy (linear, polynomial, lut) | `{"type": "linear", "resolution": 1.0}` |
 | `unit` | String | Measurement unit | "V", "mA", "%", "Hz" |
 | `min` | Float | Minimum valid range value | 0.0, -10.0 |
@@ -640,7 +640,7 @@ Each channel shall expose the following properties for proper signal handling:
 **Requirements**
 
 | ID | Requirement | Priority | Verification Method |
-|----|-------------|----------|---------------------|
+| ---- | ------------- | ---------- | --------------------- |
 | F04.01 | Adding new device channels shall require zero changes to existing REST API consumers | High | Contract Test |
 | F04.02 | Modifying existing device channels shall require zero changes to existing REST API consumers for compatible changes | High | Contract Test |
 | F04.03 | Removing device channels shall require zero changes to existing REST API consumers (graceful degradation - channel returns offline/error status) | High | Contract Test |
@@ -659,7 +659,7 @@ Each channel shall expose the following properties for proper signal handling:
 **API Endpoints**
 
 | Endpoint | Method | Description | Status Codes |
-|----------|--------|-------------|--------------|
+| -------- | ------ | ----------- | ----------- |
 | `/flash/connect` | POST | Connect to the flash target device/ECU (independent of system connect) | 200 OK, 400 Bad Request, 503 Service Unavailable |
 | `/flash/disconnect` | POST | Disconnect from the flash target device/ECU | 200 OK, 503 Service Unavailable |
 | `/flash` | POST | Initiate software flashing process (supports multipart/form-data for ≤10MB files) | 202 Accepted, 400 Bad Request, 500 Internal Error |
@@ -673,7 +673,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 **Requirements**
 
 | ID | Requirement | Priority | Verification Method |
-|----|-------------|----------|---------------------|
+| ---- | ------------- | ---------- | --------------------- |
 | F05.01 | User shall be able to connect/disconnect to flash target independently of system device connections | High | Integration Test |
 | F05.02 | User shall be able to initiate software flashing via REST API endpoint | High | Integration Test |
 | F05.03 | System shall return unique flash operation ID upon initiation | High | Unit Test |
@@ -689,7 +689,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 | F05.13 | System shall provide BaseFlash Python class for user to extend custom protocols | High | Unit Test |
 | F05.14 | Flashing protocol plugins (flash_*.py) shall be auto-detected at startup | High | Integration Test |
 
-**Non-Functional Requirements**
+#### 3.3.5 Non-Functional Requirements
 
 - Flash operations shall support progress reporting (percentage complete)
 - System shall enforce a **10MB maximum file size** for firmware uploads to ensure server stability
@@ -703,7 +703,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 **API Endpoints**
 
 | Endpoint | Method | Description | Status Codes |
-|----------|--------|-------------|--------------|
+| -------- | ------ | ----------- | ----------- |
 | `/test` | GET | Retrieve list of available test definitions | 200 OK |
 | `/test` | POST | Upload or create a new test definition | 201 Created, 400 Bad Request |
 | `/test/{test_id}` | GET | Retrieve details of a specific test definition | 200 OK, 404 Not Found |
@@ -720,7 +720,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 **Requirements**
 
 | ID | Requirement | Priority | Verification Method |
-|----|-------------|----------|---------------------|
+| ---- | ------------- | ---------- | --------------------- |
 | F06.01 | User shall be able to initiate test execution via REST API and receive unique test identifier | High | Integration Test |
 | F06.02 | System shall maintain test execution queue; only one test runs at a time, additional requests are queued | High | Integration Test |
 | F06.03 | User shall be able to monitor real-time test execution status and progress | High | Integration Test |
@@ -743,7 +743,7 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 **API Endpoints**
 
 | Endpoint | Method | Description | Status Codes |
-|----------|--------|-------------|--------------|
+| -------- | ------ | ----------- | ----------- |
 | `/ui` | GET | Serve the browser-based dashboard application | 200 OK |
 | `/ui/config` | GET | Retrieve UI layout configuration (ui.json) | 200 OK |
 | `/ui/config` | PUT | Update UI layout configuration (ui.json) | 200 OK, 400 Bad Request |
@@ -774,7 +774,7 @@ The UI uses **GoldenLayout v1.5.9**, a sophisticated dockable panel manager that
 **Toolbar / Menubar**
 
 | Menu Item | Description |
-|-----------|-------------|
+| --------- | ----------- |
 | File | Import/export test scripts, save/load UI layouts |
 | About | System information, SDTB version, API version |
 | Preference | Opens system configuration (system.json) as a form overlay dialog |
@@ -784,7 +784,7 @@ The UI uses **GoldenLayout v1.5.9**, a sophisticated dockable panel manager that
 The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the center content area.
 
 | View Name | Description |
-|-----------|-------------|
+| --------- | ----------- |
 | Dashboard | Ultra-Compact v3 grid displaying mapped channel widgets. Supports **Quick Look** (click widget to open high-res modal oscilloscope). |
 | Widget Mapper | Configuration interface to assign widget types to channels. |
 | Channel Mapper | Interface to create/edit channel-to-signal mappings visually. |
@@ -796,7 +796,7 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 **Supported Widget Types**
 
 | Widget Type | Description | Typical Channel Mapping |
-|-------------|-------------|------------------------|
+| ----------- | ----------- | ---------------- |
 | Button | Toggle ON/OFF control | Digital output channels (relay, switch) |
 | LED | Status indicator (ON/OFF/color) | Digital input channels (status signals) |
 | Slider | Continuous value control with range | Analog output channels (voltage, current) |
@@ -804,10 +804,10 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 | Bar Graph | Vertical/horizontal bar for value visualization | Analog input channels (level, percentage) |
 | Numeric Display | Real-time numeric value readout | Any readable channel |
 
-**Requirements**
+#### 3.3.6 Requirements
 
 | ID | Requirement | Priority | Verification Method |
-|----|-------------|----------|---------------------|
+| ---- | ------------- | ---------- | --------------------- |
 | F07.01 | System shall serve a browser-based UI dashboard via /ui endpoint | Medium | Integration Test |
 | F07.02 | UI shall follow a three-region layout: toolbar/menubar (top), sidebar (left), and center content area | Medium | Integration Test |
 | F07.03 | Toolbar shall provide File, About, and Preference menu items | Medium | Integration Test |
@@ -842,13 +842,13 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 **MCP Resources**
 
 | URI | Name | Description |
-|-----|------|-------------|
+| --- | ---- | ----------- |
 | `sdtb://docs/control-guide` | SDTB Control Guide | Markdown documentation explaining the hardware lifecycle (Connect -> Discover -> Interact -> Disconnect). |
 
 **MCP Tools**
 
 | Tool Name | Description | Key Parameters |
-|-----------|-------------|----------------|
+| --------- | ----------- | -------------- |
 | `list_channels` | Lists all logical channels available on the bench. | None |
 | `read_channel` | Reads the current value of a single channel. | `channel_id` |
 | `read_channels` | Batch read multiple channels in a single request. | `channel_ids: List[str]` |
@@ -864,7 +864,7 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 **Requirements**
 
 | ID | Requirement | Priority | Verification Method |
-|----|-------------|----------|---------------------|
+| ---- | ------------- | ---------- | --------------------- |
 | F08.01 | System shall expose an MCP interface over SSE (Server-Sent Events) transport. | High | Integration Test |
 | F08.02 | MCP interface shall share the same system state as the REST API. | High | Contract Test |
 | F08.03 | Agents shall be able to discover all channels via `list_channels`. | High | Agent Test |
@@ -879,7 +879,7 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 **API Integration**: Faults are managed directly through the signal endpoints. Users do not call a separate fault service; instead, they apply faults to specific hardware signals.
 
 | Endpoint | Method | Description | Status Codes |
-|----------|--------|-------------|--------------|
+| -------- | ------ | ----------- | ----------- |
 | `/device/{device_id}/signal/{signal_id}/fault` | GET | Retrieve list of available faults for the signal | 200 OK, 404 Not Found |
 | `/device/{device_id}/signal/{signal_id}/fault` | POST | Trigger a specific fault on the signal (accepts `fault_id`) | 200 OK, 400 Bad Request |
 | `/device/{device_id}/signal/{signal_id}/fault` | DELETE | Clear the active fault on the signal | 200 OK |
@@ -888,7 +888,7 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 **Fault Types**
 
 | Fault Type | Description |
-|------------|-------------|
+| ---------- | ----------- |
 | Short to Ground | Forces a signal to 0V/Ground |
 | Short to Battery | Forces a signal to Battery voltage (Vbatt) |
 | Open Circuit | Disconnects the signal path (High Impedance) |
@@ -899,7 +899,7 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 **Requirements**
 
 | ID | Requirement | Priority | Verification Method |
-|----|-------------|----------|---------------------|
+| ---- | ------------- | ---------- | --------------------- |
 | F09.01 | User shall be able to trigger faults on specific channels or raw signals | Low | Integration Test |
 | F09.02 | System shall support timed faults (automatic clearing after a duration) | Low | Integration Test |
 | F09.03 | System shall provide a global "Clear All Faults" safety mechanism | Low | Integration Test |
@@ -913,9 +913,9 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 
 1. Server process starts and loads `system.json` and `channels.json` from the current working directory (`./config`)
 2. If any config file is not found, system creates it with default values
-3. System reads device directory path from `system.json` and scans for `device_*.py` plugin files and their corresponding `device_*.json` config files (with robust directory validation to prevent crashes).
+3. System reads device directory path from `system.json` and scans for `device_<NAME>*.py` plugin files and their corresponding `device_<NAME>*.json` config files (with robust directory validation to prevent crashes).
 4. Discovered plugins are registered and visible via `GET /device`, but remain in `offline` state
-5. Each discovered plugin auto-loads its own `device_<name>.json` configuration
+5. Each discovered plugin auto-loads its own `device_<NAME>.json` configuration
 6. REST API becomes available; `GET /system` returns system status with discovered device summary
 7. Devices are **not connected** until the user explicitly calls `POST /system/connect`
 
@@ -930,15 +930,15 @@ The sidebar displays icon buttons (VS Code-style). Clicking an icon switches the
 5. User calls `POST /system/disconnect` to gracefully disconnect all devices
 6. On server restart, system auto-disconnects any connected devices before re-initializing
 
-**Device State Transitions:**
+#### 3.4.1 Device State Transitions
 
-```
+```text
 offline → idle → busy → idle
                 ↘ error → idle (on recovery)
 ```
 
 | State | Description |
-|-------|-------------|
+| ----- | ----------- |
 | `offline` | Discovered but not connected |
 | `idle` | Connected and ready for operations |
 | `busy` | Currently executing an operation |
@@ -998,7 +998,7 @@ offline → idle → busy → idle
 7. **Complete**: Results available via `GET /run/{execution_id}/results`
 8. **Abort**: User can call `POST /run/{execution_id}/abort` at any time
 
-**JSONL Test Script Format:**
+#### 3.4.2 JSONL Test Script Format
 
 ```jsonl
 {"step": 1, "action": "write", "channel": "ch_voltage_1", "value": 3.3}
@@ -1017,12 +1017,12 @@ offline → idle → busy → idle
 5. **Read operations** remain available during test execution for monitoring purposes
 6. Queued runs execute in order once the active run completes or is aborted
 
-**Workflow Requirements:**
+#### 3.4.3 Workflow Requirements
 
 | ID | Requirement | Priority | Verification Method |
-|----|-------------|----------|---------------------|
+| ---- | ------------- | ---------- | --------------------- |
 | W01.01 | System shall discover device plugins at startup without connecting to hardware | High | Integration Test |
-| W01.02 | Each device plugin shall auto-load its own device_<name>.json; if missing, a default shall be created | High | Integration Test |
+| W01.02 | Each device plugin shall auto-load its own device_<NAME>.json; if missing, a default shall be created | High | Integration Test |
 | W01.03 | System shall create a backup (.bak) of each config file before every write operation | High | Integration Test |
 | W01.04 | On startup, if a config file is corrupted, system shall fall back to its .bak copy | High | Integration Test |
 | W01.05 | If both primary and backup config files are corrupted, system shall create fresh defaults and log a warning | High | Integration Test |

@@ -3,8 +3,9 @@ from core.system import SDTBSystem
 
 router = APIRouter(prefix="/test", tags=["Test Execution"])
 
-# Access the singleton system instance
-system = SDTBSystem()
+# Access the singleton system instance via call to ensure we always have the current instance
+def get_system():
+    return SDTBSystem()
 
 @router.post("/run")
 async def run_test(background_tasks: BackgroundTasks, script: str = Body(..., media_type="text/plain")):
@@ -13,6 +14,7 @@ async def run_test(background_tasks: BackgroundTasks, script: str = Body(..., me
     Runs asynchronously in the background.
     """
     try:
+        system = get_system()
         # Synchronously claim the engine and get a one-time token.
         # This prevents race conditions from concurrent HTTP requests.
         token = system.test_engine.claim_engine()
@@ -28,6 +30,7 @@ async def stop_test():
     """
     Aborts the currently running test sequence.
     """
+    system = get_system()
     if not system.test_engine.is_test_running:
         return {"message": "No test is currently running"}
         
@@ -39,6 +42,7 @@ async def get_test_status():
     """
     Returns the current operational status of the test engine.
     """
+    system = get_system()
     return {
         "is_running": system.test_engine.is_test_running,
         "abort_requested": system.test_engine._stop_requested
@@ -49,4 +53,4 @@ async def get_test_history():
     """
     Returns the history of all executed test steps.
     """
-    return system.test_engine.history
+    return get_system().test_engine.history
