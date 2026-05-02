@@ -399,10 +399,57 @@ function renderDashboard() {
 
 function createWidgetCard(widget) {
     const card = document.createElement('div');
-    card.className = 'widget-card';
+    card.className = 'widget-card' + (widget.type === 'gauge' ? ' widget-wide' : '');
     card.id = `widget-${widget.id}`;
     let content = `<div class="widget-header"><span class="widget-label">${widget.label}</span><div class="widget-actions"><button class="btn-icon" onclick="editWidgetById('${widget.id}')"><i data-lucide="edit-2"></i></button></div></div>`;
-    if (widget.type === 'gauge') content += `<div class="widget-content gauge-container"><div class="gauge-value" id="val-${widget.id}">--</div><div class="gauge-label">${widget.type}</div></div>`;
+    if (widget.type === 'gauge') {
+        const ch = state.channels.find(c => c.channel_id === widget.channel);
+        const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
+        let ticks = '';
+        for (let i = 0; i <= 6; i++) {
+            const tickVal = min + (max - min) * (i / 6);
+            const angle = -180 + (i / 6) * 180;
+            const rad = angle * Math.PI / 180;
+            const x1 = 50 + 35 * Math.cos(rad);
+            const y1 = 75 + 35 * Math.sin(rad);
+            const x2 = 50 + 39 * Math.cos(rad);
+            const y2 = 75 + 39 * Math.sin(rad);
+            const tx = 50 + 46 * Math.cos(rad);
+            const ty = 75 + 46 * Math.sin(rad);
+            ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,0.3)" stroke-width="1" />`;
+            ticks += `<text x="${tx}" y="${ty + (i === 0 || i === 6 ? 6 : 0)}" fill="var(--text-muted)" font-size="4" text-anchor="middle" alignment-baseline="middle">${Math.round(tickVal)}</text>`;
+        }
+
+        content += `
+        <div class="widget-content gauge-container analog-gauge">
+            <div class="gauge-visual">
+                <svg viewBox="0 20 100 55" class="gauge-svg">
+                    <defs>
+                        <linearGradient id="grad-${widget.id}" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="var(--accent-primary)" />
+                            <stop offset="100%" stop-color="#60a5fa" />
+                        </linearGradient>
+                    </defs>
+                    <!-- Background Arc -->
+                    <path class="gauge-bg" d="M 15 75 A 35 35 0 0 1 85 75" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2" />
+                    <!-- Ticks -->
+                    ${ticks}
+                    <!-- Main Arc -->
+                    <path class="gauge-arc" d="M 15 75 A 35 35 0 0 1 85 75" fill="none" stroke="url(#grad-${widget.id})" stroke-width="4" stroke-linecap="round" />
+                    
+                    <!-- Sharp Needle -->
+                    <g id="needle-group-${widget.id}" class="needle-group" style="transform: rotate(-90deg); transform-origin: 50px 75px; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);">
+                        <polygon points="48.5,75 50,35 51.5,75" fill="#ffffff" />
+                        <circle cx="50" cy="75" r="2.5" fill="var(--bg-card)" stroke="#ffffff" stroke-width="1" />
+                    </g>
+                </svg>
+                <div class="gauge-footer-analog">
+                    <div class="gauge-value-analog"><span id="val-${widget.id}">--</span> <span class="unit">${ch?.properties.unit || ''}</span></div>
+                    <div class="gauge-label-analog">${widget.label}</div>
+                </div>
+            </div>
+        </div>`;
+    }
     else if (widget.type === 'bar') content += `<div class="widget-content bar-container"><div class="bar-bg"><div class="bar-fill" id="fill-${widget.id}" style="width: 0%"></div></div><div class="widget-value-sm" id="val-${widget.id}">--</div></div>`;
     else if (widget.type === 'oscilloscope') content += `<div class="widget-content oscilloscope-container" style="cursor: pointer;" onclick="openQuickOscilloscope('${widget.channel}')" title="Click for detail view"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><polyline id="poly-${widget.id}" fill="none" stroke="var(--accent-primary)" stroke-width="1.5" points="0,20 100,20" /></svg><div class="widget-value-sm"><span id="val-${widget.id}">--</span></div></div>`;
     else if (widget.type === 'led') content += `<div class="widget-content led-container"><div class="led-bulb" id="led-${widget.id}"></div><div class="widget-value-sm" id="val-${widget.id}">OFF</div></div>`;
@@ -445,7 +492,17 @@ function updateWidgetValue(widget, val) {
         const isActive = val > 0.5;
         if (toggle) toggle.checked = isActive;
         valEl.innerText = isActive ? 'ON' : 'OFF';
-    } else if (widget.type === 'gauge' || widget.type === 'numeric' || widget.type === 'slider') {
+    } else if (widget.type === 'gauge') {
+        const ch = state.channels.find(c => c.channel_id === widget.channel);
+        const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
+        const percent = Math.min(Math.max((val - min) / (max - min || 1), 0), 1);
+
+        const angle = (percent * 180) - 90;
+        const needle = document.getElementById(`needle-group-${widget.id}`);
+        if (needle) needle.style.transform = `rotate(${angle}deg)`;
+
+        valEl.innerText = Number(val).toFixed(1);
+    } else if (widget.type === 'numeric' || widget.type === 'slider') {
         valEl.innerText = Number(val).toFixed(2);
         if (widget.type === 'slider') {
             const slider = document.getElementById(`slider-${widget.id}`);
@@ -472,9 +529,17 @@ function updateOscilloscope(poly, val, widget) {
     const ch = state.channels.find(c => c.channel_id === widget.channel);
     const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100, range = max - min || 1;
     oscilloscopeHistory[widget.id].push(40 - ((val - min) / range * 40));
-    console.log(oscilloscopeHistory[widget.id]);
     if (oscilloscopeHistory[widget.id].length > 50) oscilloscopeHistory[widget.id].shift();
     poly.setAttribute('points', oscilloscopeHistory[widget.id].map((v, i) => `${i * 2},${v}`).join(' '));
+}
+
+function updateSparkline(poly, val, widget) {
+    if (!oscilloscopeHistory[widget.id]) oscilloscopeHistory[widget.id] = new Array(30).fill(10);
+    const ch = state.channels.find(c => c.channel_id === widget.channel);
+    const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100, range = max - min || 1;
+    oscilloscopeHistory[widget.id].push(20 - ((val - min) / range * 20));
+    if (oscilloscopeHistory[widget.id].length > 30) oscilloscopeHistory[widget.id].shift();
+    poly.setAttribute('points', oscilloscopeHistory[widget.id].map((v, i) => `${(i / 29) * 100},${v}`).join(' '));
 }
 
 window.widgetWrite = async (id, val) => { try { await apiPut(`/channel/${id}`, { value: Number(val) }); } catch (e) { addLog(`Write failed: ${e.message}`, 'error'); } };
@@ -697,8 +762,8 @@ function renderTestTable() {
         const chanHtml = step.cmd === 'WAIT' ? `<select class="table-input" disabled><option>N/A</option></select>` : `<select class="table-input" onchange="state.testSteps[${index}].channel = this.value">${channelOptions}</select>`;
 
         const valHtml = `<input type="number" class="table-input" value="${step.value}" onchange="state.testSteps[${index}].value = this.value" placeholder="${step.cmd === 'WAIT' ? 'ms' : 'Value'}">`;
-        
-        const condHtml = step.cmd === 'ASSERT' ? 
+
+        const condHtml = step.cmd === 'ASSERT' ?
             `<select class="table-input" onchange="state.testSteps[${index}].condition = this.value">
                 <option value="==" ${step.condition === '==' ? 'selected' : ''}>==</option>
                 <option value="!=" ${step.condition === '!=' ? 'selected' : ''}>!=</option>
@@ -706,7 +771,7 @@ function renderTestTable() {
                 <option value=">=" ${step.condition === '>=' ? 'selected' : ''}>&gt;=</option>
                 <option value="<" ${step.condition === '<' ? 'selected' : ''}>&lt;</option>
                 <option value="<=" ${step.condition === '<=' ? 'selected' : ''}>&lt;=</option>
-            </select>` : 
+            </select>` :
             `<select class="table-input" disabled><option>N/A</option></select>`;
         const actionsHtml = `<button class="btn-icon" onclick="removeTestStep(${index})"><i data-lucide="trash-2" style="color: #ef4444"></i></button>`;
         row.innerHTML = `<td>${cmdHtml}</td><td>${chanHtml}</td><td>${valHtml}</td><td>${condHtml}</td><td><div class="flex-row">${actionsHtml}</div></td>`;
@@ -743,7 +808,7 @@ function setupSSE() {
 
 function handleChannelUpdate(id, val) {
     val = Number(val);
-    
+
     // Update local cache so values persist across tab switches
     const ch = state.channels.find(c => c.channel_id === id);
     if (ch && ch.properties) ch.properties.value = val;
@@ -797,8 +862,8 @@ function handleDeviceSignalUpdate(devId, sigId, val) {
 }
 
 // Legacy stub functions - logic is now handled by multiplexed stream
-function subscribeToChannel(id) {}
-function subscribeToDeviceSignal(devId, sigId) {}
+function subscribeToChannel(id) { }
+function subscribeToDeviceSignal(devId, sigId) { }
 
 async function refreshDevices() {
     try {
@@ -1153,7 +1218,7 @@ function setupOscilloscopeViewer() {
             Object.keys(state.oscilloscope.history).forEach(id => {
                 if (!uplotGlobal.y[id]) uplotGlobal.y[id] = new Array(uplotGlobal.x.length - 1).fill(null);
                 const chan = state.oscilloscope.history[id];
-                
+
                 let latest = null;
                 if (chan.data.length > 0) {
                     latest = chan.data[chan.data.length - 1].v;
@@ -1170,7 +1235,7 @@ function setupOscilloscopeViewer() {
                         }
                     }
                 }
-                
+
                 // Update the UI value display
                 const valEl = document.getElementById(`wave-val-${id}`);
                 if (valEl) valEl.innerText = latest !== null ? latest.toFixed(2) : '--';
@@ -1541,10 +1606,10 @@ function setupFlashView() {
             }
 
             if (!state.flash.connectedId || !state.flash.selectedFile) return;
-            
+
             const flashId = state.flash.connectedId;
             const params = document.getElementById('flash-params').value;
-            
+
             const formData = new FormData();
             formData.append('flash_id', flashId);
             formData.append('file', state.flash.selectedFile);
@@ -1553,10 +1618,10 @@ function setupFlashView() {
             try {
                 setFlashButtonState('flashing');
                 addFlashLog('Starting flashing process...', 'info');
-                
+
                 const res = await fetch('/flash', { method: 'POST', body: formData });
                 if (!res.ok) throw new Error(await res.text());
-                
+
                 const data = await res.json();
                 state.flash.activeExecutionId = data.execution_id;
                 startFlashLogStream(flashId, data.execution_id);
@@ -1576,8 +1641,8 @@ async function initFlashView() {
         // For now, let's assume we have an endpoint or just mock it since we haven't implemented get_protocols API
         // Actually, I implemented FlashManager, but let's see if I should add a list endpoint
         // I'll check my flash.py router
-    } catch (e) {}
-    
+    } catch (e) { }
+
     // Refresh protocols list
     updateFlashProtocols();
     updateFlashStartButton();
@@ -1586,11 +1651,11 @@ async function initFlashView() {
 async function updateFlashProtocols() {
     const select = document.getElementById('flash-protocol-select');
     if (!select) return;
-    
+
     try {
         const protocols = await apiGet('/flash/protocols');
         select.innerHTML = '';
-        
+
         if (protocols.length === 0) {
             const opt = document.createElement('option');
             opt.text = 'No protocols found';
@@ -1616,13 +1681,13 @@ function handleFlashFileSelect(file) {
     const info = document.getElementById('flash-file-info');
     const nameEl = document.getElementById('flash-file-name');
     const sizeEl = document.getElementById('flash-file-size');
-    
+
     if (info && nameEl && sizeEl) {
         nameEl.innerText = file.name;
         sizeEl.innerText = `${(file.size / 1024).toFixed(1)} KB`;
         info.classList.remove('hidden');
     }
-    
+
     updateFlashStartButton();
     addFlashLog(`Selected file: ${file.name}`, 'info');
 }
@@ -1636,10 +1701,10 @@ function updateFlashStartButton() {
         btn.disabled = false;
         return;
     }
-    
+
     const isConnected = !!state.flash.connectedId;
     const hasFile = !!state.flash.selectedFile;
-    
+
     btn.disabled = !(isConnected && hasFile);
 }
 
@@ -1669,7 +1734,7 @@ function setFlashButtonState(mode) {
 function addFlashLog(msg, type = 'info') {
     const log = document.getElementById('flash-log');
     if (!log) return;
-    
+
     const entry = document.createElement('div');
     entry.className = `log-entry ${type}`;
     entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
@@ -1679,10 +1744,10 @@ function addFlashLog(msg, type = 'info') {
 
 function startFlashLogStream(flashId, execId) {
     if (state.flash.sse) state.flash.sse.close();
-    
+
     const sse = new EventSource(`/flash/log?flash_id=${flashId}&execution_id=${execId}`);
     state.flash.sse = sse;
-    
+
     sse.onmessage = (e) => {
         if (e.data.startsWith('FLASH_PROCESS_TERMINATED')) {
             addFlashLog(`Process finished: ${e.data.split(': ')[1]}`, 'system');
@@ -1693,7 +1758,7 @@ function startFlashLogStream(flashId, execId) {
         }
         addFlashLog(e.data, 'debug');
     };
-    
+
     sse.onerror = () => {
         addFlashLog('Log stream disconnected', 'error');
         sse.close();
@@ -1706,7 +1771,7 @@ function startFlashStatusPolling(flashId, execId) {
     const poll = setInterval(async () => {
         try {
             const status = await apiGet(`/flash/status?flash_id=${flashId}&execution_id=${execId}`);
-            
+
             if (status.error) {
                 console.warn(`[Flash] Polling error: ${status.error}`);
                 return;
@@ -1715,10 +1780,10 @@ function startFlashStatusPolling(flashId, execId) {
             const progress = status.progress !== undefined ? status.progress : 0;
             const bar = document.getElementById('flash-progress-bar');
             const text = document.getElementById('flash-progress-text');
-            
+
             if (bar) bar.style.width = `${progress}%`;
             if (text) text.innerText = `${status.status} (${progress}%)`;
-            
+
             errorCount = 0;
 
             const currentStatus = (status.status || "").toLowerCase();

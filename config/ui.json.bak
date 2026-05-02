@@ -36,6 +36,18 @@
       },
       "min": null,
       "max": null
+    },
+    {
+      "id": "w1777704537452",
+      "type": "gauge",
+      "channel": "map_sensor",
+      "label": "map_sensor",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
     }
   ]
 }
