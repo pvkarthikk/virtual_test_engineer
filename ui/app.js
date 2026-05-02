@@ -372,36 +372,108 @@ async function pollDashboard() {
 }
 
 function renderDashboard() {
-    const grid = document.getElementById('dashboard-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
+    const gridEl = document.getElementById('dashboard-grid');
+    if (!gridEl) return;
+
+    // Destroy previous grid instance fully so we can re-init
+    if (state.grid) {
+        state.grid.removeAll();
+        state.grid.destroy(false);
+        state.grid = null;
+    }
+
+    // Set up renderCB so GridStack injects our HTML content
+    GridStack.renderCB = function (el, w) {
+        const contentEl = el.querySelector('.grid-stack-item-content');
+        if (contentEl && w.content) {
+            contentEl.innerHTML = w.content;
+        }
+    };
+
+    state.grid = GridStack.init({
+        margin: 5,
+        cellHeight: 80,
+        column: 12,
+        float: false,
+        animate: true,
+        resizable: { handles: 'e,se,s,sw,w' },
+        draggable: { handle: '.widget-header' }
+    }, gridEl);
+
+    state.grid.on('change', (event, items) => {
+        if (!items) return;
+        items.forEach(item => {
+            const gsEl = item.el;
+            const contentEl = gsEl.querySelector('[data-widget-id]');
+            const widgetId = contentEl ? contentEl.getAttribute('data-widget-id') : null;
+            const widget = widgetId ? state.uiConfig.widgets.find(w => w.id === widgetId) : null;
+            if (widget) {
+                widget.x = item.x;
+                widget.y = item.y;
+                widget.w = item.w;
+                widget.h = item.h;
+            }
+        });
+        localStorage.setItem('sdtb-widgets-layout', JSON.stringify(state.uiConfig.widgets));
+    });
 
     if (state.status !== 'online') {
-        grid.innerHTML = `
-            <div class="empty-state" style="grid-row: 1; grid-column: 1 / -1; height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.2); border-radius: 12px; border: 2px dashed var(--border-color);">
-                <i data-lucide="shield-off" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 15px;"></i>
-                <h2 style="color: var(--text-main); margin-bottom: 8px;">System Disconnected</h2>
-                <p style="color: var(--text-muted);">Please click the <strong>Connect</strong> button in the toolbar to start hardware monitoring.</p>
-            </div>`;
+        state.grid.addWidget({
+            x: 0, y: 0, w: 12, h: 4, noMove: true, noResize: true,
+            content: `<div class="gs-empty-state">
+                <i data-lucide="shield-off" style="width:48px;height:48px;color:var(--text-muted);margin-bottom:15px"></i>
+                <h2>System Disconnected</h2>
+                <p>Click <strong>Connect</strong> to start hardware monitoring.</p>
+            </div>`
+        });
         lucide.createIcons();
         return;
     }
 
     if (state.uiConfig.widgets.length === 0) {
-        grid.innerHTML = '<div class="empty-state"><p>No widgets configured. Add some in Widget Mapper.</p></div>';
+        state.grid.addWidget({
+            x: 0, y: 0, w: 12, h: 3, noMove: true, noResize: true,
+            content: `<div class="gs-empty-state"><p>No widgets configured. Go to <strong>Widget Mapper</strong> to add some.</p></div>`
+        });
         return;
     }
+
     state.uiConfig.widgets.forEach(widget => {
-        grid.appendChild(createWidgetCard(widget));
+        const defaults = getWidgetDefaults(widget.type);
+        state.grid.addWidget({
+            x: widget.x ?? undefined,
+            y: widget.y ?? undefined,
+            w: widget.w || defaults.w,
+            h: widget.h || defaults.h,
+            minW: defaults.minW,
+            minH: defaults.minH,
+            autoPosition: (widget.x === undefined || widget.x === null),
+            content: buildWidgetHTML(widget)
+        });
         subscribeToChannel(widget.channel);
     });
+
+    lucide.createIcons();
 }
 
-function createWidgetCard(widget) {
-    const card = document.createElement('div');
-    card.className = 'widget-card' + (widget.type === 'gauge' ? ' widget-wide' : '');
-    card.id = `widget-${widget.id}`;
-    let content = `<div class="widget-header"><span class="widget-label">${widget.label}</span><div class="widget-actions"><button class="btn-icon" onclick="editWidgetById('${widget.id}')"><i data-lucide="edit-2"></i></button></div></div>`;
+function getWidgetDefaults(type) {
+    switch (type) {
+        case 'gauge':        return { w: 3, h: 3, minW: 2, minH: 2 };
+        case 'knob':         return { w: 2, h: 3, minW: 2, minH: 2 };
+        case 'oscilloscope': return { w: 3, h: 2, minW: 2, minH: 2 };
+        case 'bar':          return { w: 2, h: 2, minW: 2, minH: 1 };
+        case 'slider':       return { w: 2, h: 2, minW: 2, minH: 1 };
+        case 'toggle':       return { w: 2, h: 2, minW: 1, minH: 1 };
+        case 'led':          return { w: 2, h: 2, minW: 1, minH: 1 };
+        case 'button':       return { w: 2, h: 2, minW: 1, minH: 1 };
+        default:             return { w: 2, h: 2, minW: 1, minH: 1 };
+    }
+}
+
+function buildWidgetHTML(widget) {
+    const header = `<div class="widget-header"><span class="widget-label">${widget.label}</span><button class="btn-icon" onclick="editWidgetById('${widget.id}')"><i data-lucide="edit-2"></i></button></div>`;
+    let body = '';
+
     if (widget.type === 'gauge') {
         const ch = state.channels.find(c => c.channel_id === widget.channel);
         const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
@@ -410,73 +482,57 @@ function createWidgetCard(widget) {
             const tickVal = min + (max - min) * (i / 6);
             const angle = -180 + (i / 6) * 180;
             const rad = angle * Math.PI / 180;
-            const x1 = 50 + 35 * Math.cos(rad);
-            const y1 = 75 + 35 * Math.sin(rad);
-            const x2 = 50 + 39 * Math.cos(rad);
-            const y2 = 75 + 39 * Math.sin(rad);
-            const tx = 50 + 46 * Math.cos(rad);
-            const ty = 75 + 46 * Math.sin(rad);
-            ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,0.3)" stroke-width="1" />`;
+            const x1 = 50 + 35 * Math.cos(rad), y1 = 75 + 35 * Math.sin(rad);
+            const x2 = 50 + 39 * Math.cos(rad), y2 = 75 + 39 * Math.sin(rad);
+            const tx = 50 + 46 * Math.cos(rad), ty = 75 + 46 * Math.sin(rad);
+            ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>`;
             ticks += `<text x="${tx}" y="${ty + (i === 0 || i === 6 ? 6 : 0)}" fill="var(--text-muted)" font-size="4" text-anchor="middle" alignment-baseline="middle">${Math.round(tickVal)}</text>`;
         }
-
-        content += `
-        <div class="widget-content gauge-container analog-gauge">
-            <div class="gauge-visual">
-                <svg viewBox="0 20 100 55" class="gauge-svg">
-                    <defs>
-                        <linearGradient id="grad-${widget.id}" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stop-color="var(--accent-primary)" />
-                            <stop offset="100%" stop-color="#60a5fa" />
-                        </linearGradient>
-                    </defs>
-                    <!-- Background Arc -->
-                    <path class="gauge-bg" d="M 15 75 A 35 35 0 0 1 85 75" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2" />
-                    <!-- Ticks -->
-                    ${ticks}
-                    <!-- Main Arc -->
-                    <path class="gauge-arc" d="M 15 75 A 35 35 0 0 1 85 75" fill="none" stroke="url(#grad-${widget.id})" stroke-width="4" stroke-linecap="round" />
-                    
-                    <!-- Sharp Needle -->
-                    <g id="needle-group-${widget.id}" class="needle-group" style="transform: rotate(-90deg); transform-origin: 50px 75px; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);">
-                        <polygon points="48.5,75 50,35 51.5,75" fill="#ffffff" />
-                        <circle cx="50" cy="75" r="2.5" fill="var(--bg-card)" stroke="#ffffff" stroke-width="1" />
-                    </g>
-                </svg>
-                <div class="gauge-footer-analog">
-                    <div class="gauge-value-analog"><span id="val-${widget.id}">--</span> <span class="unit">${ch?.properties.unit || ''}</span></div>
-                    <div class="gauge-label-analog">${widget.label}</div>
-                </div>
-            </div>
+        body = `<div class="widget-body gauge-body">
+            <svg viewBox="0 20 100 55" preserveAspectRatio="xMidYMid meet">
+                <defs><linearGradient id="grad-${widget.id}" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--accent-primary)"/><stop offset="100%" stop-color="#60a5fa"/></linearGradient></defs>
+                <path d="M 15 75 A 35 35 0 0 1 85 75" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2"/>
+                ${ticks}
+                <path d="M 15 75 A 35 35 0 0 1 85 75" fill="none" stroke="url(#grad-${widget.id})" stroke-width="4" stroke-linecap="round"/>
+                <g id="needle-group-${widget.id}" class="needle-group" style="transform:rotate(-90deg);transform-origin:50px 75px;transition:transform 0.6s cubic-bezier(0.34,1.56,0.64,1)">
+                    <polygon points="48.5,75 50,35 51.5,75" fill="#ffffff"/>
+                    <circle cx="50" cy="75" r="2.5" fill="var(--bg-card)" stroke="#ffffff" stroke-width="1"/>
+                </g>
+            </svg>
+            <div class="gauge-footer"><span class="gauge-val" id="val-${widget.id}">--</span><span class="gauge-unit">${ch?.properties.unit || ''}</span><div class="gauge-lbl">${widget.label}</div></div>
         </div>`;
-    }
-    else if (widget.type === 'bar') content += `<div class="widget-content bar-container"><div class="bar-bg"><div class="bar-fill" id="fill-${widget.id}" style="width: 0%"></div></div><div class="widget-value-sm" id="val-${widget.id}">--</div></div>`;
-    else if (widget.type === 'oscilloscope') content += `<div class="widget-content oscilloscope-container" style="cursor: pointer;" onclick="openQuickOscilloscope('${widget.channel}')" title="Click for detail view"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><polyline id="poly-${widget.id}" fill="none" stroke="var(--accent-primary)" stroke-width="1.5" points="0,20 100,20" /></svg><div class="widget-value-sm"><span id="val-${widget.id}">--</span></div></div>`;
-    else if (widget.type === 'led') content += `<div class="widget-content led-container"><div class="led-bulb" id="led-${widget.id}"></div><div class="widget-value-sm" id="val-${widget.id}">OFF</div></div>`;
-    else if (widget.type === 'toggle') {
-        content += `<div class="widget-content toggle-container">
-            <label class="switch">
-                <input type="checkbox" id="toggle-${widget.id}" onchange="widgetWrite('${widget.channel}', this.checked ? 1 : 0)">
-                <span class="slider"></span>
-            </label>
-            <div class="widget-value-sm" id="val-${widget.id}">OFF</div>
+    } else if (widget.type === 'knob') {
+        body = `<div class="widget-body knob-body" id="knob-${widget.id}" onmousedown="startKnob(event,'${widget.id}','${widget.channel}')" ontouchstart="startKnob(event,'${widget.id}','${widget.channel}')">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8"/>
+                <circle cx="50" cy="50" r="40" id="knob-progress-${widget.id}" fill="none" stroke="var(--accent-primary)" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" transform="rotate(135 50 50)"/>
+                <g id="knob-handle-${widget.id}" style="transform-origin:50px 50px;transform:rotate(-135deg);transition:transform 0.1s ease">
+                    <circle cx="50" cy="50" r="30" fill="var(--bg-card)" stroke="var(--glass-border)" stroke-width="1"/>
+                    <circle cx="50" cy="26" r="3" fill="#ffffff"/>
+                </g>
+            </svg>
+            <div class="knob-overlay"><span id="val-${widget.id}">--</span></div>
         </div>`;
-    }
-    else if (widget.type === 'button') content += `<div class="widget-content button-container"><button class="btn btn-primary btn-block" onmousedown="this.innerText='Pressed'; widgetWrite('${widget.channel}', 1)" onmouseup="this.innerText='Released'; widgetWrite('${widget.channel}', 0)" onmouseleave="this.innerText='Released'; widgetWrite('${widget.channel}', 0)" ontouchstart="event.preventDefault(); this.innerText='Pressed'; widgetWrite('${widget.channel}', 1)" ontouchend="this.innerText='Released'; widgetWrite('${widget.channel}', 0)">Released</button></div>`;
-    else if (widget.type === 'slider') {
+    } else if (widget.type === 'bar') {
+        body = `<div class="widget-body bar-body"><div class="bar-track"><div class="bar-fill" id="fill-${widget.id}"></div></div><span class="widget-val" id="val-${widget.id}">--</span></div>`;
+    } else if (widget.type === 'oscilloscope') {
+        body = `<div class="widget-body scope-body" onclick="openQuickOscilloscope('${widget.channel}')" title="Click for detail view"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><polyline id="poly-${widget.id}" fill="none" stroke="var(--accent-primary)" stroke-width="1.5" points="0,20 100,20"/></svg><span class="widget-val" id="val-${widget.id}">--</span></div>`;
+    } else if (widget.type === 'led') {
+        body = `<div class="widget-body led-body"><div class="led-bulb" id="led-${widget.id}"></div><span class="widget-val" id="val-${widget.id}">OFF</span></div>`;
+    } else if (widget.type === 'toggle') {
+        body = `<div class="widget-body toggle-body"><label class="switch"><input type="checkbox" id="toggle-${widget.id}" onchange="widgetWrite('${widget.channel}',this.checked?1:0)"><span class="slider"></span></label><span class="widget-val" id="val-${widget.id}">OFF</span></div>`;
+    } else if (widget.type === 'button') {
+        body = `<div class="widget-body btn-body"><button class="btn btn-primary btn-block" onmousedown="this.innerText='Pressed';widgetWrite('${widget.channel}',1)" onmouseup="this.innerText='Released';widgetWrite('${widget.channel}',0)" onmouseleave="this.innerText='Released';widgetWrite('${widget.channel}',0)" ontouchstart="event.preventDefault();this.innerText='Pressed';widgetWrite('${widget.channel}',1)" ontouchend="this.innerText='Released';widgetWrite('${widget.channel}',0)">Released</button></div>`;
+    } else if (widget.type === 'slider') {
         const ch = state.channels.find(c => c.channel_id === widget.channel);
         const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
-        const currentVal = ch ? ch.properties.value : min;
-        content += `<div class="widget-content slider-container">
-            <input type="range" class="widget-slider" 
-                oninput="document.getElementById('val-${widget.id}').innerText = Number(this.value).toFixed(2); widgetWrite('${widget.channel}', this.value)" 
-                min="${min}" max="${max}" value="${currentVal}" id="slider-${widget.id}">
-            <div class="widget-value-sm" id="val-${widget.id}">${Number(currentVal).toFixed(2)}</div>
-        </div>`;
-    } else content += `<div class="widget-content numeric-container"><div class="widget-value" id="val-${widget.id}">--</div></div>`;
-    card.innerHTML = content;
-    lucide.createIcons();
-    return card;
+        const val = ch ? ch.properties.value : min;
+        body = `<div class="widget-body slider-body"><input type="range" class="widget-slider" min="${min}" max="${max}" value="${val}" id="slider-${widget.id}" oninput="document.getElementById('val-${widget.id}').innerText=Number(this.value).toFixed(2);widgetWrite('${widget.channel}',this.value)"><span class="widget-val" id="val-${widget.id}">${Number(val).toFixed(2)}</span></div>`;
+    } else {
+        body = `<div class="widget-body numeric-body"><span class="widget-big-val" id="val-${widget.id}">--</span></div>`;
+    }
+
+    return `<div data-widget-id="${widget.id}">${header}${body}</div>`;
 }
 
 function updateWidgetValue(widget, val) {
@@ -501,6 +557,22 @@ function updateWidgetValue(widget, val) {
         const needle = document.getElementById(`needle-group-${widget.id}`);
         if (needle) needle.style.transform = `rotate(${angle}deg)`;
 
+        valEl.innerText = Number(val).toFixed(1);
+    } else if (widget.type === 'knob') {
+        const ch = state.channels.find(c => c.channel_id === widget.channel);
+        const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
+        const percent = Math.min(Math.max((val - min) / (max - min || 1), 0), 1);
+        
+        const angle = (percent * 270) - 135;
+        const handle = document.getElementById(`knob-handle-${widget.id}`);
+        if (handle) handle.style.transform = `rotate(${angle}deg)`;
+        
+        const progress = document.getElementById(`knob-progress-${widget.id}`);
+        if (progress) {
+            const fullLen = 251.2;
+            const dashLen = fullLen * 0.75; // 270 degrees
+            progress.style.strokeDashoffset = dashLen * (1 - percent) + (fullLen - dashLen);
+        }
         valEl.innerText = Number(val).toFixed(1);
     } else if (widget.type === 'numeric' || widget.type === 'slider') {
         valEl.innerText = Number(val).toFixed(2);
@@ -1800,4 +1872,57 @@ function startFlashStatusPolling(flashId, execId) {
             }
         }
     }, 1000);
+}
+
+let activeKnob = null;
+function startKnob(e, id, channel) {
+    e.preventDefault();
+    activeKnob = { id, channel };
+    window.addEventListener('mousemove', moveKnob);
+    window.addEventListener('mouseup', endKnob);
+    window.addEventListener('touchmove', moveKnob, { passive: false });
+    window.addEventListener('touchend', endKnob);
+    moveKnob(e);
+}
+
+function moveKnob(e) {
+    if (!activeKnob) return;
+    const el = document.getElementById(`knob-${activeKnob.id}`);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    
+    // Calculate angle (0 is top)
+    const angle = Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI + 90;
+    let normalizedAngle = (angle + 360) % 360;
+    
+    // Knob uses 270 degree sweep from -135 to 135
+    // Map normalizedAngle (0-360) to 270 sweep
+    // Shift so gap is at bottom (135 to 225 is gap)
+    let percent = 0;
+    if (normalizedAngle >= 225) {
+        percent = (normalizedAngle - 225) / 270;
+    } else if (normalizedAngle <= 135) {
+        percent = (normalizedAngle + 135) / 270;
+    } else {
+        // In the gap, snap to nearest end
+        percent = normalizedAngle > 180 ? 0 : 1;
+    }
+    
+    const ch = state.channels.find(c => c.channel_id === activeKnob.channel);
+    const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
+    const val = min + percent * (max - min);
+    
+    widgetWrite(activeKnob.channel, val);
+}
+
+function endKnob() {
+    activeKnob = null;
+    window.removeEventListener('mousemove', moveKnob);
+    window.removeEventListener('mouseup', endKnob);
+    window.removeEventListener('touchmove', moveKnob);
+    window.removeEventListener('touchend', endKnob);
 }

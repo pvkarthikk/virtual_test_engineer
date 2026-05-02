@@ -48,6 +48,18 @@
       },
       "min": null,
       "max": null
+    },
+    {
+      "id": "w1777706213396",
+      "type": "gauge",
+      "channel": "engine_speed",
+      "label": "engine_speed_chart",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
     }
   ]
 }

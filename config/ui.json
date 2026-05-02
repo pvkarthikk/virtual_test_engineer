@@ -15,7 +15,7 @@
     },
     {
       "id": "w1777630834209",
-      "type": "slider",
+      "type": "knob",
       "channel": "throttle",
       "label": "throttle",
       "position": {

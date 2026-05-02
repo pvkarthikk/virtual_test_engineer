@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Software Defined Test Bench</title>
     <link rel="stylesheet" href="style.css?v=5">
+    <link href="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/uplot/dist/uPlot.min.css">
     <link type="text/css" rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/golden-layout/1.5.9/css/goldenlayout-base.css" />
@@ -151,8 +152,8 @@
             </div>
 
             <div id="view-dashboard" class="view">
-                <div id="dashboard-grid" class="dashboard-grid">
-                    <!-- Widgets will be injected here -->
+                <div id="dashboard-grid" class="grid-stack">
+                    <!-- Widgets will be injected here via Gridstack -->
                 </div>
             </div>
 
@@ -409,6 +410,7 @@
                     <option value="toggle">Toggle Switch</option>
                     <option value="button">Momentary Button</option>
                     <option value="slider">Range Slider</option>
+                    <option value="knob">Knob</option>
                 </select>
             </div>
             <div class="flex-row gap-2 mt-20 justify-end">
@@ -462,8 +464,8 @@
     </div>
 
     <script src="https://unpkg.com/uplot/dist/uPlot.iife.min.js"></script>
-    <script type="text/javascript"
-        src="https://cdnjs.cloudflare.com/ajax/libs/golden-layout/1.5.9/goldenlayout.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/golden-layout/1.5.9/goldenlayout.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack-all.js"></script>
     <script src="app.js?v=7"></script>
     <!-- PLOT MODAL -->
     <div id="modal-plot" class="modal">
