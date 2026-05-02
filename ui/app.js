@@ -926,10 +926,20 @@ function handleDeviceSignalUpdate(devId, sigId, val) {
     const waveValEl = document.getElementById(`wave-val-${id}`);
     if (waveValEl) waveValEl.innerText = val.toFixed(2);
 
-    // Update live value in device explorer
-    const explorerInput = document.getElementById(`sig-input-${devId}-${sigId}`);
-    if (explorerInput && document.activeElement !== explorerInput) {
-        explorerInput.value = val.toFixed(2);
+    // Update live values in device explorer
+    const rawInput = document.getElementById(`sig-raw-${devId}-${sigId}`);
+    const physInput = document.getElementById(`sig-phys-${devId}-${sigId}`);
+    
+    if (rawInput && document.activeElement !== rawInput) {
+        rawInput.value = val.toFixed(2);
+    }
+    
+    if (physInput && document.activeElement !== physInput) {
+        // Calculate physical value from raw
+        const res = parseFloat(physInput.getAttribute('data-res')) || 1;
+        const off = parseFloat(physInput.getAttribute('data-off')) || 0;
+        const physVal = (val * res) + off;
+        physInput.value = physVal.toFixed(3);
     }
 }
 
@@ -1019,9 +1029,17 @@ window.closeModal = (id) => {
 window.readDeviceSignal = async (deviceId, signalId) => {
     try {
         const data = await apiGet(`/device/${deviceId}/signal/${signalId}`);
-        const input = document.getElementById(`sig-input-${deviceId}-${signalId}`);
-        if (input) input.value = Number(data.value).toFixed(2);
-        addLog(`Read ${signalId} from ${deviceId}: ${data.value}`, 'success');
+        const rawInput = document.getElementById(`sig-raw-${deviceId}-${signalId}`);
+        const physInput = document.getElementById(`sig-phys-${deviceId}-${signalId}`);
+        
+        if (rawInput) rawInput.value = Number(data.value).toFixed(2);
+        if (physInput) {
+            const res = parseFloat(physInput.getAttribute('data-res')) || 1;
+            const off = parseFloat(physInput.getAttribute('data-off')) || 0;
+            const physVal = (Number(data.value) * res) + off;
+            physInput.value = physVal.toFixed(3);
+        }
+        addLog(`Read ${signalId} from ${deviceId}: ${data.value} (Raw)`, 'success');
     } catch (e) {
         addLog(`Read failed for ${signalId}: ${e.message}`, 'error');
     }
@@ -1029,13 +1047,33 @@ window.readDeviceSignal = async (deviceId, signalId) => {
 
 window.writeDeviceSignal = async (deviceId, signalId) => {
     try {
-        const input = document.getElementById(`sig-input-${deviceId}-${signalId}`);
-        if (!input) return;
-        const val = parseFloat(input.value);
+        const rawInput = document.getElementById(`sig-raw-${deviceId}-${signalId}`);
+        if (!rawInput) return;
+        const val = parseFloat(rawInput.value);
         await apiPut(`/device/${deviceId}/signal/${signalId}`, { value: Number(val) });
-        addLog(`Wrote ${val} to ${signalId} on ${deviceId}`, 'success');
+        addLog(`Wrote ${val} (Raw) to ${signalId} on ${deviceId}`, 'success');
     } catch (e) {
         addLog(`Write failed for ${signalId}: ${e.message}`, 'error');
+    }
+};
+
+window.syncPhysToRaw = (devId, sigId, res, off) => {
+    const physInput = document.getElementById(`sig-phys-${devId}-${sigId}`);
+    const rawInput = document.getElementById(`sig-raw-${devId}-${sigId}`);
+    if (physInput && rawInput) {
+        const physVal = parseFloat(physInput.value) || 0;
+        const rawVal = (physVal - off) / (res || 1);
+        rawInput.value = rawVal.toFixed(2);
+    }
+};
+
+window.syncRawToPhys = (devId, sigId, res, off) => {
+    const physInput = document.getElementById(`sig-phys-${devId}-${sigId}`);
+    const rawInput = document.getElementById(`sig-raw-${devId}-${sigId}`);
+    if (physInput && rawInput) {
+        const rawVal = parseFloat(rawInput.value) || 0;
+        const physVal = (rawVal * res) + off;
+        physInput.value = physVal.toFixed(3);
     }
 };
 
@@ -1067,21 +1105,32 @@ async function updateDeviceSignalsList(id) {
                 </div>
             </div>
             <div class="detail-header"><h3>Signals for ${id} <span class="status-badge-sm ${isOnline ? 'online' : 'offline'}" style="font-size: 0.7rem; padding: 2px 6px">${isOnline ? 'Online' : 'Offline'}</span></h3></div>
-            <table class="table table-compact"><thead><tr><th>ID</th><th>Name</th><th>Dir</th><th>Min</th><th>Max</th><th>Unit</th><th>Value</th><th>Actions</th></tr></thead><tbody>`;
+            <table class="table table-compact"><thead><tr><th>ID</th><th>Name</th><th>Dir</th><th>Raw Value</th><th>Physical Value</th><th>Range</th><th>Actions</th></tr></thead><tbody>`;
         sigs.forEach(s => {
-            const val = Number(s.value).toFixed(2);
+            const rawVal = Number(s.value);
+            const physVal = (rawVal * s.resolution) + s.offset;
             h += `<tr>
                 <td><code class="badge badge-sm">${s.signal_id}</code></td>
                 <td><div style="font-weight:600">${s.name}</div><div style="font-size:0.7rem; opacity:0.6">${s.description || ''}</div></td>
                 <td><span class="badge badge-outline" style="font-size:0.65rem">${s.direction}</span></td>
-                <td>${s.min}</td>
-                <td>${s.max}</td>
-                <td><span class="text-muted" style="font-size:0.75rem">${s.unit}</span></td>
-                <td><input type="number" step="any" class="table-input" id="sig-input-${id}-${s.signal_id}" value="${val}"></td>
+                <td>
+                    <input type="number" step="any" class="table-input" id="sig-raw-${id}-${s.signal_id}" 
+                        value="${rawVal.toFixed(2)}" 
+                        oninput="syncRawToPhys('${id}', '${s.signal_id}', ${s.resolution}, ${s.offset})">
+                </td>
+                <td>
+                    <input type="number" step="any" class="table-input" id="sig-phys-${id}-${s.signal_id}" 
+                        value="${physVal.toFixed(3)}" 
+                        data-res="${s.resolution}" data-off="${s.offset}"
+                        oninput="syncPhysToRaw('${id}', '${s.signal_id}', ${s.resolution}, ${s.offset})">
+                </td>
+                <td style="font-size: 0.75rem; white-space: nowrap;">
+                    ${s.min} to ${s.max} <span class="text-muted">${s.unit}</span>
+                </td>
                 <td>
                     <div class="flex-row" style="gap: 4px">
-                        <button class="btn btn-outline btn-sm" onclick="writeDeviceSignal('${id}', '${s.signal_id}')" title="Write">
-                            <i data-lucide="edit-3" style="width:12px; height:12px"></i>
+                        <button class="btn btn-outline btn-sm" onclick="writeDeviceSignal('${id}', '${s.signal_id}')" title="Write Raw Value to Hardware">
+                            <i data-lucide="zap" style="width:12px; height:12px"></i> Write
                         </button>
                     </div>
                 </td>
