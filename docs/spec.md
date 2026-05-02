@@ -59,7 +59,7 @@ To provide a unified, programmable interface for hardware validation that abstra
 | ------------- | --------- |
 | **Extensive Libraries** | Rich ecosystem of libraries for hardware communication (pySerial, pyUSB, GPIO libraries), test frameworks (pytest), and data analysis |
 | **Hardware Integration** | Excellent support for various hardware interfaces including GPIO, I2C, SPI, UART, USB, and SCPI protocols |
-| **FastAPI/Flask Support** | Mature web frameworks (FastAPI, Flask) with excellent async support for high-performance APIs |
+| **FastAPI Support** | Mature web framework with excellent async support for high-performance APIs |
 | **Community & Support** | Large community in test automation and hardware programming spaces |
 | **Learning Curve** | Simple, readable syntax that reduces onboarding time for new team members |
 | **Cross-Platform** | Runs natively on Windows, Linux, macOS without code changes |
@@ -387,7 +387,7 @@ Note: Each device plugin (`device_<NAME>.py`) has a corresponding `device_<NAME>
 
 #### 2.3.1 Base Layer: REST API Endpoint
 
-- **Technology**: Python-based REST API (FastAPI/Flask)
+- **Technology**: Python-based REST API (FastAPI)
 - **Purpose**: Core functionality exposure through standardized HTTP endpoints
 - **Responsibilities**:
   - Device management and discovery
@@ -410,7 +410,7 @@ Note: Each device plugin (`device_<NAME>.py`) has a corresponding `device_<NAME>
 #### 2.3.3 Technology Stack
 
 - **Primary Language**: Python 3.13+
-- **REST Framework**: FastAPI (Recommended) or Flask
+- **REST Framework**: FastAPI
 - **MCP Implementation**: Custom or standard MCP library
 - **Async Support**: AsyncIO for concurrent operations
 - **Documentation**: OpenAPI/Swagger for API docs
@@ -736,33 +736,25 @@ Note: Flash connection is independent of `/system/connect`. The flash target mus
 
 | Endpoint | Method | Description | Status Codes |
 | -------- | ------ | ----------- | ----------- |
-| `/test` | GET | Retrieve list of available test definitions | 200 OK |
-| `/test` | POST | Upload or create a new test definition | 201 Created, 400 Bad Request |
-| `/test/{test_id}` | GET | Retrieve details of a specific test definition | 200 OK, 404 Not Found |
-| `/run` | POST | Initiate new test execution (accepts test script as JSONL) and return execution ID | 202 Accepted, 400 Bad Request, 409 Conflict |
-| `/run/test/{test_id}` | POST | Initiate execution of an existing test definition and return execution ID | 202 Accepted, 400 Bad Request, 404 Not Found |
-| `/run/{execution_id}` | GET | Retrieve status and progress of specific test execution | 200 OK, 404 Not Found |
-| `/run/{execution_id}/results` | GET | Retrieve results of completed test execution | 200 OK, 404 Not Found, 202 Accepted (if still running) |
-| `/run/{execution_id}/abort` | POST | Abort ongoing test execution | 200 OK, 409 Conflict, 404 Not Found |
-| `/run/{execution_id}/pause` | POST | Pause test execution (if supported) | 200 OK, 409 Conflict, 404 Not Found |
-| `/run/{execution_id}/resume` | POST | Resume paused test execution (if supported) | 200 OK, 409 Conflict, 404 Not Found |
-| `/run` | GET | List test execution history with filtering options | 200 OK |
-| `/run/{execution_id}/logs` | GET | Retrieve execution logs for specific test | 200 OK, 404 Not Found |
+| `/test/run` | POST | Initiate new test execution (accepts test script as JSONL) | 202 Accepted, 400 Bad Request, 409 Conflict |
+| `/test/stop` | POST | Abort the currently running test sequence | 200 OK |
+| `/test/status` | GET | Retrieve the current operational status of the test engine | 200 OK |
+| `/test/history` | GET | Retrieve the step execution history of all executed tests | 200 OK |
 
 **Requirements**
 
 | ID | Requirement | Priority | Verification Method |
 | ---- | ------------- | ---------- | --------------------- |
-| F06.01 | User shall be able to initiate test execution via REST API and receive unique test identifier | High | Integration Test |
-| F06.02 | System shall maintain test execution queue; only one test runs at a time, additional requests are queued | High | Integration Test |
-| F06.03 | User shall be able to monitor real-time test execution status and progress | High | Integration Test |
-| F06.04 | System shall provide detailed test execution results including pass/fail status, measurements, and timing | High | Integration Test |
+| F06.01 | User shall be able to initiate test execution via REST API | High | Integration Test |
+| F06.02 | System shall support exclusive test execution; only one test runs at a time, additional requests are rejected with 409 Conflict | High | Integration Test |
+| F06.03 | User shall be able to monitor real-time test execution status via the status endpoint | High | Integration Test |
+| F06.04 | System shall provide test execution history including pass/fail status, measurements, and timing | High | Integration Test |
 | F06.05 | User shall be able to abort ongoing test executions safely and cleanly | High | Integration Test |
-| F06.06 | System shall support test pausing and resuming where test design permits | Medium | Integration Test |
-| F06.07 | Only one active session permitted at any time; multiple run requests within a session shall be queued | High | Integration Test |
+| F06.06 | System shall support test stopping via the stop endpoint | Medium | Integration Test |
+| F06.07 | Only one active session permitted at any time; multiple concurrent run requests are rejected | High | Integration Test |
 | F06.08 | System shall maintain a test execution history, capped at the **last 1000 results** to prevent memory leaks during long-running automation | Medium | Integration Test |
-| F06.09 | System shall capture and store execution logs for debugging purposes | Medium | Integration Test |
-| F06.10 | Test definitions shall be referenced by ID or name, allowing for version management | High | Integration Test |
+| F06.09 | System shall capture and store execution logs in the history for debugging purposes | Medium | Integration Test |
+| F06.10 | Test definitions shall be provided as JSONL scripts in the request body | High | Integration Test |
 | F06.11 | System shall support parameterized test execution with runtime variable substitution | Medium | Integration Test |
 | F06.12 | Test timeout values shall be configurable per test definition | High | Integration Test |
 

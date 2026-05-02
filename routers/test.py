@@ -22,6 +22,8 @@ async def run_test(background_tasks: BackgroundTasks, script: str = Body(..., me
         # Pass the token to the background task to prove authorization
         background_tasks.add_task(system.test_engine.run_jsonl_script, script, token=token)
         return {"message": "Test sequence accepted and started in the background"}
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=f"Test sequence rejected: {e}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to initiate test: {e}")
 
