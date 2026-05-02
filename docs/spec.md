@@ -536,7 +536,7 @@ The system shall validate values against the min/max range defined by the target
 | `id` | String | Unique device identifier specified in config |
 | `vendor` | String | Device manufacturer (from plugin) |
 | `model` | String | Device model (from plugin) |
-| `firmware_version`| String | Current firmware version of the hardware |
+| `firmware_version` | String | Current firmware version of the hardware |
 | `status` | String | Connection state: `online`, `connected`, or `offline` |
 | `enabled` | Boolean | Whether the device is software-enabled |
 | `plugin` | String | Internal module name of the device driver |
