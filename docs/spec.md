@@ -86,11 +86,11 @@ SDTB supports user-defined devices through an extensible plugin architecture:
 | BaseDeviceException | Exception class for device plugin errors | Built-in |
 | Device Plugins | User-created device implementations (device_*.py) | User's SDTB device directory |
 | Flash Plugins | User-created flashing protocols (flash_*.py) | User's SDTB device directory |
-| system.json | System-level configuration (server settings, device directory path) | User's AppData/SDTB directory |
+| system.json | System-level configuration (server settings, device directory path) | AppData/SDTB path or exe path. exe path is default. user can change |
 | device_<name>.json | Per-device configuration file (connection params, settings) co-located with plugin | User's SDTB device directory |
 | flash_<name>.json | Per-protocol configuration file (timeouts, retry logic) co-located with plugin | User's SDTB device directory |
-| channels.json | Channel-to-signal mappings with independent properties | User's AppData/SDTB directory |
-| ui.json | UI dashboard layout and widget-to-channel mappings | User's AppData/SDTB directory |
+| channels.json | Channel-to-signal mappings with independent properties | AppData/SDTB path or exe path. exe path is default. user can change |
+| ui.json | UI dashboard layout and widget-to-channel mappings | AppData/SDTB path or exe path. exe path is default. user can change |
 
 **Plugin Discovery Mechanism**
 

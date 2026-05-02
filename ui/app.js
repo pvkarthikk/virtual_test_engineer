@@ -1902,7 +1902,7 @@ function startFlashStatusPolling(flashId, execId) {
             const bar = document.getElementById('flash-progress-bar');
             const text = document.getElementById('flash-progress-text');
 
-            if (bar) bar.style.width = `${progress}%`;
+            if (bar) bar.style.setProperty('--progress', `${progress}%`);
             if (text) text.innerText = `${status.status} (${progress}%)`;
 
             errorCount = 0;

@@ -52,12 +52,20 @@ async def test_concurrency_lock():
     # Wait a bit for it to start
     await asyncio.sleep(0.5)
     assert system.test_engine.is_test_running == True
+    assert system.test_engine._lock.locked() == True
     print("Test is running in background...")
 
     # 2. Attempt manual write
     print(f"is_test_running: {system.test_engine.is_test_running}")
     
-    # 3. Wait for test to finish
+    # 3. Attempt to run another test script concurrently
+    try:
+        await system.test_engine.run_jsonl_script('{"action": "wait", "duration_ms": 100}')
+        assert False, "Should have raised RuntimeError"
+    except RuntimeError:
+        print("Concurrency lock verified (RuntimeError raised correctly).")
+    
+    # 4. Wait for test to finish
     await task
     assert system.test_engine.is_test_running == False
     print("Concurrency test passed (flag logic verified)")

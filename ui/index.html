@@ -48,7 +48,7 @@
                 <button id="btn-restart" class="btn btn-outline btn-sm">
                     <i data-lucide="refresh-cw"></i> Restart
                 </button>
-                <button id="btn-theme-toggle" class="btn-icon ml-2" title="Toggle Day/Night Mode">
+                <button id="btn-theme-toggle" class="btn-icon ml-2" title="Toggle Day/Night Mode" aria-label="Toggle Day/Night Mode">
                     <span id="theme-icon-container"><i data-lucide="moon"></i></span>
                 </button>
             </div>
@@ -299,7 +299,7 @@
                     <div class="card flash-controls">
                         <h3>Flash Configuration</h3>
                         <div class="form-group">
-                            <label>Protocol / Target</label>
+                            <label for="flash-protocol-select">Protocol / Target</label>
                             <select id="flash-protocol-select" class="table-input full-width"></select>
                         </div>
                         <div class="flex-row gap-2 mt-10">
@@ -316,7 +316,7 @@
                             <div id="flash-drop-zone" class="drop-zone">
                                 <i data-lucide="upload-cloud"></i>
                                 <p>Drag & Drop file or <span>Browse</span></p>
-                                <input type="file" id="flash-file-input" hidden>
+                                <input type="file" id="flash-file-input" hidden aria-label="Firmware Image File">
                             </div>
                             <div id="flash-file-info" class="hidden mt-10">
                                 <div class="flex-row justify-between align-center">
@@ -327,7 +327,7 @@
                         </div>
 
                         <div class="form-group mt-20">
-                            <label>Flash Parameters (JSON)</label>
+                            <label for="flash-params">Flash Parameters (JSON)</label>
                             <textarea id="flash-params" class="table-input full-width h-60 font-mono">{}</textarea>
                         </div>
 
@@ -343,7 +343,7 @@
                                 <span id="flash-progress-text" class="badge">Ready</span>
                             </div>
                             <div class="progress-bar-container">
-                                <div id="flash-progress-bar" class="progress-bar" style="width: 0%;"></div>
+                                <div id="flash-progress-bar" class="progress-bar"></div>
                             </div>
                         </div>
 
@@ -365,15 +365,15 @@
                 </div>
                 <div class="settings-form card">
                     <div class="form-group">
-                        <label>Device Directory</label>
+                        <label for="setting-dev-dir">Device Directory</label>
                         <input type="text" id="setting-dev-dir" class="table-input">
                     </div>
                     <div class="form-group">
-                        <label>Server Host</label>
+                        <label for="setting-host">Server Host</label>
                         <input type="text" id="setting-host" class="table-input">
                     </div>
                     <div class="form-group">
-                        <label>Server Port</label>
+                        <label for="setting-port">Server Port</label>
                         <input type="number" id="setting-port" class="table-input">
                     </div>
                     <div class="form-group mt-30 pt-20 border-top">
@@ -392,15 +392,15 @@
         <div class="modal-content card">
             <h2 id="widget-modal-title">Add Widget</h2>
             <div class="form-group">
-                <label>Label</label>
+                <label for="widget-label">Label</label>
                 <input type="text" id="widget-label" class="table-input full-width" placeholder="e.g. Temperature">
             </div>
             <div class="form-group">
-                <label>Channel</label>
+                <label for="widget-channel">Channel</label>
                 <select id="widget-channel" class="table-input full-width"></select>
             </div>
             <div class="form-group">
-                <label>Type</label>
+                <label for="widget-type">Type</label>
                 <select id="widget-type" class="table-input full-width">
                     <option value="numeric">Numeric Display</option>
                     <option value="gauge">Gauge</option>
@@ -425,34 +425,34 @@
         <div class="modal-content card">
             <h2 id="channel-modal-title">Add/Edit Channel</h2>
             <div class="form-group">
-                <label>Channel ID (unique)</label>
+                <label for="chan-id">Channel ID (unique)</label>
                 <input type="text" id="chan-id" class="table-input full-width" placeholder="e.g. ch_engine_speed">
             </div>
             <div class="form-group">
-                <label>Device</label>
+                <label for="chan-device">Device</label>
                 <select id="chan-device" class="table-input full-width" onchange="onChannelDeviceChange()"></select>
             </div>
             <div class="form-group">
-                <label>Signal</label>
+                <label for="chan-signal">Signal</label>
                 <select id="chan-signal" class="table-input full-width"></select>
             </div>
             <div class="flex-row gap-4">
                 <div class="form-group flex-1">
-                    <label>Unit</label>
+                    <label for="chan-unit">Unit</label>
                     <input type="text" id="chan-unit" class="table-input full-width" placeholder="e.g. RPM">
                 </div>
                 <div class="form-group flex-1">
-                    <label>Scale Factor</label>
+                    <label for="chan-scale">Scale Factor</label>
                     <input type="number" id="chan-scale" class="table-input full-width" value="1">
                 </div>
             </div>
             <div class="flex-row gap-4">
                 <div class="form-group flex-1">
-                    <label>Min</label>
+                    <label for="chan-min">Min</label>
                     <input type="number" id="chan-min" class="table-input full-width" value="0">
                 </div>
                 <div class="form-group flex-1">
-                    <label>Max</label>
+                    <label for="chan-max">Max</label>
                     <input type="number" id="chan-max" class="table-input full-width" value="100">
                 </div>
             </div>
@@ -478,7 +478,7 @@
                     <h2>Add Signal to Plot</h2>
                     <p>Select a source and customize the appearance</p>
                 </div>
-                <button class="btn-icon close-modal-btn" onclick="closeModal('modal-plot')">
+                <button class="btn-icon close-modal-btn" onclick="closeModal('modal-plot')" aria-label="Close">
                     <i data-lucide="x"></i>
                 </button>
             </div>
@@ -506,19 +506,19 @@
                 <input type="hidden" id="plot-type" value="channel">
 
                 <div id="plot-channel-group" class="form-group animate-fade-in">
-                    <label><i data-lucide="hash"></i> Channel Name</label>
+                    <label for="plot-channel"><i data-lucide="hash"></i> Channel Name</label>
                     <select id="plot-channel" class="table-input full-width"></select>
                 </div>
 
                 <div id="plot-device-selection-group" class="hidden animate-fade-in">
                     <div class="form-group">
-                        <label><i data-lucide="box"></i> Target Device</label>
+                        <label for="plot-device"><i data-lucide="box"></i> Target Device</label>
                         <select id="plot-device" class="table-input full-width"
                             onchange="updatePlotDeviceSignals()"></select>
                     </div>
 
                     <div id="plot-signal-group" class="form-group">
-                        <label><i data-lucide="activity"></i> Device Signal</label>
+                        <label for="plot-signal"><i data-lucide="activity"></i> Device Signal</label>
                         <select id="plot-signal" class="table-input full-width"></select>
                     </div>
                 </div>
@@ -526,14 +526,14 @@
                 <div class="section-label">Appearance</div>
                 <div class="appearance-grid">
                     <div class="form-group">
-                        <label>Plot Color</label>
+                        <label for="plot-color">Plot Color</label>
                         <div class="color-picker-wrapper">
                             <input type="color" id="plot-color" value="#3b82f6">
                             <span class="color-preview-text">Pick Color</span>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Line Style</label>
+                        <label for="plot-style">Line Style</label>
                         <select id="plot-style" class="table-input full-width">
                             <option value="solid">Solid Line</option>
                             <option value="dashed">Dashed Line</option>

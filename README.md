@@ -118,7 +118,7 @@ To integrate new hardware (e.g., a DAQ card, Programmable Power Supply), follow 
     - `read_signal(signal_id: str)`: Logic to fetch a value from the physical signal.
     - `write_signal(signal_id: str, value: Any)`: Logic to drive the physical hardware.
     - `update()`: (Optional) A hook called every 100ms for background maintenance or heartbeats.
-3.  **Define Config**: Create a JSON configuration (e.g., `config/device_<name>.json`) specifying the plugin name and connection parameters.
+3.  **Define Config**: Create a JSON configuration (e.g., `devices/device_<name>.json`) specifying the plugin name and connection parameters.
 
 ### How to Add a Flash Protocol
 To add a new way to flash firmware (e.g., UDS over CAN, JTAG, Bootloader over Serial):
@@ -134,7 +134,7 @@ To add a new way to flash firmware (e.g., UDS over CAN, JTAG, Bootloader over Se
 ### Configuration and Data Flow
 Each plugin is instantiated and configured using a JSON file. These files should be placed in the `devices/` directory (or the directory specified in your system settings).
 
-#### Device Configuration Example (`config/device_mock.json`)
+#### Device Configuration Example (`devices/device_mock.json`)
 ```json
 {
   "id": "mock_1",

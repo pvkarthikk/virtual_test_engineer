@@ -37,16 +37,17 @@ graph TD
 ```
 
 ### 2.1 Technology Stack
-- **Language**: Python 3.10+
+- **Language**: Python 3.13+
 - **API Framework**: FastAPI (Uvicorn server) for high-performance async routing and automatic OpenAPI documentation.
 - **Validation**: Pydantic v2 for configuration schema and payload validation.
 - **Frontend/UI**: Static HTML/JS/CSS served by FastAPI, utilizing Server-Sent Events (SSE) for live updates.
 - **Test Scripts**: JSONL format, processed sequentially line-by-line.
 
+
 ## 3. Core Subsystems
 
 ### 3.1 Configuration Manager
-Centralizes I/O for `system.json`, `channels.json`, and `ui.json`. 
+Centralizes I/O for `system.json`, `channels.json`, and `ui.json`.
 - **Backup Strategy**: Before any write operation, copies the existing file to `<filename>.bak`.
 - **Fault Recovery**: On read failure, attempts to read `.bak`. If both fail, writes a default schema and raises a warning.
 
@@ -79,6 +80,7 @@ Manages the lifecycle of target firmware programming.
 - Manages high-speed file uploads (up to 10MB) via multipart streams.
 - Provides an **SSE Log Stream** (`/flash/log`) for real-time protocol diagnostics during programming.
 - Handles target connection state independent of standard test bench devices.
+
 
 ## 4. Internal Workflows and Sequence Diagrams
 
@@ -181,6 +183,7 @@ sequenceDiagram
     FM-->>SSE: push event: "Flash Success"
 ```
 
+
 ## 5. Data Models (Pydantic)
 
 To enforce strict validation at the API boundary, the following core Pydantic models govern the system.
@@ -216,6 +219,7 @@ class DeviceConfig(BaseModel):
     connection_params: Dict[str, Any]
     settings: Dict[str, Any] = {}
 ```
+
 
 ## 6. Plugin Architecture: BaseDevice
 
@@ -323,6 +327,7 @@ class BaseFlash(ABC):
     def enabled(self, value: bool): pass
 ```
 
+
 ## 7. Real-Time Streaming & UI Architecture
 
 The SDTB uses Server-Sent Events (SSE) to push high-frequency data to the browser, minimizing overhead compared to WebSockets or long-polling. This is critical for the UI Dashboard.
@@ -361,6 +366,7 @@ The Dashboard provides an "Ultra-Compact" high-density view of the system.
   ]
 }
 ```
+
 
 ## 8. Test Execution (JSONL format)
 
