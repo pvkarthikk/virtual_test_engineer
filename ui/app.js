@@ -32,7 +32,7 @@ async function cacheSignalDirections() {
             if (sig) signalDirectionCache[ch.channel_id] = sig.direction;
         }
         catch (e) {
-            console.warn("Failed to cache direction", e)
+            console.warn("Failed to cache direction", e);
         }
     }
 }
@@ -545,41 +545,41 @@ function buildWidgetHTML(widget) {
                 ${ticks}
                 <path d="M 15 75 A 35 35 0 0 1 85 75" fill="none" stroke="url(#grad-${widget.id})" stroke-width="4" stroke-linecap="round"/>
                 <g id="needle-group-${widget.id}" class="needle-group" style="transform:rotate(-90deg);transform-origin:50px 75px;transition:transform 0.6s cubic-bezier(0.34,1.56,0.64,1)">
-                    <polygon points="48.5,75 50,35 51.5,75" fill="var(--needle-color)"/>
-                    <circle cx="50" cy="75" r="2.5" fill="var(--bg-card)" stroke="var(--needle-color)" stroke-width="1"/>
+                    <polygon points="48.5,75 50,35 51.5,75" style="fill:var(--needle-color)"/>
+                    <circle cx="50" cy="75" r="2.5" style="fill:var(--bg-card);stroke:var(--needle-color);stroke-width:1"/>
                 </g>
             </svg>
             <div class="gauge-footer"><span class="gauge-val" id="val-${widget.id}">--</span><span class="gauge-unit">${unit}</span><div class="gauge-lbl">${widget.label}</div></div>
         </div>`;
     } else if (widget.type === 'knob') {
-        const diableAttr = isInput ? 'style="pointer-events:none;opacity:0.5"' : '';
-        body = `<div class="widget-body knob-body" id="knob-${widget.id}" ${diableAttr} ${isInput ? '' : `onmousedown = "startKnob(event,'${widget.id}','${widget.channel}')" ontouchstart = "startKnob(event,'${widget.id}','${widget.channel}')"`}>
+        const disableAttr = isInput ? 'style="pointer-events:none;opacity:0.5"' : '';
+        body = `<div class="widget-body knob-body" id="knob-${widget.id}" ${disableAttr} ${isInput ? '' : `onmousedown="startKnob(event,'${widget.id}','${widget.channel}')" ontouchstart="startKnob(event,'${widget.id}','${widget.channel}')"`}>
             <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--knob-track-stroke)" stroke-width="8"/>
+                <circle cx="50" cy="50" r="40" fill="none" style="stroke:var(--knob-track-stroke);stroke-width:8"/>
                 <circle cx="50" cy="50" r="40" id="knob-progress-${widget.id}" fill="none" stroke="var(--accent-primary)" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" transform="rotate(135 50 50)"/>
                 <g id="knob-handle-${widget.id}" style="transform-origin:50px 50px;transform:rotate(-135deg);transition:transform 0.1s ease">
-                    <circle cx="50" cy="50" r="30" fill="var(--bg-card)" stroke="var(--glass-border)" stroke-width="1"/>
-                    <circle cx="50" cy="26" r="3" fill="var(--needle-color)"/>
+                    <circle cx="50" cy="50" r="30" style="fill:var(--bg-card);stroke:var(--glass-border);stroke-width:1"/>
+                    <circle cx="50" cy="26" r="3" style="fill:var(--needle-color)"/>
                 </g>
             </svg>
             <div class="knob-overlay"><span id="val-${widget.id}">--</span><span class="knob-unit">${unit}</span></div>
-        </div > `;
+        </div>`;
     } else if (widget.type === 'bar') {
         const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
-        body = `< div class="widget-body bar-body" ><div class="bar-labels"><span>${min}</span><span>${unit}</span><span>${max}</span></div><div class="bar-track">
-        <div class="bar-fill" id="fill-${widget.id}"></div></div><span class="widget-val" id="val-${widget.id}">--<span class="widget-unit">${unit}</span></span></div >`;
+        body = `<div class="widget-body bar-body"><div class="bar-labels"><span>${min}</span>-<span>${max}</span><span>${unit}</span></div><div class="bar-track">
+        <div class="bar-fill" id="fill-${widget.id}"></div></div><span class="widget-val" id="val-${widget.id}">--<span class="widget-unit">${unit}</span></span></div>`;
     } else if (widget.type === 'oscilloscope') {
-        body = `< div class="widget-body scope-body" onclick = "openQuickOscilloscope('${widget.channel}')" title = "Click for detail view" ><svg viewBox="0 0 100 40" preserveAspectRatio="none"><line x1="0" y1="20" x2="100" y2="20" stroke="var(--text-muted)" stroke-width="0.3"/><polyline id="poly-${widget.id}" fill="none" stroke="var(--accent-primary)" stroke-width="1.5" points="0,20 100,20"/></svg><span class="widget-val" id="val-${widget.id}">--<span class="widget-unit">${unit}</span></span></div > `;
+        body = `<div class="widget-body scope-body" onclick="openQuickOscilloscope('${widget.channel}')" title="Click for detail view"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><line x1="0" y1="20" x2="100" y2="20" stroke="var(--text-muted)" stroke-width="0.3"/><polyline id="poly-${widget.id}" fill="none" stroke="var(--accent-primary)" stroke-width="1.5" points="0,20 100,20"/></svg><span class="widget-val" id="val-${widget.id}">--<span class="widget-unit">${unit}</span></span></div>`;
     } else if (widget.type === 'led') {
-        body = `< div class="widget-body led-body" ><div class="led-bulb" id="led-${widget.id}"></div><span class="widget-val" id="val-${widget.id}">OFF</span></div > `;
+        body = `<div class="widget-body led-body"><div class="led-bulb" id="led-${widget.id}"></div><span class="widget-val" id="val-${widget.id}">OFF</span></div>`;
     } else if (widget.type === 'toggle') {
         const disabled = isInput ? 'disabled' : '';
         const disabledClass = isInput ? 'widget-disabled' : '';
-        body = `< div class="widget-body toggle-body${disabledClass}" ><label class="switch"><input type="checkbox" id="toggle-${widget.id}"${disabled} onchange="widgetWrite('${widget.channel}',this.checked?1:0)"><span class="slider"></span></label><span class="widget-val" id="val-${widget.id}">OFF</span></div >`;
+        body = `<div class="widget-body toggle-body ${disabledClass}"><label class="switch"><input type="checkbox" id="toggle-${widget.id}" ${disabled} onchange="widgetWrite('${widget.channel}',this.checked?1:0)"><span class="slider"></span></label><span class="widget-val" id="val-${widget.id}">OFF</span></div>`;
     } else if (widget.type === 'button') {
         const disabled = isInput ? 'disabled' : '';
         const disabledClass = isInput ? 'widget-disabled' : '';
-        body = `< div class="widget-body btn-body${disabledClass}" > <button class="btn btn-primary btn-block"${disabled} onmousedown="this.innerText='Pressed';widgetWrite('${widget.channel}',1)" onmouseup="this.innerText='Released';widgetWrite('${widget.channel}',0)" onmouseleave="this.innerText='Released';widgetWrite('${widget.channel}',0)" ontouchstart="event.preventDefault();this.innerText='Pressed';widgetWrite('${widget.channel}',1)" ontouchend="this.innerText='Released';widgetWrite('${widget.channel}',0)">Released</button></div > `;
+        body = `<div class="widget-body btn-body ${disabledClass}"><button class="btn btn-primary btn-block" ${disabled} onmousedown="this.innerText='Pressed';widgetWrite('${widget.channel}',1)" onmouseup="this.innerText='Released';widgetWrite('${widget.channel}',0)" onmouseleave="this.innerText='Released';widgetWrite('${widget.channel}',0)" ontouchstart="event.preventDefault();this.innerText='Pressed';widgetWrite('${widget.channel}',1)" ontouchend="this.innerText='Released';widgetWrite('${widget.channel}',0)">Released</button></div>`;
     } else if (widget.type === 'slider') {
         const ch = state.channels.find(c => c.channel_id === widget.channel);
         const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
@@ -587,24 +587,24 @@ function buildWidgetHTML(widget) {
         const step = ch?.properties?.conversion?.resolution || 'any';
         const disabled = isInput ? 'disabled' : '';
         const disabledClass = isInput ? 'widget-disabled' : '';
-        body = `< div class="widget-body slider-body${disabledClass}" > <input type="range" class="widget-slider" min="${min}" max="${max}" step="${step}" value="${val}" ${disabled} id="slider-${widget.id}" oninput="document.getElementById('val-${widget.id}').innerText=Number(this.value).toFixed(2);widgetWrite('${widget.channel}',this.value)"><span class="widget-val" id="val-${widget.id}">${Number(val).toFixed(2)}</span></div>`;
+        body = `<div class="widget-body slider-body ${disabledClass}"><input type="range" class="widget-slider" min="${min}" max="${max}" step="${step}" value="${val}" ${disabled} id="slider-${widget.id}" oninput="document.getElementById('val-${widget.id}').innerText=Number(this.value).toFixed(2);widgetWrite('${widget.channel}',this.value)"><span class="widget-val" id="val-${widget.id}">${Number(val).toFixed(2)}</span></div>`;
     } else {
-        body = `< div class="widget-body numeric-body" > <span class="widget-big-val" id="val-${widget.id}">--</span><span class="widget-unit">${unit}</span></div > `;
+        body = `<div class="widget-body numeric-body"><span class="widget-big-val" id="val-${widget.id}">--</span><span class="widget-unit">${unit}</span></div>`;
     }
 
-    return `< div data - widget - id="${widget.id}" > ${header}${body}</div > `;
+    return `<div data-widget-id="${widget.id}">${header}${body}</div>`;
 }
 
 function updateWidgetValue(widget, val) {
-    const valEl = document.getElementById(`val - ${widget.id} `);
+    const valEl = document.getElementById(`val-${widget.id}`);
     if (!valEl) return;
     if (widget.type === 'led') {
-        const bulb = document.getElementById(`led - ${widget.id} `);
+        const bulb = document.getElementById(`led-${widget.id}`);
         const isActive = val > 0.5;
         if (bulb) bulb.classList.toggle('active', isActive);
         valEl.innerText = isActive ? 'ON' : 'OFF';
     } else if (widget.type === 'toggle') {
-        const toggle = document.getElementById(`toggle - ${widget.id} `);
+        const toggle = document.getElementById(`toggle-${widget.id}`);
         const isActive = val > 0.5;
         if (toggle) toggle.checked = isActive;
         valEl.innerText = isActive ? 'ON' : 'OFF';
@@ -614,7 +614,7 @@ function updateWidgetValue(widget, val) {
         const percent = Math.min(Math.max((val - min) / (max - min || 1), 0), 1);
 
         const angle = (percent * 180) - 90;
-        const needle = document.getElementById(`needle - group - ${widget.id} `);
+        const needle = document.getElementById(`needle-group-${widget.id}`);
         if (needle) needle.style.transform = `rotate(${angle}deg)`;
 
         valEl.innerText = Number(val).toFixed(1);
@@ -624,10 +624,10 @@ function updateWidgetValue(widget, val) {
         const percent = Math.min(Math.max((val - min) / (max - min || 1), 0), 1);
 
         const angle = (percent * 270) - 135;
-        const handle = document.getElementById(`knob - handle - ${widget.id} `);
+        const handle = document.getElementById(`knob-handle-${widget.id}`);
         if (handle) handle.style.transform = `rotate(${angle}deg)`;
 
-        const progress = document.getElementById(`knob - progress - ${widget.id} `);
+        const progress = document.getElementById(`knob-progress-${widget.id}`);
         if (progress) {
             const fullLen = 251.2;
             const dashLen = fullLen * 0.75; // 270 degrees
@@ -647,16 +647,16 @@ function updateWidgetValue(widget, val) {
             }
         }
         if (widget.type === 'slider') {
-            const slider = document.getElementById(`slider - ${widget.id} `);
+            const slider = document.getElementById(`slider-${widget.id}`);
             if (slider && document.activeElement !== slider) slider.value = val;
         }
     } else if (widget.type === 'bar') {
-        const fill = document.getElementById(`fill - ${widget.id} `);
+        const fill = document.getElementById(`fill-${widget.id}`);
         if (fill) {
             const ch = state.channels.find(c => c.channel_id === widget.channel);
             const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
             const percent = Math.min(Math.max(((val - min) / (max - min)) * 100, 0), 100);
-            fill.style.setProperty('--progress', `${percent}% `);
+            fill.style.setProperty('--progress', `${percent}%`);
             // color zones for bar
             if (percent >= 95 || percent <= 5) fill.style.background = 'var(--accent-danger)';
             else if (percent >= 80 || percent <= 10) fill.style.background = 'var(--accent-warning)';
@@ -664,7 +664,7 @@ function updateWidgetValue(widget, val) {
         }
         valEl.innerText = Number(val).toFixed(2);
     } else if (widget.type === 'oscilloscope') {
-        const poly = document.getElementById(`poly - ${widget.id} `);
+        const poly = document.getElementById(`poly-${widget.id}`);
         if (poly) updateOscilloscope(poly, val, widget);
         valEl.innerText = Number(val).toFixed(2);
     } else valEl.innerText = Number(val).toFixed(2);
@@ -677,7 +677,7 @@ function updateOscilloscope(poly, val, widget) {
     const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100, range = max - min || 1;
     oscilloscopeHistory[widget.id].push(40 - ((val - min) / range * 40));
     if (oscilloscopeHistory[widget.id].length > 50) oscilloscopeHistory[widget.id].shift();
-    poly.setAttribute('points', oscilloscopeHistory[widget.id].map((v, i) => `${i * 2},${v} `).join(' '));
+    poly.setAttribute('points', oscilloscopeHistory[widget.id].map((v, i) => `${i * 2},${v}`).join(' '));
 }
 
 function updateSparkline(poly, val, widget) {
@@ -686,10 +686,10 @@ function updateSparkline(poly, val, widget) {
     const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100, range = max - min || 1;
     oscilloscopeHistory[widget.id].push(20 - ((val - min) / range * 20));
     if (oscilloscopeHistory[widget.id].length > 30) oscilloscopeHistory[widget.id].shift();
-    poly.setAttribute('points', oscilloscopeHistory[widget.id].map((v, i) => `${(i / 29) * 100},${v} `).join(' '));
+    poly.setAttribute('points', oscilloscopeHistory[widget.id].map((v, i) => `${(i / 29) * 100},${v}`).join(' '));
 }
 
-window.widgetWrite = async (id, val) => { try { await apiPut(`/ channel / ${id} `, { value: Number(val) }); } catch (e) { addLog(`Write failed: ${e.message} `, 'error'); } };
+window.widgetWrite = async (id, val) => { try { await apiPut(`/channel/${id}`, { value: Number(val) }); } catch (e) { addLog(`Write failed: ${e.message}`, 'error'); } };
 
 const _widgetWriteRaw = async (id, val) => {
     if (isInputChannel(id)) {
@@ -723,7 +723,7 @@ async function refreshAllData() {
 
         // Update version label
         const versionEl = document.querySelector('.version');
-        if (versionEl && status.version) versionEl.innerText = `v${status.version} `;
+        if (versionEl && status.version) versionEl.innerText = `v${status.version}`;
     } catch (e) {
         console.error('[SDTB] Status check failed:', e);
         addLog('Status check fail: ' + e.message, 'error');
@@ -766,12 +766,12 @@ async function refreshUIConfig() {
                     if (!cached) return widget;
                     return { ...widget, x: cached.x, y: cached.y, w: cached.w, h: cached.h };
                 }
-            )
+            );
+            state.uiConfig = config;
         }
-
     }
     catch (e) {
-        addLog('UI fail', 'error')
+        addLog('UI fail', 'error');
     }
 }
 
@@ -807,7 +807,7 @@ function openWidgetModal(w = null) {
     document.getElementById('btn-widget-cancel').onclick = () => modal.classList.remove('active');
     document.getElementById('btn-widget-save').onclick = () => {
         const newW = {
-            id: w ? w.id : `w${Date.now()} `,
+            id: w ? w.id : `w${Date.now()}`,
             label: inputLabel.value || selectChannel.value,
             channel: selectChannel.value,
             type: selectType.value,
@@ -835,7 +835,7 @@ async function renderChannelMapper() {
     table.innerHTML = '';
     state.channels.forEach(ch => {
         const row = document.createElement('tr');
-        row.innerHTML = `<td><strong>${ch.channel_id}</strong></td ><td>${ch.device_id}</td><td>${ch.signal_id}</td><td>${ch.properties.unit}</td><td>${ch.properties.min}</td><td>${ch.properties.max}</td><td><input type="number" step="any" class="table-input" id="read-${ch.channel_id}" value="${Number(ch.properties.value || 0).toFixed(2)}" aria-label="Current value for ${ch.channel_id}"></td><td><div class="flex-row" style="gap: 5px"><button class="btn btn-outline btn-sm" onclick="writeSingleChannel('${ch.channel_id}')" title="Write" aria-label="Write to ${ch.channel_id}"><i data-lucide="edit-3"></i></button><button class="btn btn-outline btn-sm" onclick="editChannel('${ch.channel_id}')" title="Edit Mapping" aria-label="Edit mapping for ${ch.channel_id}"><i data-lucide="edit"></i></button><button class="btn btn-outline btn-sm" onclick="removeChannel('${ch.channel_id}')" title="Delete" aria-label="Delete channel ${ch.channel_id}"><i data-lucide="trash-2" style="color: var(--accent-danger)"></i></button></div></td>`;
+        row.innerHTML = `<td><strong>${ch.channel_id}</strong></td><td>${ch.device_id}</td><td>${ch.signal_id}</td><td>${ch.properties.unit}</td><td>${ch.properties.min}</td><td>${ch.properties.max}</td><td><input type="number" step="any" class="table-input" id="read-${ch.channel_id}" value="${Number(ch.properties.value || 0).toFixed(2)}" aria-label="Current value for ${ch.channel_id}"></td><td><div class="flex-row" style="gap: 5px"><button class="btn btn-outline btn-sm" onclick="writeSingleChannel('${ch.channel_id}')" title="Write" aria-label="Write to ${ch.channel_id}"><i data-lucide="edit-3"></i></button><button class="btn btn-outline btn-sm" onclick="editChannel('${ch.channel_id}')" title="Edit Mapping" aria-label="Edit mapping for ${ch.channel_id}"><i data-lucide="edit"></i></button><button class="btn btn-outline btn-sm" onclick="removeChannel('${ch.channel_id}')" title="Delete" aria-label="Delete channel ${ch.channel_id}"><i data-lucide="trash-2" style="color: var(--accent-danger)"></i></button></div></td>`;
         table.appendChild(row);
         subscribeToChannel(ch.channel_id);
     });
@@ -881,7 +881,7 @@ window.onChannelDeviceChange = async (selId = null) => {
     const devId = document.getElementById('chan-device').value, selectSignal = document.getElementById('chan-signal');
     if (!devId) return;
     try {
-        const signals = await apiGet(`/ device / ${devId}/signal`);
+        const signals = await apiGet(`/device/${devId}/signal`);
         selectSignal.innerHTML = '';
         signals.forEach(sig => { const opt = document.createElement('option'); opt.value = sig.signal_id; opt.text = `${sig.name} (${sig.signal_id})`; if (selId === sig.signal_id) opt.selected = true; selectSignal.appendChild(opt); });
     } catch (e) { addLog('Signals load fail', 'error'); }
@@ -1277,7 +1277,7 @@ async function updateDeviceSignalsList(id) {
                 </td>
                 <td>
                     <div class="flex-row" style="gap: 4px">
-                        <button class="btn btn-outline btn-sm" ${isInputSignal ? 'disabled' : ''} onclick="writeDeviceSignal('${id}', '${s.signal_id}')" title="${isInputSignal ? 'Write diabled for input signals' : 'Write Raw Value to Hardware'}">
+                        <button class="btn btn-outline btn-sm" ${isInputSignal ? 'disabled' : ''} onclick="writeDeviceSignal('${id}', '${s.signal_id}')" title="${isInputSignal ? 'Write disabled for input signals' : 'Write Raw Value to Hardware'}">
                             <i data-lucide="zap" style="width:12px; height:12px"></i> Write
                         </button>
                     </div>

@@ -23,7 +23,7 @@
     --scope-bg: rgba(0, 0, 0, 0.2);
     --led-inactive-bg: #1f2937;
     --led-inactive-border: rgba(255, 255, 255, 0.05);
-    --needle-color: #fffff;
+    --needle-color: #94a3b8;
 }
 
 /* UTILITY CLASSES */
@@ -219,7 +219,7 @@
 }
 
 .cursor-pointer {
-    cursor-pointer: pointer;
+    cursor: pointer;
 }
 
 .relative {
@@ -368,26 +368,8 @@ i[data-lucide]>svg {
 }
 
 
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    font-family: 'Inter', -apple-system, sans-serif;
-    background-color: var(--bg-main);
-    color: var(--text-main);
-    overflow: hidden;
-    height: 100vh;
-}
-
 /* APP LAYOUT */
-.app-container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-}
+
 
 .toolbar {
     height: var(--toolbar-height);
@@ -956,12 +938,12 @@ body {
 }
 
 .needle-group polygon {
-    fill: #ffffff;
+    fill: var(--needle-color, #ffffff);
 }
 
 .needle-group circle {
     fill: var(--bg-card);
-    stroke: #ffffff;
+    stroke: var(--needle-color, #ffffff);
 }
 
 .needle-group polygon,
@@ -1458,7 +1440,7 @@ body {
 }
 
 .modal-content.max-w-800 {
-    max-width: 800px
+    max-width: 800px;
 }
 
 .card {

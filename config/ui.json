@@ -2,8 +2,8 @@
   "layout": "dashboard",
   "widgets": [
     {
-      "id": "w1777630826753",
-      "type": "bar",
+      "id": "w1778557920753 ",
+      "type": "gauge",
       "channel": "engine_speed",
       "label": "engine_speed",
       "position": {
@@ -14,7 +14,7 @@
       "max": null
     },
     {
-      "id": "w1777630834209",
+      "id": "w1778557932130 ",
       "type": "knob",
       "channel": "throttle",
       "label": "throttle",
@@ -26,34 +26,10 @@
       "max": null
     },
     {
-      "id": "w1777704522947",
-      "type": "numeric",
-      "channel": "coolant_temp",
-      "label": "coolant_temp",
-      "position": {
-        "row": 0,
-        "col": 0
-      },
-      "min": null,
-      "max": null
-    },
-    {
-      "id": "w1777704537452",
-      "type": "gauge",
-      "channel": "map_sensor",
-      "label": "map_sensor",
-      "position": {
-        "row": 0,
-        "col": 0
-      },
-      "min": null,
-      "max": null
-    },
-    {
-      "id": "w1777706213396",
-      "type": "gauge",
+      "id": "w1778558327181",
+      "type": "bar",
       "channel": "engine_speed",
-      "label": "engine_speed_chart",
+      "label": "engine_speed",
       "position": {
         "row": 0,
         "col": 0
@@ -62,7 +38,7 @@
       "max": null
     },
     {
-      "id": "w1777748184905",
+      "id": "w1778558368821",
       "type": "toggle",
       "channel": "eco_mode",
       "label": "eco_mode",
@@ -74,10 +50,34 @@
       "max": null
     },
     {
-      "id": "w1777748337095",
+      "id": "w1778558377604",
       "type": "led",
       "channel": "eco_mode",
       "label": "eco_mode",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1778558398057",
+      "type": "gauge",
+      "channel": "map_sensor",
+      "label": "map_sensor",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1778558401611",
+      "type": "oscilloscope",
+      "channel": "coolant_temp",
+      "label": "coolant_temp",
       "position": {
         "row": 0,
         "col": 0

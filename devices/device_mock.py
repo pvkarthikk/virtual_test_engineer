@@ -93,7 +93,7 @@ class EngineMock:
         else:
             # Cooling: Very slowly drops toward ambient 20.0 C
             if self._temperature_c > 20.0:
-                self._temperature_c -= (base_rate * 0.1) * dt
+                self._temperature_c -= (base_rate * 0.5) * dt
 
         # Add slight thermal noise so it visibly updates in the UI
         temp_with_noise = self._temperature_c + random.uniform(-0.1, 0.1)
