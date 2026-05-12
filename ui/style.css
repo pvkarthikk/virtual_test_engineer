@@ -1669,6 +1669,19 @@ i[data-lucide]>svg {
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.05);
     font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 /* SMALL TOGGLE SWITCH */

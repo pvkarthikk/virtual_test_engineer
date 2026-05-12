@@ -46,12 +46,21 @@ async def get_test_status():
     """
     system = get_system()
     engine = system.test_engine
+    last_run_status = None
+    if not engine.is_test_running and engine.history:
+        last_run = engine.history[-1]
+        if any(r.status in ["fail", "error"] for r in last_run.results):
+            last_run_status = "fail"
+        elif last_run.results:
+            last_run_status = "pass"
+
     return {
         "is_running": engine.is_test_running,
         "abort_requested": engine._stop_requested,
         "current_step": engine.current_step,
         "total_steps": engine.total_steps,
-        "progress": engine.progress
+        "progress": engine.progress,
+        "last_run_status": last_run_status
     }
 
 @router.get("/history")

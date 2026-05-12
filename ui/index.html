@@ -237,12 +237,13 @@
                         <button id="btn-run-test" class="btn btn-primary btn-sm" disabled>
                             <i data-lucide="play"></i> Run Test
                         </button>
-                        <button id="btn-toggle-test-log" class="btn btn-outline btn-sm">
+                        <button onclick="showTestLogModal()" class="btn btn-outline btn-sm">
                             <i data-lucide="terminal"></i> Logs
                         </button>
-                        <button id="btn-stop-test" class="btn btn-outline btn-sm text-danger border-danger">
+                        <button id="btn-stop-test" class="btn btn-outline btn-sm text-danger border-danger" disabled>
                             <i data-lucide="square"></i> Stop
                         </button>
+                        <span id="test-final-status" class="badge hidden ml-10"></span>
                         <div class="flex-row align-center gap-3 ml-10 hidden" id="test-progress-container">
                             <div class="progress-bar-container" style="width: 120px; height: 10px;">
                                 <div id="test-progress-bar" class="progress-bar" style="--progress: 0%"></div>
@@ -267,9 +268,6 @@
                                 <!-- Test steps injected here -->
                             </tbody>
                         </table>
-                    </div>
-                    <div class="test-log hidden" id="test-log">
-                        <!-- Test results logs -->
                     </div>
                 </div>
             </div>
@@ -489,6 +487,22 @@
             <div class="mt-15 flex-row justify-between align-center">
                 <span class="text-sm text-muted">Showing last 100 operations</span>
                 <button class="btn btn-outline btn-sm text-danger" onclick="clearTestHistory()">Clear History</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEST LOG MODAL -->
+    <div id="modal-test-log" class="modal">
+        <div class="modal-content card max-w-800 w-90pc flex-col" style="height: 600px;">
+            <div class="flex-row justify-between align-center mb-20">
+                <h2 class="m-0"><i data-lucide="terminal" class="mr-2"></i>Test Execution Console</h2>
+                <div class="flex-row gap-2">
+                    <button class="btn btn-outline btn-sm" onclick="document.getElementById('test-log-content').innerHTML = ''">Clear</button>
+                    <button class="btn btn-outline btn-sm" onclick="closeModal('modal-test-log')">Close</button>
+                </div>
+            </div>
+            <div class="flex-1 debug-window" id="test-log-content" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; font-family: monospace; font-size: 0.8rem; overflow-y: auto; padding: 15px;">
+                <!-- Live logs injected here -->
             </div>
         </div>
     </div>

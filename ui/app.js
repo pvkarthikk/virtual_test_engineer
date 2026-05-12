@@ -925,16 +925,10 @@ function setupTestEditor() {
     const btnHistory = document.getElementById('btn-test-history');
     if (btnHistory) btnHistory.onclick = showTestHistory;
 
-    const btnToggleLog = document.getElementById('btn-toggle-test-log');
-    if (btnToggleLog) {
-        btnToggleLog.onclick = () => {
-            const log = document.getElementById('test-log');
-            if (log) {
-                const isHidden = log.classList.toggle('hidden');
-                btnToggleLog.classList.toggle('active', !isHidden);
-            }
-        };
-    }
+    window.showTestLogModal = () => {
+        const modal = document.getElementById('modal-test-log');
+        if (modal) modal.classList.add('active');
+    };
 
     if (btnStop) btnStop.onclick = async () => {
         try {
@@ -1012,11 +1006,24 @@ function stopTestProgressPolling() {
 
 function updateTestProgressUI(status) {
     const btnRun = document.getElementById('btn-run-test');
+    const btnStop = document.getElementById('btn-stop-test');
+    const statusBadge = document.getElementById('test-final-status');
     const container = document.getElementById('test-progress-container');
     const bar = document.getElementById('test-progress-bar');
     const text = document.getElementById('test-progress-text');
 
     if (btnRun) btnRun.disabled = status.is_running || state.status !== 'online';
+    if (btnStop) btnStop.disabled = !status.is_running;
+
+    if (statusBadge) {
+        if (!status.is_running && status.last_run_status) {
+            statusBadge.classList.remove('hidden');
+            statusBadge.innerText = status.last_run_status.toUpperCase();
+            statusBadge.className = `badge ml-10 ${status.last_run_status === 'pass' ? 'badge-success' : 'badge-danger'}`;
+        } else if (status.is_running) {
+            statusBadge.classList.add('hidden');
+        }
+    }
     
     if (container) {
         if (status.is_running) container.classList.remove('hidden');
@@ -1096,6 +1103,19 @@ async function showTestHistory() {
                             `).join('')}
                         </tbody>
                     </table>
+
+                    <div class="mt-20">
+                        <div class="section-label" style="margin-bottom: 8px;">Execution Console Log</div>
+                        <div class="debug-window" style="height: 150px; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 0.75rem; border: 1px solid var(--border-color);">
+                            ${(run.logs || []).map(log => {
+                                const parts = log.split(' | ');
+                                const level = parts[0].toLowerCase();
+                                const msg = parts.slice(1).join(' | ');
+                                return `<div class="log-entry level-${level}">${msg}</div>`;
+                            }).join('')}
+                            ${(!run.logs || run.logs.length === 0) ? '<div class="log-entry system" style="opacity:0.5">No console logs recorded for this run.</div>' : ''}
+                        </div>
+                    </div>
                 </div>
 
             `;
@@ -1777,7 +1797,7 @@ window.setOscilloscopeColor = (id, c) => { if (state.oscilloscope.history[id]) {
 window.setOscilloscopeStyle = (id, s) => { if (state.oscilloscope.history[id]) { state.oscilloscope.history[id].style = s; rebuildOscilloscopeChart(); } };
 
 function addLog(m, t = 'info') {
-    const d = document.getElementById('debug-window'), tl = document.getElementById('test-log'); if (!d) return;
+    const d = document.getElementById('debug-window'), tl = document.getElementById('test-log-content'); if (!d) return;
 
     let displayMsg = m;
     let logLevel = 'INFO';
