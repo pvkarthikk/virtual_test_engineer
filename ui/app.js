@@ -1849,7 +1849,7 @@ window.updateLogFiltersUI = () => {
     let html = '';
     state.devices.forEach(dev => {
         const isChecked = state.logFilters.devices[dev.id] ? 'checked' : '';
-        html += `<label style="font-size: 0.8rem; display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" class="filter-device" value="${dev.id}" ${isChecked} onchange="state.logFilters.devices['${dev.id}'] = this.checked; updateLogVisibility()"> ${dev.id}</label>`;
+        html += `<label><input type="checkbox" class="filter-device" value="${dev.id}" ${isChecked} onchange="state.logFilters.devices['${dev.id}'] = this.checked; updateLogVisibility()"> ${dev.id}</label>`;
     });
     container.innerHTML = html;
 };

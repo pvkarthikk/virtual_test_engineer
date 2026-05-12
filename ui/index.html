@@ -275,15 +275,17 @@
             <div id="view-debug" class="view">
                 <div class="view-header flex-wrap gap-2">
                     <div class="view-actions align-center flex-wrap gap-2">
-                        <div id="log-filters" class="align-center gap-2 bg-dark-glass p-4 rounded-6 border">
-                            <label class="text-sm align-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="filter-system" checked onchange="updateLogFilters()">
-                                System
-                            </label>
-                            <label class="text-sm align-center gap-2 cursor-pointer text-primary">
-                                <input type="checkbox" id="filter-debug" onchange="updateLogFilters()"> Debug
-                            </label>
-                            <div id="device-log-filters" class="gap-2 border-left pl-10">
+                        <div class="log-filters-container">
+                            <div class="filter-group">
+                                <label class="text-sm align-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="filter-system" checked onchange="updateLogFilters()">
+                                    System
+                                </label>
+                                <label class="text-sm align-center gap-2 cursor-pointer text-primary">
+                                    <input type="checkbox" id="filter-debug" onchange="updateLogFilters()"> Debug
+                                </label>
+                            </div>
+                            <div id="device-log-filters" class="filter-group devices">
                                 <!-- Device filters injected here -->
                             </div>
                         </div>
