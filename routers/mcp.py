@@ -150,6 +150,25 @@ async def handle_list_tools() -> list[types.Tool]:
                 }
             }},
         ),
+        types.Tool(
+            name="list_can_interfaces",
+            description="Lists all active CAN bus interfaces and their buffer status.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="read_can_log",
+            description="Reads the most recent raw CAN frames from a specific bus.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {"type": "string", "description": "The ID of the device (e.g. 'mock')."},
+                    "bus": {"type": "string", "description": "The CAN bus name (e.g. 'can0')."},
+                    "count": {"type": "integer", "description": "Number of frames to retrieve (default 50)."},
+                    "arb_id": {"type": "string", "description": "Optional hex filter for arbitration ID (e.g. '0x100')."}
+                },
+                "required": ["device_id", "bus"],
+            },
+        ),
     ]
 
 @mcp_server.list_resources()
@@ -362,6 +381,36 @@ async def handle_call_tool(
             last_n = arguments.get("last_n", None)
             history = te.get_test_history(last_n)
             return [types.TextContent(type="text", text=json.dumps(history, indent=2))]
+
+        elif name == "list_can_interfaces":
+            interfaces = get_system().can_manager.get_interfaces()
+            return [types.TextContent(type="text", text=json.dumps(interfaces, indent=2))]
+
+        elif name == "read_can_log":
+            dev_id = arguments.get("device_id")
+            bus = arguments.get("bus")
+            count = arguments.get("count", 50)
+            arb_id_hex = arguments.get("arb_id")
+            
+            arb_id_filter = None
+            if arb_id_hex:
+                try:
+                    arb_id_filter = int(arb_id_hex, 16)
+                except ValueError:
+                    return [types.TextContent(type="text", text="Error: Invalid 'arb_id' format. Use hex (e.g. '0x100').")]
+
+            frames = get_system().can_manager.get_frames(dev_id, bus, count, arb_id_filter=arb_id_filter)
+            serialized = [
+                {
+                    "timestamp": f.timestamp,
+                    "id": f"0x{f.arbitration_id:X}",
+                    "dlc": f.dlc,
+                    "data": f.data.hex(),
+                    "flags": f"{'EXT ' if f.is_extended else ''}{'ERR ' if f.is_error else ''}{'RTR' if f.is_remote else ''}".strip()
+                }
+                for f in frames
+            ]
+            return [types.TextContent(type="text", text=json.dumps(serialized, indent=2))]
 
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]

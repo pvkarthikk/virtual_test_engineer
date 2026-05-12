@@ -101,3 +101,19 @@ class FlashConfig(BaseModel):
     enabled: bool = True
     connection_params: Dict[str, Any]
     settings: Dict[str, Any] = {}
+
+class CANFrameResponse(BaseModel):
+    timestamp: float
+    bus: str
+    arbitration_id: str  # Hex string like "0x100"
+    dlc: int
+    data: str           # Hex string
+    is_extended: bool
+    is_error: bool
+    is_remote: bool
+
+class CANInterfaceInfo(BaseModel):
+    device_id: str
+    bus: str
+    buffer_size: int
+    frame_count: int

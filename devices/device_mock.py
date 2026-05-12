@@ -1,8 +1,10 @@
-from core.base_device import BaseDevice, SignalDefinition, SignalAnalog, SignalPWM, SignalSwitch
+from core.base_device import BaseDevice, SignalDefinition, SignalAnalog, SignalPWM, SignalSwitch, CANFrame
 from typing import List, Any, Dict, Optional
 import logging
 import random
 import time
+import struct
+import collections
 
 logger = logging.getLogger(__name__)
 def generate_mock_value(signal: SignalDefinition):
@@ -134,6 +136,8 @@ class MockDevice(BaseDevice):
         self._engine = EngineMock()
         self._connected = False
         self._enabled = True
+        self._can_buffer = collections.deque(maxlen=100)
+        self._obd_counter = 0
         self._signals = [
             SignalAnalog(
                 signal_id="J1_01",
@@ -202,6 +206,14 @@ class MockDevice(BaseDevice):
     def get_signals(self) -> List[SignalDefinition]:
         return self._signals
 
+    def get_can_interfaces(self) -> List[str]:
+        return ["can0"]
+
+    def pop_can_frames(self) -> List[CANFrame]:
+        frames = list(self._can_buffer)
+        self._can_buffer.clear()
+        return frames
+
     def restart(self) -> None:
         logger.info("MockDevice restarting...")
         self.disconnect()
@@ -246,6 +258,36 @@ class MockDevice(BaseDevice):
         self.get_signal("J1_03").value = self._engine.temperature_raw
         self.get_signal("J1_04").value = self._engine.map_raw
         
+        # 4. Generate CAN frames (Simulated background traffic)
+        # 0x100: Engine telemetry
+        self._can_buffer.append(CANFrame(
+            timestamp=time.time(),
+            bus="can0",
+            arbitration_id=0x100,
+            dlc=4,
+            data=struct.pack(">HH", int(self._engine._engine_speed_rpm), int(self._engine._temperature_raw))
+        ))
+        
+        # 0x200: Throttle status
+        self._can_buffer.append(CANFrame(
+            timestamp=time.time(),
+            bus="can0",
+            arbitration_id=0x200,
+            dlc=3,
+            data=struct.pack(">HB", int(self._engine.throttle_pwm), 1 if self._engine.eco_mode else 0)
+        ))
+        
+        # 0x7DF: Periodic OBD-II request (Every ~10 updates)
+        self._obd_counter += 1
+        if self._obd_counter >= 10:
+            self._obd_counter = 0
+            self._can_buffer.append(CANFrame(
+                timestamp=time.time(),
+                bus="can0",
+                arbitration_id=0x7DF,
+                dlc=8,
+                data=bytes([0x02, 0x01, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00]) # Get Coolant Temp
+            ))
         
     def inject_fault(self, signal_id: str, fault_id: str) -> None:
         """Mock implementation of fault injection."""

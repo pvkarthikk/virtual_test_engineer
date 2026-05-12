@@ -12,7 +12,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     await sdtb_system.shutdown()
 
-from routers import system, device, channel, test, ui, mcp, flash
+from routers import system, device, channel, test, ui, mcp, flash, can
 
 # Access the singleton system instance via call
 sdtb_system = system.get_system()
@@ -29,6 +29,7 @@ app.include_router(device.router)
 app.include_router(channel.router)
 app.include_router(test.router)
 app.include_router(flash.router)
+app.include_router(can.router)
 app.include_router(ui.router)
 
 # Special handling for MCP routes to avoid ASGI response conflicts

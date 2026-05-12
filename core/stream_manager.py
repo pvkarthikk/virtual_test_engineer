@@ -31,6 +31,9 @@ class StreamManager:
         # List of queues for unified global stream (multiplexing)
         self.global_queues: List[asyncio.Queue] = []
 
+        # Dict mapping "device_id:bus" to list of subscriber queues
+        self.can_queues: Dict[str, List[asyncio.Queue]] = {}
+
     async def subscribe_logs(self) -> AsyncGenerator[Dict[str, str], None]:
         """
         Subscribes to global system logs. Yields SSE-formatted dicts.
@@ -162,6 +165,61 @@ class StreamManager:
             "signal_id": signal_id,
             "value": value,
             "timestamp": asyncio.get_event_loop().time()
+        }
+        for queue in self.global_queues:
+            try:
+                queue.put_nowait(global_update)
+            except asyncio.QueueFull:
+                pass
+
+    async def subscribe_can(self, device_id: str, bus: str) -> AsyncGenerator[Dict[str, str], None]:
+        """
+        Subscribes to updates for a specific CAN bus.
+        """
+        key = f"{device_id}:{bus}"
+        if key not in self.can_queues:
+            self.can_queues[key] = []
+            
+        queue = asyncio.Queue()
+        self.can_queues[key].append(queue)
+        try:
+            while True:
+                data = await queue.get()
+                yield {"data": json.dumps(data)}
+        finally:
+            self.can_queues[key].remove(queue)
+
+    def push_can_frame(self, device_id: str, bus: str, frame: Any):
+        """
+        Pushes a CAN frame update to all active subscribers.
+        """
+        key = f"{device_id}:{bus}"
+        
+        # Serialize for JSON transport
+        frame_data = {
+            "timestamp": frame.timestamp,
+            "bus": frame.bus,
+            "arbitration_id": f"0x{frame.arbitration_id:X}",
+            "dlc": frame.dlc,
+            "data": frame.data.hex(),
+            "is_extended": frame.is_extended,
+            "is_error": frame.is_error,
+            "is_remote": frame.is_remote
+        }
+
+        if key in self.can_queues:
+            for queue in self.can_queues[key]:
+                try:
+                    queue.put_nowait(frame_data)
+                except asyncio.QueueFull:
+                    pass
+                    
+        # Also push to unified stream
+        global_update = {
+            "type": "can_frame",
+            "device_id": device_id,
+            "bus": bus,
+            **frame_data
         }
         for queue in self.global_queues:
             try:

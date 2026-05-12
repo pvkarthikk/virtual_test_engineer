@@ -12,6 +12,7 @@ from core.channel_manager import ChannelManager
 from core.test_engine import TestEngine
 from core.stream_manager import StreamManager, SSELogHandler
 from core.flash_manager import FlashManager
+from core.can_manager import CANManager
 from models.config import SystemConfig, ChannelConfig, UIConfig
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ class SDTBSystem:
         self.device_manager = DeviceManager(self.system_config.device_directory, self.config_manager)
         self.stream_manager = StreamManager()
         self.flash_manager = FlashManager(self.system_config.device_directory, self.config_manager)
+        self.can_manager = CANManager(self.stream_manager)
         self.channel_manager = ChannelManager(self.device_manager, self.stream_manager)
         self.test_engine = TestEngine(self.channel_manager, self.device_manager)
         
@@ -176,6 +178,9 @@ class SDTBSystem:
                                 if last_val is None or not math.isclose(last_val, sig.value, rel_tol=1e-5):
                                     self.stream_manager.push_device_signal_update(dev_id, sig.signal_id, sig.value)
                                     self._last_pushed_values[cache_key] = sig.value
+                                
+                            # Drain CAN frames
+                            self.can_manager.drain_device(dev_id, device)
                                 
                             # Push scaled channel updates to stream
                             for ch in self.channel_manager.get_all_channels():

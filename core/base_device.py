@@ -56,6 +56,20 @@ class SignalDefinition:
     # --- Runtime State ---
     value: float     = 0.0           # Most recent raw hardware count
     description: str = ""            # Optional physical connection note
+@dataclass(frozen=True)
+class CANFrame:
+    """
+    Represents a single raw CAN frame captured from a hardware interface.
+    Immutable value object for safe transport through the system.
+    """
+    timestamp: float        # Capture timestamp (seconds since epoch)
+    bus: str                # Interface ID (e.g., "can0")
+    arbitration_id: int     # CAN ID (standard or extended)
+    dlc: int                # Data Length Code (0-8 for standard CAN)
+    data: bytes             # Raw payload
+    is_extended: bool = False
+    is_error: bool = False
+    is_remote: bool = False
 
 class BaseDevice(ABC):
     @property
@@ -145,6 +159,14 @@ class BaseDevice(ABC):
     def enabled(self, value: bool):
         """Sets the enabled state of the device."""
         pass
+
+    def get_can_interfaces(self) -> List[str]:
+        """Returns a list of CAN bus interfaces advertised by this device (e.g. ['can0'])."""
+        return []
+
+    def pop_can_frames(self) -> List[CANFrame]:
+        """Returns and clears all CAN frames captured since the last call."""
+        return []
 
     def validate_signal_value(self, signal: SignalDefinition, value: Any):
         """Validates that a value is within the physical signal's min/max range."""
