@@ -45,9 +45,13 @@ async def get_test_status():
     Returns the current operational status of the test engine.
     """
     system = get_system()
+    engine = system.test_engine
     return {
-        "is_running": system.test_engine.is_test_running,
-        "abort_requested": system.test_engine._stop_requested
+        "is_running": engine.is_test_running,
+        "abort_requested": engine._stop_requested,
+        "current_step": engine.current_step,
+        "total_steps": engine.total_steps,
+        "progress": engine.progress
     }
 
 @router.get("/history")
@@ -56,3 +60,11 @@ async def get_test_history():
     Returns the history of all executed test steps.
     """
     return get_system().test_engine.history
+
+@router.delete("/history")
+async def clear_test_history():
+    """
+    Clears the history of executed test steps.
+    """
+    get_system().test_engine.history.clear()
+    return {"message": "Test history cleared"}

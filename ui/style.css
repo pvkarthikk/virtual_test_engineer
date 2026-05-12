@@ -730,6 +730,12 @@ i[data-lucide]>svg {
     background: rgba(255, 255, 255, 0.05);
 }
 
+.btn.active {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
 .hidden {
     display: none !important;
 }
@@ -1216,6 +1222,71 @@ i[data-lucide]>svg {
     font-size: 0.65rem;
 }
 
+.table-compact .table-input {
+    padding: 3px 8px;
+    font-size: 0.8rem;
+    height: 28px;
+}
+
+/* Grouped History Styles */
+.history-run-group {
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.history-run-header {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 15px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.history-run-header:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.history-run-header .run-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.history-run-header .run-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.history-run-content {
+    display: none;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.history-run-group.expanded .history-run-content {
+    display: block;
+}
+
+.history-run-group.expanded .history-run-header {
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.history-run-group.expanded .toggle-icon {
+    transform: rotate(90deg);
+}
+
+.toggle-icon {
+    transition: transform 0.2s;
+}
+
 /* EXPLORER LAYOUT */
 .explorer-container {
     display: flex;
@@ -1495,6 +1566,14 @@ i[data-lucide]>svg {
     color: #64748b;
     font-style: italic;
     font-size: 0.8rem;
+}
+
+.log-entry.level-error {
+    color: var(--accent-danger) !important;
+}
+
+.log-entry.level-warning {
+    color: var(--accent-warning) !important;
 }
 
 /* TEST EDITOR */
@@ -2148,12 +2227,12 @@ input:checked+.slider:before {
     border: 1px solid var(--border-color);
     border-radius: 7px;
     overflow: hidden;
-    margin: 12px 0;
+    margin: 8px 0;
 }
 
-.progress-bar-fill {
+.progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    background: linear-gradient(90deg, var(--accent-primary), #60a5fa);
     width: var(--progress, 0%);
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }

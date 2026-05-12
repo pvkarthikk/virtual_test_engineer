@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Literal, Union, Annotated, Optional
+from typing import Literal, Union, Annotated, Optional, List
 
 class WriteStep(BaseModel):
     action: Literal["write"]
@@ -36,3 +36,9 @@ class TestResult(BaseModel):
     status: Literal["pass", "fail", "error"]
     message: str
     timestamp: float
+
+class TestRun(BaseModel):
+    id: str
+    timestamp: float
+    results: List[TestResult]
+    logs: List[str] = []

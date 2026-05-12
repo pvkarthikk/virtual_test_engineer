@@ -69,7 +69,8 @@ const state = {
     heartbeatTimer: null,
     layout: null,
     quickWave: { active: false, plotter: null, data: [[], []], channelId: null, paused: false },
-    flash: { selectedFile: null, protocols: [], connectedId: null, activeExecutionId: null, sse: null }
+    flash: { selectedFile: null, protocols: [], connectedId: null, activeExecutionId: null, sse: null },
+    testProgressInterval: null
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -341,7 +342,14 @@ function syncStatus(isConnected) {
     }
 
     const btnRunTest = document.getElementById('btn-run-test');
-    if (btnRunTest) btnRunTest.disabled = !isConnected;
+    if (btnRunTest) {
+        btnRunTest.disabled = !isConnected;
+        // If system disconnects, stop any running test progress UI
+        if (!isConnected) stopTestProgressPolling();
+    }
+    
+    // Initial check for already running test when connecting
+    if (isConnected) checkTestStatus();
 
     // Refresh UI based on state
     if (state.currentView === 'dashboard') {
@@ -914,6 +922,20 @@ function setupTestEditor() {
         renderTestTable();
     };
 
+    const btnHistory = document.getElementById('btn-test-history');
+    if (btnHistory) btnHistory.onclick = showTestHistory;
+
+    const btnToggleLog = document.getElementById('btn-toggle-test-log');
+    if (btnToggleLog) {
+        btnToggleLog.onclick = () => {
+            const log = document.getElementById('test-log');
+            if (log) {
+                const isHidden = log.classList.toggle('hidden');
+                btnToggleLog.classList.toggle('active', !isHidden);
+            }
+        };
+    }
+
     if (btnStop) btnStop.onclick = async () => {
         try {
             await apiPost('/test/stop');
@@ -947,12 +969,154 @@ function setupTestEditor() {
         try {
             await apiPost('/test/run', jsonl, 'text/plain');
             addLog('Test sequence accepted by backend engine', 'success');
+            startTestProgressPolling();
         } catch (e) {
             addLog(`Test failed to start: ${e.message}`, 'error');
         }
     };
     renderTestTable();
 }
+
+async function checkTestStatus() {
+    try {
+        const status = await apiGet('/test/status');
+        updateTestProgressUI(status);
+        if (status.is_running) startTestProgressPolling();
+    } catch (e) {
+        console.warn('[Test] Status check failed', e);
+    }
+}
+
+function startTestProgressPolling() {
+    if (state.testProgressInterval) return;
+    state.testProgressInterval = setInterval(async () => {
+        try {
+            const status = await apiGet('/test/status');
+            updateTestProgressUI(status);
+            if (!status.is_running) stopTestProgressPolling();
+        } catch (e) {
+            console.error('[Test] Progress poll failed', e);
+            stopTestProgressPolling();
+        }
+    }, 500);
+}
+
+function stopTestProgressPolling() {
+    if (state.testProgressInterval) {
+        clearInterval(state.testProgressInterval);
+        state.testProgressInterval = null;
+    }
+    // Final UI reset check
+    updateTestProgressUI({ is_running: false, progress: 0 });
+}
+
+function updateTestProgressUI(status) {
+    const btnRun = document.getElementById('btn-run-test');
+    const container = document.getElementById('test-progress-container');
+    const bar = document.getElementById('test-progress-bar');
+    const text = document.getElementById('test-progress-text');
+
+    if (btnRun) btnRun.disabled = status.is_running || state.status !== 'online';
+    
+    if (container) {
+        if (status.is_running) container.classList.remove('hidden');
+        else container.classList.add('hidden');
+    }
+
+    if (bar) bar.style.setProperty('--progress', `${status.progress}%`);
+    if (text) text.innerText = `${Math.round(status.progress)}%`;
+}
+
+async function showTestHistory() {
+    const modal = document.getElementById('modal-test-history');
+    const container = document.getElementById('test-history-container');
+    if (!modal || !container) return;
+
+    container.innerHTML = '<div style="text-align: center; padding: 40px; opacity: 0.6;"><i data-lucide="loader-2" class="animate-spin" style="width: 32px; height: 32px; margin-bottom: 10px;"></i><br>Loading history...</div>';
+    lucide.createIcons(container);
+    modal.classList.add('active');
+
+    try {
+        const history = await apiGet('/test/history'); // This now returns List[TestRun]
+        container.innerHTML = '';
+        
+        if (!history || history.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; opacity: 0.6;">No execution history available yet.</div>';
+            return;
+        }
+
+        // Show latest runs first
+        [...history].reverse().forEach((run, runIdx) => {
+            const runDiv = document.createElement('div');
+            runDiv.className = `history-run-group ${runIdx === 0 ? 'expanded' : ''}`; // Expand latest by default
+            
+            const date = new Date(run.timestamp * 1000);
+            const timeStr = date.toLocaleString();
+            const passCount = run.results.filter(r => r.status === 'pass').length;
+            const failCount = run.results.filter(r => r.status === 'fail' || r.status === 'error').length;
+            
+            runDiv.innerHTML = `
+                <div class="history-run-header" onclick="this.parentElement.classList.toggle('expanded')">
+                    <div class="run-title">
+                        <i data-lucide="chevron-right" class="toggle-icon"></i>
+                        <span>Run ${timeStr}</span>
+                        <span class="badge ${failCount > 0 ? 'badge-danger' : 'badge-success'}" style="font-size: 0.65rem">
+                            ${passCount} Pass / ${failCount} Fail
+                        </span>
+                    </div>
+                    <div class="run-meta">
+                        ${run.results.length} steps • ID: ${run.id.substring(0, 8)}
+                    </div>
+                </div>
+                <div class="history-run-content">
+                    <table class="table table-compact">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px">Step</th>
+                                <th style="width: 150px">Action</th>
+                                <th style="width: 100px">Status</th>
+                                <th>Result Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${run.results.map(res => `
+                                <tr>
+                                    <td><span class="badge">#${res.step_index + 1}</span></td>
+                                    <td>
+                                        <div style="font-weight: 600">${res.action.toUpperCase()}</div>
+                                        <div style="font-size: 0.7rem; opacity: 0.6">${res.channel || ''}</div>
+                                    </td>
+                                    <td>
+                                        <span class="${res.status === 'pass' ? 'text-success' : 'text-danger'}" style="font-weight: 700">
+                                            ${res.status.toUpperCase()}
+                                        </span>
+                                    </td>
+                                    <td><div style="font-size: 0.8rem; line-height: 1.4">${res.message || ''}</div></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+            `;
+            container.appendChild(runDiv);
+        });
+        lucide.createIcons(container);
+    } catch (e) {
+        container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--accent-danger)">Failed to load history: ${e.message}</div>`;
+    }
+}
+
+window.clearTestHistory = async () => {
+    if (!confirm('Are you sure you want to clear the entire execution history?')) return;
+    try {
+        await apiDelete('/test/history');
+        addLog('Test history cleared', 'info');
+        showTestHistory(); // Refresh view
+    } catch (e) {
+        addLog(`Clear history failed: ${e.message}`, 'error');
+    }
+};
 
 function renderTestTable() {
     const tbody = document.getElementById('test-table-body');
@@ -1655,7 +1819,7 @@ function addLog(m, t = 'info') {
     if (!isVisible) e.style.display = 'none';
 
     d.appendChild(e.cloneNode(true));
-    if (tl && (m.startsWith('Step') || t === 'success' || t === 'error')) { tl.appendChild(e); tl.scrollTop = tl.scrollHeight; }
+    if (tl && (m.startsWith('Step') || m.includes('Test execution') || t === 'success' || t === 'error')) { tl.appendChild(e); tl.scrollTop = tl.scrollHeight; }
     const as = document.getElementById('chk-autoscroll'); if (as && as.checked) d.scrollTop = d.scrollHeight;
 }
 

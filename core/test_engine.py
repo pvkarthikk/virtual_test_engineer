@@ -4,7 +4,7 @@ import uuid
 import logging
 import math
 from typing import List, Optional, Callable, Any
-from models.test import TestStep, WriteStep, WaitStep, AssertStep, FaultStep, TestResult
+from models.test import TestStep, WriteStep, WaitStep, AssertStep, FaultStep, TestResult, TestRun
 from core.channel_manager import ChannelManager
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,8 @@ class TestEngine:
         
         # Callback for real-time progress reporting (e.g., via SSE)
         self.on_step_complete: Optional[Callable[[TestResult], None]] = None
-        self.history: List[TestResult] = []
+        self.history: List[TestRun] = []
+        self._current_run: Optional[TestRun] = None
         self._active_token: Optional[str] = None
         self.current_step = 0
         self.total_steps = 0
@@ -96,24 +97,39 @@ class TestEngine:
             self.current_step = 0
             logger.info(f"Starting execution of {self.total_steps} test steps...")
             
+            self._current_run = TestRun(id=str(uuid.uuid4()), timestamp=time.time(), results=[], logs=[])
+            self.history.append(self._current_run)
+            if len(self.history) > 100:
+                self.history.pop(0)
+
             for i, step in enumerate(steps):
                 if self._stop_requested:
-                    logger.warning("Test execution aborted by user.")
                     break
                 
                 self.current_step = i + 1
                 result = await self._execute_step(i, step)
                 
+                # Append to current run history
+                if self._current_run:
+                    self._current_run.results.append(result)
+
                 # Report result via callback
                 if self.on_step_complete:
                     self.on_step_complete(result)
                 
                 if result.status != "pass":
-                    logger.error(f"Test aborted at step {i+1} due to {result.status}: {result.message}")
                     break
-                    
-            logger.info("Test execution finished.")
+            
+            if self._stop_requested:
+                self._log("Test execution ABORTED by user.", "warning")
+            elif self.current_step == self.total_steps and self.total_steps > 0:
+                self._log(f"Test execution FINISHED: {self.total_steps}/{self.total_steps} steps passed.", "info")
+            else:
+                self._log(f"Test execution STOPPED at step {self.current_step}/{self.total_steps}.", "error")
 
+        except Exception as e:
+            self._log(f"Test execution FAILED: {str(e)}", "error")
+            raise
         finally:
             self.is_test_running = False
             self.current_step = 0
@@ -130,15 +146,15 @@ class TestEngine:
 
         try:
             if isinstance(step, WriteStep):
-                logger.info(f"Step {index}: Writing {step.value} to {step.channel}")
+                self._log(f"Step {index}: Writing {step.value} to {step.channel}")
                 await self.channel_manager.write_channel(step.channel, step.value)
                 
             elif isinstance(step, WaitStep):
-                logger.info(f"Step {index}: Waiting for {step.duration_ms}ms")
+                self._log(f"Step {index}: Waiting for {step.duration_ms}ms")
                 await asyncio.sleep(step.duration_ms / 1000.0)
                 
             elif isinstance(step, AssertStep):
-                logger.info(f"Step {index}: Asserting {step.channel} {step.condition} {step.value}")
+                self._log(f"Step {index}: Asserting {step.channel} {step.condition} {step.value}")
                 actual_value = await self.channel_manager.read_channel(step.channel)
                 
                 if not self._evaluate_assertion(actual_value, step.condition, step.value):
@@ -149,7 +165,7 @@ class TestEngine:
                 if not self.device_manager:
                     raise RuntimeError("DeviceManager not available in TestEngine")
                 
-                logger.info(f"Step {index}: Injecting fault '{step.fault_id}' on {step.device}/{step.signal}")
+                self._log(f"Step {index}: Injecting fault '{step.fault_id}' on {step.device}/{step.signal}")
                 device = self.device_manager.get_device(step.device)
                 if not device:
                     raise ValueError(f"Device {step.device} not found")
@@ -157,9 +173,9 @@ class TestEngine:
                 await asyncio.to_thread(device.inject_fault, step.signal, step.fault_id)
                 
                 if step.duration_ms:
-                    logger.info(f"Step {index}: Keeping fault for {step.duration_ms}ms")
+                    self._log(f"Step {index}: Keeping fault for {step.duration_ms}ms")
                     await asyncio.sleep(step.duration_ms / 1000.0)
-                    logger.info(f"Step {index}: Clearing fault '{step.fault_id}'")
+                    self._log(f"Step {index}: Clearing fault '{step.fault_id}'")
                     await asyncio.to_thread(device.clear_fault, step.signal)
         except Exception as e:
             status = "error"
@@ -173,10 +189,6 @@ class TestEngine:
             message=message,
             timestamp=start_time
         )
-        self.history.append(result)
-        # Prevent memory leak by limiting history size
-        if len(self.history) > 1000:
-            self.history = self.history[-1000:]
         return result
 
     def _evaluate_assertion(self, actual: float, condition: str, target: float) -> bool:
@@ -190,6 +202,17 @@ class TestEngine:
         if condition == "<":  return actual < target
         if condition == "<=": return actual <= target
         return False
+
+    def _log(self, message: str, level: str = "info"):
+        """
+        Logs a message to the system logger and also to the current run's log history.
+        """
+        if level == "info": logger.info(message)
+        elif level == "error": logger.error(message)
+        elif level == "warning": logger.warning(message)
+        
+        if self._current_run:
+            self._current_run.logs.append(f"{level.upper()} | {message}")
 
     def stop(self):
         """

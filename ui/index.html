@@ -231,17 +231,29 @@
                         <button id="btn-add-test-step" class="btn btn-outline btn-sm">
                             <i data-lucide="plus"></i> Add Step
                         </button>
+                        <button id="btn-test-history" class="btn btn-outline btn-sm">
+                            <i data-lucide="history"></i> History
+                        </button>
                         <button id="btn-run-test" class="btn btn-primary btn-sm" disabled>
                             <i data-lucide="play"></i> Run Test
+                        </button>
+                        <button id="btn-toggle-test-log" class="btn btn-outline btn-sm">
+                            <i data-lucide="terminal"></i> Logs
                         </button>
                         <button id="btn-stop-test" class="btn btn-outline btn-sm text-danger border-danger">
                             <i data-lucide="square"></i> Stop
                         </button>
+                        <div class="flex-row align-center gap-3 ml-10 hidden" id="test-progress-container">
+                            <div class="progress-bar-container" style="width: 120px; height: 10px;">
+                                <div id="test-progress-bar" class="progress-bar" style="--progress: 0%"></div>
+                            </div>
+                            <span id="test-progress-text" class="text-sm font-mono" style="min-width: 40px;">0%</span>
+                        </div>
                     </div>
                 </div>
                 <div class="test-editor-container flex-col gap-4">
                     <div class="card flex-1 overflow-y-auto p-15">
-                        <table class="table" id="test-table">
+                        <table class="table table-compact" id="test-table">
                             <thead>
                                 <tr>
                                     <th class="w-100">CMD</th>
@@ -256,7 +268,7 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="test-log" id="test-log">
+                    <div class="test-log hidden" id="test-log">
                         <!-- Test results logs -->
                     </div>
                 </div>
@@ -460,6 +472,23 @@
             <div class="flex-row gap-2 mt-20 justify-end">
                 <button id="btn-chan-cancel" class="btn btn-outline">Cancel</button>
                 <button id="btn-chan-save" class="btn btn-primary">Save Channel</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- TEST HISTORY MODAL -->
+    <div id="modal-test-history" class="modal">
+        <div class="modal-content card max-w-800 w-90pc flex-col" style="height: 600px;">
+            <div class="flex-row justify-between align-center mb-20">
+                <h2 class="m-0">Test Execution History</h2>
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modal-test-history')">Close</button>
+            </div>
+            <div class="flex-1 overflow-y-auto" id="test-history-container">
+                <!-- Grouped history runs injected here -->
+            </div>
+            <div class="mt-15 flex-row justify-between align-center">
+                <span class="text-sm text-muted">Showing last 100 operations</span>
+                <button class="btn btn-outline btn-sm text-danger" onclick="clearTestHistory()">Clear History</button>
             </div>
         </div>
     </div>
