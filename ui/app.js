@@ -69,6 +69,7 @@ const state = {
     heartbeatTimer: null,
     layout: null,
     quickWave: { active: false, plotter: null, data: [[], []], channelId: null, paused: false },
+    channelHistory: {}, // Background buffer for all channels: id -> [[times], [values]]
     flash: { selectedFile: null, protocols: [], connectedId: null, activeExecutionId: null, sse: null },
     testProgressInterval: null
 };
@@ -1224,15 +1225,19 @@ function handleChannelUpdate(id, val) {
         if (state.oscilloscope.history[id].data.length > 1000) state.oscilloscope.history[id].data.shift();
     }
 
-    // 4. Update quick oscilloscope
+    // 4. Update global background buffer for quick-view
+    if (!state.channelHistory[id]) state.channelHistory[id] = [[], []];
+    const now = Date.now() / 1000;
+    state.channelHistory[id][0].push(now);
+    state.channelHistory[id][1].push(val);
+    if (state.channelHistory[id][0].length > 1000) {
+        state.channelHistory[id][0].shift();
+        state.channelHistory[id][1].shift();
+    }
+
+    // 5. Update quick oscilloscope if active
     if (state.quickWave.active && state.quickWave.plotter && state.quickWave.channelId === id && !state.quickWave.paused) {
-        const now = Date.now() / 1000;
-        state.quickWave.data[0].push(now);
-        state.quickWave.data[1].push(val);
-        if (state.quickWave.data[0].length > 500) {
-            state.quickWave.data[0].shift();
-            state.quickWave.data[1].shift();
-        }
+        state.quickWave.data = state.channelHistory[id];
         state.quickWave.plotter.setData(state.quickWave.data);
     }
 
@@ -1248,6 +1253,23 @@ function handleDeviceSignalUpdate(devId, sigId, val) {
         state.oscilloscope.history[id].data.push({ t: Date.now(), v: val });
         if (state.oscilloscope.history[id].data.length > 1000) state.oscilloscope.history[id].data.shift();
     }
+
+    // Update global background buffer
+    if (!state.channelHistory[id]) state.channelHistory[id] = [[], []];
+    const now = Date.now() / 1000;
+    state.channelHistory[id][0].push(now);
+    state.channelHistory[id][1].push(val);
+    if (state.channelHistory[id][0].length > 1000) {
+        state.channelHistory[id][0].shift();
+        state.channelHistory[id][1].shift();
+    }
+
+    // Update quick oscilloscope if active
+    if (state.quickWave.active && state.quickWave.plotter && state.quickWave.channelId === id && !state.quickWave.paused) {
+        state.quickWave.data = state.channelHistory[id];
+        state.quickWave.plotter.setData(state.quickWave.data);
+    }
+
     const waveValEl = document.getElementById(`wave-val-${id}`);
     if (waveValEl) waveValEl.innerText = val.toFixed(2);
 
@@ -1927,7 +1949,17 @@ window.openQuickOscilloscope = (id) => {
     if (!modal || !container) return;
 
     state.quickWave.channelId = id;
-    state.quickWave.data = [[], []];
+    
+    // Initialize with background history if available
+    if (state.channelHistory[id]) {
+        state.quickWave.data = [
+            [...state.channelHistory[id][0]], 
+            [...state.channelHistory[id][1]]
+        ];
+    } else {
+        state.quickWave.data = [[], []];
+    }
+    
     state.quickWave.active = true;
     state.quickWave.paused = false;
 
@@ -1941,28 +1973,40 @@ window.openQuickOscilloscope = (id) => {
 
     container.innerHTML = '';
     modal.classList.add('active');
-    requestAnimationFrame(() => {
+
+    // Wait for modal transition to complete to get accurate dimensions
+    setTimeout(() => {
         const isLight = document.documentElement.classList.contains('light-theme');
         const axisStroke = isLight ? '#64748b' : '#94a3b8';
-        const grideStroke = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)';
+        const gridStroke = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)';
+        const rect = container.getBoundingClientRect();
+        
         const opts = {
-            title: "Live Oscilloscope",
-            width: container.clientWidth || 600,
-            height: container.clientHeight || 400,
-            padding: [20, 20, 20, 20], // Add padding around the chart
+            width: rect.width || 600,
+            height: rect.height || 350,
+            series: [
+                {},
+                {
+                    stroke: "#10b981",
+                    width: 2,
+                    label: id,
+                    spanGaps: true,
+                    points: { show: false }
+                }
+            ],
             scales: {
                 x: { time: true },
                 y: { range: (u, min, max) => [min * 0.9, max * 1.1] }
             },
             axes: [
-                { stroke: axisStroke, grid: { stroke: grideStroke } },
-                { stroke: axisStroke, grid: { stroke: grideStroke } }
+                { stroke: axisStroke, grid: { stroke: gridStroke } },
+                { stroke: axisStroke, grid: { stroke: gridStroke } }
             ],
             cursor: { drag: { x: true, y: true } }
         };
 
         state.quickWave.plotter = new uPlot(opts, state.quickWave.data, container);
-    });
+    }, 50);
 };
 
 window.closeQuickOscilloscope = () => {
