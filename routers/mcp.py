@@ -299,12 +299,15 @@ async def handle_call_tool(
             return [types.TextContent(type="text", text=f"Successfully set channel '{ch_id}' to {value}")]
 
         elif name == "get_system_summary":
-            devices = get_system().device_manager.get_all_devices()
-            channels = get_system().channel_manager.get_all_channels()
+            system = get_system()
+            devices = system.device_manager.get_all_devices()
+            channels = system.channel_manager.get_all_channels()
+            can_interfaces = system.can_manager.get_interfaces()
             summary = {
                 "status": "online" if any(d.is_connected for d in devices.values()) else "offline",
                 "device_count": len(devices),
                 "channel_count": len(channels),
+                "can_interfaces": [f"{iface['device_id']}:{iface['bus']}" for iface in can_interfaces],
                 "connected_devices": [f"{dev_id} ({d.vendor} {d.model})" for dev_id, d in devices.items() if d.is_connected]
             }
             return [types.TextContent(type="text", text=json.dumps(summary, indent=2))]

@@ -29,6 +29,14 @@ async def get_can_log(
     Retrieves recent CAN frames from a specific interface.
     Optional 'arb_id' filter accepts hex strings like '0x100'.
     """
+    # Validation (Point 2)
+    device = system.device_manager.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
+    
+    if bus not in device.get_can_interfaces():
+        raise HTTPException(status_code=404, detail=f"CAN bus '{bus}' not found on device '{device_id}'")
+
     arb_id_filter = None
     if arb_id:
         try:
@@ -57,6 +65,14 @@ async def stream_can_log(device_id: str, bus: str, system: SDTBSystem = Depends(
     """
     SSE endpoint for real-time CAN frame monitoring.
     """
+    # Validation (Point 2)
+    device = system.device_manager.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
+    
+    if bus not in device.get_can_interfaces():
+        raise HTTPException(status_code=404, detail=f"CAN bus '{bus}' not found on device '{device_id}'")
+
     return EventSourceResponse(system.stream_manager.subscribe_can(device_id, bus))
 
 @router.delete("/log/{device_id}/{bus}")
@@ -64,5 +80,13 @@ async def clear_can_log(device_id: str, bus: str, system: SDTBSystem = Depends(g
     """
     Clears the in-memory ring buffer for a specific CAN interface.
     """
+    # Validation (Point 2)
+    device = system.device_manager.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Device '{device_id}' not found")
+    
+    if bus not in device.get_can_interfaces():
+        raise HTTPException(status_code=404, detail=f"CAN bus '{bus}' not found on device '{device_id}'")
+
     system.can_manager.clear(device_id, bus)
     return {"status": "cleared"}

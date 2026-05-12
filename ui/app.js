@@ -71,6 +71,14 @@ const state = {
     quickWave: { active: false, plotter: null, data: [[], []], channelId: null, paused: false },
     channelHistory: {}, // Background buffer for all channels: id -> [[times], [values]]
     flash: { selectedFile: null, protocols: [], connectedId: null, activeExecutionId: null, sse: null },
+    canTrace: {
+        interface: null, // "device_id:bus"
+        filterId: null,
+        paused: false,
+        fixedMode: false,
+        frames: [],
+        fixedFrames: {} // Map for Fixed Mode: ID -> frame
+    },
     testProgressInterval: null
 };
 
@@ -102,6 +110,7 @@ const viewTitles = {
     'test-editor': 'Test Editor',
     'debug': 'System Logs',
     'flash': 'Software Flasher',
+    'can-trace': 'CAN Bus Trace',
     'settings': 'Settings'
 };
 
@@ -204,6 +213,7 @@ function refreshViewContent(viewId) {
     if (viewId === 'oscilloscope') initOscilloscopeViewer();
     if (viewId === 'test-editor') renderTestTable();
     if (viewId === 'flash') initFlashView();
+    if (viewId === 'can-trace') initCANTraceView();
 }
 
 function setupNavigation() {
@@ -1190,6 +1200,8 @@ function setupSSE() {
                 handleChannelUpdate(data.channel_id, data.value);
             } else if (data.type === 'device_signal') {
                 handleDeviceSignalUpdate(data.device_id, data.signal_id, data.value);
+            } else if (data.type === 'can_frame') {
+                handleCANFrameUpdate(data);
             }
         } catch (err) {
             // Legacy format fallback for global logs
@@ -2351,4 +2363,227 @@ function endKnob() {
     window.removeEventListener('mouseup', endKnob);
     window.removeEventListener('touchmove', moveKnob);
     window.removeEventListener('touchend', endKnob);
+}
+
+/**
+ * CAN TRACE VIEW LOGIC
+ */
+async function initCANTraceView() {
+    const select = document.getElementById('can-interface-select');
+    if (!select) return;
+
+    try {
+        const interfaces = await apiGet('/can/interfaces');
+        select.innerHTML = '<option value="">Select Interface...</option>';
+        
+        interfaces.forEach(iface => {
+            const val = `${iface.device_id}:${iface.bus}`;
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.text = `${iface.device_id} - ${iface.bus}`;
+            if (state.canTrace.interface === val) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        if (!state.canTrace.interface && interfaces.length > 0) {
+            state.canTrace.interface = `${interfaces[0].device_id}:${interfaces[0].bus}`;
+            select.value = state.canTrace.interface;
+            onCANInterfaceChange();
+        }
+    } catch (e) {
+        console.error("Failed to load CAN interfaces", e);
+    }
+}
+
+window.onCANInterfaceChange = () => {
+    const select = document.getElementById('can-interface-select');
+    if (select) {
+        state.canTrace.interface = select.value;
+        // Optionally fetch last N frames from history
+        fetchCANHistory();
+    }
+};
+
+async function fetchCANHistory() {
+    if (!state.canTrace.interface) return;
+    const [devId, bus] = state.canTrace.interface.split(':');
+    try {
+        const frames = await apiGet(`/can/log/${devId}/${bus}?count=100`);
+        state.canTrace.frames = frames.reverse(); // Newest at bottom for history fetch if we want top-down
+        // Actually usually we want newest at bottom
+        renderCANTrace();
+    } catch (e) {
+        console.error("Failed to fetch CAN history", e);
+    }
+}
+
+window.onCANFilterChange = (e) => {
+    state.canTrace.filterId = e.target.value.toLowerCase().trim();
+    renderCANTrace();
+};
+
+window.clearCANTrace = async () => {
+    if (!state.canTrace.interface) return;
+    const [devId, bus] = state.canTrace.interface.split(':');
+    try {
+        await apiPost(`/can/clear/${devId}/${bus}`);
+        state.canTrace.frames = [];
+        renderCANTrace();
+        addLog(`CAN Trace cleared for ${state.canTrace.interface}`, 'info');
+    } catch (e) { console.error(e); }
+};
+
+window.toggleCANPause = () => {
+    state.canTrace.paused = !state.canTrace.paused;
+    const btn = document.getElementById('btn-can-pause');
+    if (btn) {
+        btn.innerHTML = state.canTrace.paused ? '<i data-lucide="play"></i> Resume' : '<i data-lucide="pause"></i> Pause';
+        btn.classList.toggle('active', state.canTrace.paused);
+        lucide.createIcons(btn);
+    }
+};
+
+window.toggleCANFixedMode = () => {
+    state.canTrace.fixedMode = !state.canTrace.fixedMode;
+    const btn = document.getElementById('btn-can-fixed');
+    if (btn) {
+        btn.classList.toggle('active', state.canTrace.fixedMode);
+    }
+    renderCANTrace();
+};
+
+function handleCANFrameUpdate(data) {
+    if (state.canTrace.paused) return;
+    
+    const key = `${data.device_id}:${data.bus}`;
+    if (state.canTrace.interface && state.canTrace.interface !== key) return;
+
+    const frame = {
+        timestamp: data.timestamp,
+        bus: data.bus,
+        arbitration_id: data.arbitration_id,
+        dlc: data.dlc,
+        data: data.data,
+        is_extended: data.is_extended,
+        is_error: data.is_error,
+        is_remote: data.is_remote
+    };
+
+    // Always push to chronological log
+    state.canTrace.frames.push(frame);
+    if (state.canTrace.frames.length > 500) state.canTrace.frames.shift();
+
+    // Update fixed map
+    state.canTrace.fixedFrames[frame.arbitration_id] = frame;
+
+    if (state.currentView === 'can-trace') {
+        const filter = state.canTrace.filterId;
+        if (filter && !frame.arbitration_id.toLowerCase().includes(filter)) return;
+
+        if (state.canTrace.fixedMode) {
+            updateFixedFrameInUI(frame);
+        } else {
+            appendCANFrameToUI(frame);
+        }
+    }
+}
+
+function renderCANTrace() {
+    const log = document.getElementById('can-trace-log');
+    if (!log) return;
+    log.innerHTML = '';
+    
+    const filter = state.canTrace.filterId;
+    
+    if (state.canTrace.fixedMode) {
+        // Render from fixedFrames map, sorted by ID
+        const frames = Object.values(state.canTrace.fixedFrames).sort((a, b) => 
+            a.arbitration_id.localeCompare(b.arbitration_id)
+        );
+        frames.forEach(f => {
+            if (filter && !f.arbitration_id.toLowerCase().includes(filter)) return;
+            appendCANFrameToUI(f);
+        });
+    } else {
+        // Render chronological log
+        state.canTrace.frames.forEach(f => {
+            if (filter && !f.arbitration_id.toLowerCase().includes(filter)) return;
+            appendCANFrameToUI(f);
+        });
+    }
+}
+
+function appendCANFrameToUI(f) {
+    const log = document.getElementById('can-trace-log');
+    if (!log) return;
+
+    const entry = document.createElement('div');
+    entry.className = `can-frame-entry ${f.is_error ? 'error-frame' : ''}`;
+    // For Fixed Mode updates - remove 0x to make it a valid ID
+    entry.id = `can-row-${f.arbitration_id.replace('0x', '')}`;
+    
+    const timeStr = formatTimestamp(f.timestamp);
+    
+    const flags = [];
+    if (f.is_extended) flags.push('EXT');
+    if (f.is_remote) flags.push('RTR');
+    if (f.is_error) flags.push('ERR');
+
+    entry.innerHTML = `
+        <div class="trace-col time">${timeStr}</div>
+        <div class="trace-col bus">${f.bus}</div>
+        <div class="trace-col id">${f.arbitration_id}</div>
+        <div class="trace-col dlc">${f.dlc}</div>
+        <div class="trace-col data">${formatCANData(f.data)}</div>
+        <div class="trace-col flags">${flags.join(' ')}</div>
+    `;
+
+    log.appendChild(entry);
+    
+    // Auto-scroll if at bottom and NOT in fixed mode
+    if (!state.canTrace.fixedMode && log.scrollHeight - log.scrollTop - log.clientHeight < 50) {
+        log.scrollTop = log.scrollHeight;
+    }
+
+    // Limit DOM elements for performance ONLY in chronological mode
+    if (!state.canTrace.fixedMode && log.children.length > 100) {
+        log.removeChild(log.firstChild);
+    }
+}
+
+function updateFixedFrameInUI(f) {
+    const rowId = `can-row-${f.arbitration_id.replace('0x', '')}`;
+    let entry = document.getElementById(rowId);
+    
+    if (!entry) {
+        // ID not seen yet in current view, re-render to keep sorting
+        renderCANTrace();
+        return;
+    }
+
+    const timeStr = formatTimestamp(f.timestamp);
+    
+    // Update content
+    const timeCol = entry.querySelector('.time');
+    const dataCol = entry.querySelector('.data');
+    
+    if (timeCol) timeCol.innerText = timeStr;
+    if (dataCol) dataCol.innerText = formatCANData(f.data);
+    
+    // Trigger update animation
+    entry.classList.remove('updated');
+    void entry.offsetWidth; // Force reflow
+    entry.classList.add('updated');
+}
+
+function formatTimestamp(ts) {
+    const d = new Date(ts * 1000);
+    return d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+         + '.' + (ts % 1).toFixed(3).substring(2);
+}
+
+function formatCANData(hex) {
+    if (!hex) return '';
+    const parts = hex.match(/.{1,2}/g);
+    return parts ? parts.join(' ') : hex;
 }

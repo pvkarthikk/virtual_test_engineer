@@ -63,7 +63,7 @@ class SDTBSystem:
         self.device_manager = DeviceManager(self.system_config.device_directory, self.config_manager)
         self.stream_manager = StreamManager()
         self.flash_manager = FlashManager(self.system_config.device_directory, self.config_manager)
-        self.can_manager = CANManager(self.stream_manager)
+        self.can_manager = CANManager(self.stream_manager, self.system_config.can_buffer_size)
         self.channel_manager = ChannelManager(self.device_manager, self.stream_manager)
         self.test_engine = TestEngine(self.channel_manager, self.device_manager)
         

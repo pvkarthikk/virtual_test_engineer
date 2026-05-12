@@ -210,9 +210,10 @@ class MockDevice(BaseDevice):
         return ["can0"]
 
     def pop_can_frames(self) -> List[CANFrame]:
-        frames = list(self._can_buffer)
-        self._can_buffer.clear()
-        return frames
+        # Atomic swap to prevent race conditions with the background update thread
+        temp = self._can_buffer
+        self._can_buffer = collections.deque(maxlen=100) 
+        return list(temp)
 
     def restart(self) -> None:
         logger.info("MockDevice restarting...")

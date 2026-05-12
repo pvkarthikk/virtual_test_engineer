@@ -9,6 +9,7 @@ class CANLogBuffer:
     def __init__(self, maxlen: int = 10000):
         self._buffer = collections.deque(maxlen=maxlen)
         self._frame_count = 0
+        self._maxlen = maxlen
 
     def append(self, frame: CANFrame):
         self._buffer.append(frame)
@@ -46,22 +47,30 @@ class CANManager:
     """
     Singleton-style manager for draining CAN frames from devices and managing buffers.
     """
-    def __init__(self, stream_manager: Any):
+    def __init__(self, stream_manager: Any, max_buffer_size: int = 10000):
         self.stream_manager = stream_manager
+        self.max_buffer_size = max_buffer_size
         self.buffers: Dict[str, CANLogBuffer] = {}
 
     def drain_device(self, device_id: str, device: BaseDevice):
         """
         Pulls pending CAN frames from a device and distributes them to buffers and streams.
         """
-        frames = device.pop_can_frames()
+        try:
+            frames = device.pop_can_frames()
+        except Exception as e:
+            # Handle case where device disconnects mid-drain (Point 2)
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to drain CAN frames from {device_id}: {e}")
+            return
+
         if not frames:
             return
 
         for frame in frames:
             key = f"{device_id}:{frame.bus}"
             if key not in self.buffers:
-                self.buffers[key] = CANLogBuffer()
+                self.buffers[key] = CANLogBuffer(maxlen=self.max_buffer_size)
             
             self.buffers[key].append(frame)
             self.stream_manager.push_can_frame(device_id, frame.bus, frame)

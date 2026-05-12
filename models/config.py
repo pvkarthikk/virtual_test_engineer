@@ -69,6 +69,7 @@ class SystemServerConfig(BaseModel):
 class SystemConfig(BaseModel):
     device_directory: str = "devices"
     device_update_rate: int = Field(default=100, ge=10, le=5000)
+    can_buffer_size: int = Field(default=10000, ge=100, le=100000)
     server: SystemServerConfig = Field(default_factory=SystemServerConfig)
 
 class DeviceConfig(BaseModel):

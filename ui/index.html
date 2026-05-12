@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Software Defined Test Bench</title>
     <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="can_trace.css">
     <link href="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/uplot/dist/uPlot.min.css">
     <link type="text/css" rel="stylesheet"
@@ -82,6 +83,9 @@
                     <i data-lucide="zap"></i>
                 </button>
                 <div class="sidebar-spacer"></div>
+                <button class="nav-item" data-view="can-trace" title="CAN Bus Trace">
+                    <i data-lucide="monitor"></i>
+                </button>
                 <button class="nav-item" data-view="settings" title="Settings">
                     <i data-lucide="settings"></i>
                 </button>
@@ -365,6 +369,45 @@
                                 <div class="log-entry system">Waiting for operation...</div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-can-trace" class="view">
+                <div class="view-header">
+                    <div class="view-actions align-center flex-wrap gap-2">
+                        <div class="flex-row align-center gap-2 m-0">
+                            <label for="can-interface-select" class="text-sm">Interface:</label>
+                            <select id="can-interface-select" class="can-select" onchange="onCANInterfaceChange()"></select>
+                        </div>
+                        <div class="flex-row align-center gap-2 m-0 ml-10">
+                            <label for="can-filter-id" class="text-sm">Filter ID:</label>
+                            <input type="text" id="can-filter-id" class="table-input" style="width: 100px;" placeholder="0x..." onkeyup="onCANFilterChange(event)">
+                        </div>
+                        <div class="flex-row gap-2 ml-10">
+                            <button id="btn-can-fixed" class="btn btn-outline btn-sm" onclick="toggleCANFixedMode()" title="Collapse by ID">
+                                <i data-lucide="layers"></i> Fixed Mode
+                            </button>
+                            <button id="btn-can-clear" class="btn btn-outline btn-sm" onclick="clearCANTrace()">
+                                <i data-lucide="refresh-cw"></i> Clear
+                            </button>
+                            <button id="btn-can-pause" class="btn btn-outline btn-sm" onclick="toggleCANPause()">
+                                <i data-lucide="pause"></i> Pause
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="can-trace-container card flex-1 flex-col overflow-hidden p-0">
+                    <div class="can-trace-header">
+                        <div class="trace-col time">Timestamp</div>
+                        <div class="trace-col bus">Bus</div>
+                        <div class="trace-col id">ID (Hex)</div>
+                        <div class="trace-col dlc">DLC</div>
+                        <div class="trace-col data">Data</div>
+                        <div class="trace-col flags">Flags</div>
+                    </div>
+                    <div id="can-trace-log" class="can-trace-log flex-1 overflow-y-auto font-mono">
+                        <!-- CAN frames injected here -->
                     </div>
                 </div>
             </div>

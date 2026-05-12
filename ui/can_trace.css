@@ -1,0 +1,84 @@
+/* CAN Trace UI */
+.can-trace-container {
+    margin: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    display: flex;
+    flex-direction: column;
+}
+
+.can-trace-header {
+    display: flex;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 0;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.can-trace-log {
+    padding: 0;
+    font-size: 0.85rem;
+}
+
+.can-frame-entry {
+    display: flex;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    transition: background 0.1s;
+}
+
+.can-frame-entry:hover {
+    background: rgba(255,255,255,0.03);
+}
+
+.can-frame-entry.error-frame {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--accent-danger);
+}
+
+.trace-col {
+    padding: 0 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.trace-col.time { width: 120px; color: var(--text-muted); }
+.trace-col.bus  { width: 80px;  color: var(--accent-primary); font-weight: 600; }
+.trace-col.id   { width: 100px; color: var(--accent-secondary); font-weight: 600; }
+.trace-col.dlc  { width: 60px;  text-align: center; }
+.trace-col.data { flex: 1;      color: var(--text-main); }
+.trace-col.flags { width: 100px; color: var(--accent-warning); font-size: 0.7rem; }
+
+.can-select {
+    background: var(--bg-toolbar);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 4px 10px;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    min-width: 180px;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.can-select:hover {
+    border-color: var(--accent-primary);
+}
+
+.can-frame-entry.updated {
+    animation: flash-update 0.4s ease-out;
+}
+
+@keyframes flash-update {
+    0% { background: rgba(59, 130, 246, 0.3); }
+    100% { background: transparent; }
+}
+
+.light-theme .can-frame-entry.error-frame {
+    background: rgba(239, 68, 68, 0.05);
+}
