@@ -385,6 +385,10 @@
                             <input type="text" id="can-filter-id" class="table-input" style="width: 100px;" placeholder="0x..." onkeyup="onCANFilterChange(event)">
                         </div>
                         <div class="flex-row gap-2 ml-10">
+                            <div class="btn-group mr-10">
+                                <button id="btn-proto-can" class="btn btn-outline btn-sm active" onclick="setCANProtocol('can')">CAN</button>
+                                <button id="btn-proto-j1939" class="btn btn-outline btn-sm" onclick="setCANProtocol('j1939')">J1939</button>
+                            </div>
                             <button id="btn-can-fixed" class="btn btn-outline btn-sm" onclick="toggleCANFixedMode()" title="Collapse by ID">
                                 <i data-lucide="layers"></i> Fixed Mode
                             </button>
@@ -398,10 +402,10 @@
                     </div>
                 </div>
                 <div class="can-trace-container card flex-1 flex-col overflow-hidden p-0">
-                    <div class="can-trace-header">
+                    <div class="can-trace-header" id="can-trace-header">
                         <div class="trace-col time">Timestamp</div>
                         <div class="trace-col bus">Bus</div>
-                        <div class="trace-col id">ID (Hex)</div>
+                        <div id="can-id-header" class="trace-col id">ID (Hex)</div>
                         <div class="trace-col dlc">DLC</div>
                         <div class="trace-col data">Data</div>
                         <div class="trace-col flags">Flags</div>

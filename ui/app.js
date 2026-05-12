@@ -76,6 +76,7 @@ const state = {
         filterId: null,
         paused: false,
         fixedMode: false,
+        protocol: 'can', // 'can' or 'j1939'
         frames: [],
         fixedFrames: {} // Map for Fixed Mode: ID -> frame
     },
@@ -2452,6 +2453,45 @@ window.toggleCANFixedMode = () => {
     renderCANTrace();
 };
 
+window.setCANProtocol = (proto) => {
+    state.canTrace.protocol = proto;
+    
+    // Update button states
+    const canBtn = document.getElementById('btn-proto-can');
+    const j1939Btn = document.getElementById('btn-proto-j1939');
+    if (canBtn) canBtn.classList.toggle('active', proto === 'can');
+    if (j1939Btn) j1939Btn.classList.toggle('active', proto === 'j1939');
+    
+    // Update header
+    const header = document.getElementById('can-trace-header');
+    if (header) {
+        if (proto === 'j1939') {
+            header.innerHTML = `
+                <div class="trace-col time">Timestamp</div>
+                <div class="trace-col bus">Bus</div>
+                <div class="trace-col priority">Pri</div>
+                <div class="trace-col pgn">PGN</div>
+                <div class="trace-col src">Src</div>
+                <div class="trace-col dest">Dest</div>
+                <div class="trace-col dlc">DLC</div>
+                <div class="trace-col data">Data</div>
+                <div class="trace-col flags">Flags</div>
+            `;
+        } else {
+            header.innerHTML = `
+                <div class="trace-col time">Timestamp</div>
+                <div class="trace-col bus">Bus</div>
+                <div id="can-id-header" class="trace-col id">ID (Hex)</div>
+                <div class="trace-col dlc">DLC</div>
+                <div class="trace-col data">Data</div>
+                <div class="trace-col flags">Flags</div>
+            `;
+        }
+    }
+    
+    renderCANTrace();
+};
+
 function handleCANFrameUpdate(data) {
     if (state.canTrace.paused) return;
     
@@ -2529,14 +2569,29 @@ function appendCANFrameToUI(f) {
     if (f.is_remote) flags.push('RTR');
     if (f.is_error) flags.push('ERR');
 
-    entry.innerHTML = `
-        <div class="trace-col time">${timeStr}</div>
-        <div class="trace-col bus">${f.bus}</div>
-        <div class="trace-col id">${f.arbitration_id}</div>
-        <div class="trace-col dlc">${f.dlc}</div>
-        <div class="trace-col data">${formatCANData(f.data)}</div>
-        <div class="trace-col flags">${flags.join(' ')}</div>
-    `;
+    if (state.canTrace.protocol === 'j1939') {
+        const p = parseJ1939Id(f.arbitration_id);
+        entry.innerHTML = `
+            <div class="trace-col time">${timeStr}</div>
+            <div class="trace-col bus">${f.bus}</div>
+            <div class="trace-col priority">${p.priority}</div>
+            <div class="trace-col pgn">${p.pgn}</div>
+            <div class="trace-col src">${p.sa}</div>
+            <div class="trace-col dest">${p.dest}</div>
+            <div class="trace-col dlc">${f.dlc}</div>
+            <div class="trace-col data">${formatCANData(f.data)}</div>
+            <div class="trace-col flags">${flags.join(' ')}</div>
+        `;
+    } else {
+        entry.innerHTML = `
+            <div class="trace-col time">${timeStr}</div>
+            <div class="trace-col bus">${f.bus}</div>
+            <div class="trace-col id">${f.arbitration_id}</div>
+            <div class="trace-col dlc">${f.dlc}</div>
+            <div class="trace-col data">${formatCANData(f.data)}</div>
+            <div class="trace-col flags">${flags.join(' ')}</div>
+        `;
+    }
 
     log.appendChild(entry);
     
@@ -2563,12 +2618,26 @@ function updateFixedFrameInUI(f) {
 
     const timeStr = formatTimestamp(f.timestamp);
     
-    // Update content
-    const timeCol = entry.querySelector('.time');
-    const dataCol = entry.querySelector('.data');
-    
-    if (timeCol) timeCol.innerText = timeStr;
-    if (dataCol) dataCol.innerText = formatCANData(f.data);
+    if (state.canTrace.protocol === 'j1939') {
+        const p = parseJ1939Id(f.arbitration_id);
+        // Find or replace internal columns
+        entry.innerHTML = `
+            <div class="trace-col time">${timeStr}</div>
+            <div class="trace-col bus">${f.bus}</div>
+            <div class="trace-col priority">${p.priority}</div>
+            <div class="trace-col pgn">${p.pgn}</div>
+            <div class="trace-col src">${p.sa}</div>
+            <div class="trace-col dest">${p.dest}</div>
+            <div class="trace-col dlc">${f.dlc}</div>
+            <div class="trace-col data">${formatCANData(f.data)}</div>
+            <div class="trace-col flags">${formatFlags(f)}</div>
+        `;
+    } else {
+        const timeCol = entry.querySelector('.time');
+        const dataCol = entry.querySelector('.data');
+        if (timeCol) timeCol.innerText = timeStr;
+        if (dataCol) dataCol.innerText = formatCANData(f.data);
+    }
     
     // Trigger update animation
     entry.classList.remove('updated');
@@ -2586,4 +2655,40 @@ function formatCANData(hex) {
     if (!hex) return '';
     const parts = hex.match(/.{1,2}/g);
     return parts ? parts.join(' ') : hex;
+}
+
+function formatFlags(f) {
+    const flags = [];
+    if (f.is_extended) flags.push('EXT');
+    if (f.is_remote) flags.push('RTR');
+    if (f.is_error) flags.push('ERR');
+    return flags.join(' ');
+}
+
+function parseJ1939Id(idHex) {
+    const id = parseInt(idHex, 16);
+    // J1939 uses 29-bit IDs
+    const priority = (id >> 26) & 0x7;
+    const dp = (id >> 24) & 0x1;
+    const pf = (id >> 16) & 0xFF;
+    const ps = (id >> 8) & 0xFF;
+    const sa = id & 0xFF;
+
+    let pgn, dest;
+    if (pf < 240) {
+        // PDU1 Format: Destination specific
+        pgn = (dp << 16) | (pf << 8);
+        dest = `0x${ps.toString(16).toUpperCase().padStart(2, '0')}`;
+    } else {
+        // PDU2 Format: Broadcast
+        pgn = (dp << 16) | (pf << 8) | ps;
+        dest = 'Global';
+    }
+
+    return {
+        priority,
+        pgn: `0x${pgn.toString(16).toUpperCase().padStart(4, '0')}`,
+        sa: `0x${sa.toString(16).toUpperCase().padStart(2, '0')}`,
+        dest
+    };
 }

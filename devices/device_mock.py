@@ -289,6 +289,48 @@ class MockDevice(BaseDevice):
                 dlc=8,
                 data=bytes([0x02, 0x01, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00]) # Get Coolant Temp
             ))
+
+        # 5. J1939 Traffic (29-bit Extended IDs)
+        # EEC1 (Electronic Engine Controller 1): PGN 61444 (0xF004)
+        # Priority 3, Source Address 0x00
+        # ID = (3 << 26) | (0xF004 << 8) | 0x00 = 0x0CF00400
+        # Speed is 2 bytes, 0.125 RPM/bit. Max 8031 RPM (64255)
+        engine_speed_j1939 = min(64255, int(self._engine._engine_speed_rpm * 8))
+        self._can_buffer.append(CANFrame(
+            timestamp=time.time(),
+            bus="can0",
+            arbitration_id=0x0CF00400,
+            dlc=8,
+            data=struct.pack("<HHBBBB", 0xFFFF, engine_speed_j1939, 0xFF, 0xFF, 0xFF, 0xFF),
+            is_extended=True
+        ))
+
+        # ET1 (Engine Temperature 1): PGN 65262 (0xFEEE)
+        # Priority 6, Source Address 0x00
+        # ID = (6 << 26) | (0xFEEE << 8) | 0x00 = 0x18FEEE00
+        # Temp is 1 byte, -40 offset. Range -40 to 210. 
+        # Map 0-4095 raw to 0-250 J1939 range
+        temp_j1939 = min(250, int(self._engine._temperature_raw / 16))
+        self._can_buffer.append(CANFrame(
+            timestamp=time.time(),
+            bus="can0",
+            arbitration_id=0x18FEEE00,
+            dlc=8,
+            data=struct.pack("<BBBBBBBB", temp_j1939, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
+            is_extended=True
+        ))
+
+        # TSC1 (Torque/Speed Control 1): PGN 0 (0x0000) - PDU1 format
+        # Priority 3, SA 0x03, Destination 0x00
+        # ID = (3 << 26) | (0x00 << 8) | 0x03 = 0x0C000003
+        self._can_buffer.append(CANFrame(
+            timestamp=time.time(),
+            bus="can0",
+            arbitration_id=0x0C000003,
+            dlc=8,
+            data=struct.pack("<BBBBBBBB", 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
+            is_extended=True
+        ))
         
     def inject_fault(self, signal_id: str, fault_id: str) -> None:
         """Mock implementation of fault injection."""
