@@ -305,7 +305,7 @@ function syncStatus(isConnected) {
         if (btnDisconnect) btnDisconnect.classList.add('hidden');
         document.getElementById('dashboard-grid')?.classList.add('system-offline');
     }
-    
+
     const btnRunTest = document.getElementById('btn-run-test');
     if (btnRunTest) btnRunTest.disabled = !isConnected;
 
@@ -472,15 +472,15 @@ function renderDashboard() {
 
 function getWidgetDefaults(type) {
     switch (type) {
-        case 'gauge':        return { w: 3, h: 3, minW: 2, minH: 2 };
-        case 'knob':         return { w: 2, h: 3, minW: 2, minH: 2 };
+        case 'gauge': return { w: 3, h: 3, minW: 2, minH: 2 };
+        case 'knob': return { w: 2, h: 3, minW: 2, minH: 2 };
         case 'oscilloscope': return { w: 3, h: 2, minW: 2, minH: 2 };
-        case 'bar':          return { w: 2, h: 2, minW: 2, minH: 1 };
-        case 'slider':       return { w: 2, h: 2, minW: 2, minH: 1 };
-        case 'toggle':       return { w: 2, h: 2, minW: 1, minH: 1 };
-        case 'led':          return { w: 2, h: 2, minW: 1, minH: 1 };
-        case 'button':       return { w: 2, h: 2, minW: 1, minH: 1 };
-        default:             return { w: 2, h: 2, minW: 1, minH: 1 };
+        case 'bar': return { w: 2, h: 2, minW: 2, minH: 1 };
+        case 'slider': return { w: 2, h: 2, minW: 2, minH: 1 };
+        case 'toggle': return { w: 2, h: 2, minW: 1, minH: 1 };
+        case 'led': return { w: 2, h: 2, minW: 1, minH: 1 };
+        case 'button': return { w: 2, h: 2, minW: 1, minH: 1 };
+        default: return { w: 2, h: 2, minW: 1, minH: 1 };
     }
 }
 
@@ -576,11 +576,11 @@ function updateWidgetValue(widget, val) {
         const ch = state.channels.find(c => c.channel_id === widget.channel);
         const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
         const percent = Math.min(Math.max((val - min) / (max - min || 1), 0), 1);
-        
+
         const angle = (percent * 270) - 135;
         const handle = document.getElementById(`knob-handle-${widget.id}`);
         if (handle) handle.style.transform = `rotate(${angle}deg)`;
-        
+
         const progress = document.getElementById(`knob-progress-${widget.id}`);
         if (progress) {
             const fullLen = 251.2;
@@ -643,7 +643,7 @@ async function refreshAllData() {
         const status = await apiGet('/system');
         console.log('[SDTB] System status:', status);
         syncStatus(status.is_connected === true);
-        
+
         // Update version label
         const versionEl = document.querySelector('.version');
         if (versionEl && status.version) versionEl.innerText = `v${status.version}`;
@@ -662,7 +662,41 @@ async function refreshChannels() {
         if (state.currentView === 'test-editor') renderTestTable();
     } catch (e) { addLog('Channels fail', 'error'); }
 }
-async function refreshUIConfig() { try { state.uiConfig = await apiGet('/ui/config'); } catch (e) { addLog('UI fail', 'error'); } }
+
+function getCachedWidgetLayout() {
+    try {
+        const cached = JSON.parse(localStorage.getItem('sdtb-widgets-layout') || '[]');
+        if (!Array.isArray(cached)) return [];
+        return cached.reduce((acc, w) => {
+            if (!w || !w.id) return acc;
+            acc[w.id] = { x: w.x, y: w.y, w: w.w, h: w.h };
+            return acc;
+        }, {});
+    } catch (e) {
+        console.error('[SDTB] Failed to load widget layout', e);
+        return {};
+    }
+}
+
+async function refreshUIConfig() {
+    try {
+        const config = await apiGet('/ui/config');
+        const cachedById = getCachedWidgetLayout();
+        if (Array.isArray(config.widgets)) {
+            config.widgets = config.widgets.map(
+                widget => {
+                    const cached = cachedById[widget.id];
+                    if (!cached) return widget;
+                    return { ...widget, x: cached.x, y: cached.y, w: cached.w, h: cached.h };
+                }
+            )
+        }
+
+    }
+    catch (e) {
+        addLog('UI fail', 'error')
+    }
+}
 
 function setupWidgetMapper() {
     const btnAdd = document.getElementById('btn-add-widget');
@@ -695,12 +729,12 @@ function openWidgetModal(w = null) {
     modal.classList.add('active');
     document.getElementById('btn-widget-cancel').onclick = () => modal.classList.remove('active');
     document.getElementById('btn-widget-save').onclick = () => {
-        const newW = { 
-            id: w ? w.id : `w${Date.now()}`, 
-            label: inputLabel.value || selectChannel.value, 
-            channel: selectChannel.value, 
-            type: selectType.value, 
-            position: { row: 0, col: 0 } 
+        const newW = {
+            id: w ? w.id : `w${Date.now()}`,
+            label: inputLabel.value || selectChannel.value,
+            channel: selectChannel.value,
+            type: selectType.value,
+            position: { row: 0, col: 0 }
         };
         if (state.editingWidgetIndex !== null) state.uiConfig.widgets[state.editingWidgetIndex] = newW;
         else state.uiConfig.widgets.push(newW);
@@ -959,11 +993,11 @@ function handleDeviceSignalUpdate(devId, sigId, val) {
     // Update live values in device explorer
     const rawInput = document.getElementById(`sig-raw-${devId}-${sigId}`);
     const physInput = document.getElementById(`sig-phys-${devId}-${sigId}`);
-    
+
     if (rawInput && document.activeElement !== rawInput) {
         rawInput.value = val.toFixed(2);
     }
-    
+
     if (physInput && document.activeElement !== physInput) {
         // Calculate physical value from raw
         const res = parseFloat(physInput.getAttribute('data-res')) || 1;
@@ -1061,7 +1095,7 @@ window.readDeviceSignal = async (deviceId, signalId) => {
         const data = await apiGet(`/device/${deviceId}/signal/${signalId}`);
         const rawInput = document.getElementById(`sig-raw-${deviceId}-${signalId}`);
         const physInput = document.getElementById(`sig-phys-${deviceId}-${signalId}`);
-        
+
         if (rawInput) rawInput.value = Number(data.value).toFixed(2);
         if (physInput) {
             const res = parseFloat(physInput.getAttribute('data-res')) || 1;
@@ -1077,6 +1111,12 @@ window.readDeviceSignal = async (deviceId, signalId) => {
 
 window.writeDeviceSignal = async (deviceId, signalId) => {
     try {
+        const dev = state.devices.find(d => d.id === deviceId);
+        const sig = dev?.signals.find(s => s.id === signalId);
+        if (sig && String(sig.direction || '').toLocaleLowerCase() === 'input') {
+            addLog(`Cannot write to input signal ${signalId} on ${deviceId}`, 'warning');
+            return;
+        }
         const rawInput = document.getElementById(`sig-raw-${deviceId}-${signalId}`);
         if (!rawInput) return;
         const val = parseFloat(rawInput.value);
@@ -1139,6 +1179,7 @@ async function updateDeviceSignalsList(id) {
         sigs.forEach(s => {
             const rawVal = Number(s.value);
             const physVal = (rawVal * s.resolution) + s.offset;
+            const isInputSignal = String(s.direction || '').toLocaleLowerCase() === 'input';
             h += `<tr>
                 <td><code class="badge badge-sm">${s.signal_id}</code></td>
                 <td><div style="font-weight:600">${s.name}</div><div style="font-size:0.7rem; opacity:0.6">${s.description || ''}</div></td>
@@ -1159,7 +1200,7 @@ async function updateDeviceSignalsList(id) {
                 </td>
                 <td>
                     <div class="flex-row" style="gap: 4px">
-                        <button class="btn btn-outline btn-sm" onclick="writeDeviceSignal('${id}', '${s.signal_id}')" title="Write Raw Value to Hardware">
+                        <button class="btn btn-outline btn-sm" ${isInputSignal ? 'disabled' : ''} onclick="writeDeviceSignal('${id}', '${s.signal_id}')" title="${isInputSignal ? 'Write diabled for input signals' : 'Write Raw Value to Hardware'}">
                             <i data-lucide="zap" style="width:12px; height:12px"></i> Write
                         </button>
                     </div>
@@ -1973,11 +2014,11 @@ function moveKnob(e) {
     const centerY = rect.top + rect.height / 2;
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-    
+
     // Calculate angle (0 is top)
     const angle = Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI + 90;
     let normalizedAngle = (angle + 360) % 360;
-    
+
     // Knob uses 270 degree sweep from -135 to 135
     // Map normalizedAngle (0-360) to 270 sweep
     // Shift so gap is at bottom (135 to 225 is gap)
@@ -1990,11 +2031,11 @@ function moveKnob(e) {
         // In the gap, snap to nearest end
         percent = normalizedAngle > 180 ? 0 : 1;
     }
-    
+
     const ch = state.channels.find(c => c.channel_id === activeKnob.channel);
     const min = ch ? ch.properties.min : 0, max = ch ? ch.properties.max : 100;
     const val = min + percent * (max - min);
-    
+
     widgetWrite(activeKnob.channel, val);
 }
 

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from typing import List, Optional
@@ -119,29 +120,35 @@ async def handle_list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
-            name="inject_fault",
-            description="Injects a specific fault into a hardware signal.",
+            name="run_test",
+            description="Run a JSONL test script against the hardware. Each line is a test step (write, wait, assert). The test runs in the background; use get_test_status and get_test_history to monitor progress",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "device_id": {"type": "string", "description": "The ID of the target device."},
-                    "signal_id": {"type": "string", "description": "The ID of the signal to affect."},
-                    "fault_id": {"type": "string", "description": "The type of fault to inject (e.g., 'short_to_ground')."}
+                    "script": {"type": "string", "description": "The JSONL test script content. Each line is a JSON object with an 'action' field ('write','wait','assert')"},
                 },
-                "required": ["device_id", "signal_id", "fault_id"],
+                "required": ["script"],
             },
         ),
         types.Tool(
-            name="clear_fault",
-            description="Clears an active fault from a hardware signal.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "device_id": {"type": "string", "description": "The ID of the target device."},
-                    "signal_id": {"type": "string", "description": "The ID of the signal to clear."}
-                },
-                "required": ["device_id", "signal_id"],
-            },
+            name="stop_test",
+            description="Abort a currently running test sequence",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="get_test_status",
+            description="Get the current status of the test engine (whethere a test is running and if an abort was requested).",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="get_test_history",
+            description="Get the results of executed test steps. Returns a list of step results with pass/fail/error status.",
+            inputSchema={"type": "object", "properties": {
+                "last_n":{
+                    "type": "integer",
+                    "description": "Optional. Return only the last N results. If omitted, returns all results.",
+                }
+            }},
         ),
     ]
 
@@ -154,7 +161,13 @@ async def handle_list_resources() -> list[types.Resource]:
             name="SDTB Control Guide",
             description="Instructions on how to control the Software Defined Test Bench properly.",
             mimeType="text/markdown",
-        )
+        ),
+        types.Resource(
+            uri="sdtb://docs/test-script-guide",
+            name="SDTB Test Script Guide",
+            description="Instructions on how to write and run test scripts for the run_test tool.",
+            mimeType="text/markdown",
+        ),
     ]
 
 @mcp_server.read_resource()
@@ -173,7 +186,58 @@ To interact with the Software Defined Test Bench (SDTB) successfully, you must f
 
 **Note**: All controls are abstracted. You do not need to know which pin is connected to which device.
 """
+    if uri == "sdtb://docs/test-script-guide":
+        return """# SDTB Test Script Guide
+The `run_test` tool accepts a **JSONL** (JSON Lines) string where each line is a test step.
+
+## Step Types
+
+### 1. Write - Set a channel value
+```json
+{"action": "write", "channel_id": "Throttle_Command", "value": 50.0}
+```
+- `channel`: The channel ID to write to.
+- `value`: Numeric value within the channel's valid range.
+
+### 2. Wait - Pause the execution
+```json
+{"action": "wait", "duration_ms": 1000}
+```
+- `duration_ms`: Time to Wait in milliseconds.
+
+### 3. Assert - Validate a channel reading
+```json
+{"action": "assert", "channel": "Engine_Speed", "condition": ">=", "value": 800.0}
+```
+- `channel`: The channel ID to assert.
+- `condition`: The condition to assert ("==", "!=", ">", "<", ">=", "<=").
+- `value`: The value to compare against.
+
+## Example Script
+
+A 3-step script that sets the throttle to 50%, waits for 1 second, and then asserts that the engine speed is greater than or equal to 800 RPM.
+
+```json
+{"action": "write", "channel": "Throttle_Command", "value": 50.0}
+{"action": "wait", "duration_ms": 1000}
+{"action": "assert", "channel": "Engine_Speed", "condition": ">=", "value": 800.0}
+```
+
+## Workflow
+
+1. Call `run_test` with the script. It returns a token and runs in the background.
+2. Poll `get_test_status` to check if the test is still running.
+3. Call `get_test_history` to see per-setp pass/fail/error results.
+4. Use `stop_test` to abort the test sequence if needed.
+
+## Notes
+
+- Each step runs sequentially, If an assert fails, the test stops.
+- While a test is running, manual `write_channel` calls are blocked.
+- Only one test can run at a time.
+"""
     raise ValueError(f"Resource not found: {uri}")
+
 
 @mcp_server.call_tool()
 async def handle_call_tool(
@@ -266,26 +330,38 @@ async def handle_call_tool(
                     results.append({"id": ch_id, "status": "error", "message": str(e)})
             return [types.TextContent(type="text", text=json.dumps(results, indent=2))]
 
-        elif name == "inject_fault":
-            dev_id = arguments.get("device_id")
-            sig_id = arguments.get("signal_id")
-            fault_id = arguments.get("fault_id")
-            device = get_system().device_manager.get_device(dev_id)
-            if not device:
-                return [types.TextContent(type="text", text=f"Error: Device '{dev_id}' not found.")]
-            import asyncio
-            await asyncio.to_thread(device.inject_fault, sig_id, fault_id)
-            return [types.TextContent(type="text", text=f"Successfully injected fault '{fault_id}' on {dev_id}/{sig_id}")]
-
-        elif name == "clear_fault":
-            dev_id = arguments.get("device_id")
-            sig_id = arguments.get("signal_id")
-            device = get_system().device_manager.get_device(dev_id)
-            if not device:
-                return [types.TextContent(type="text", text=f"Error: Device '{dev_id}' not found.")]
-            import asyncio
-            await asyncio.to_thread(device.clear_fault, sig_id)
-            return [types.TextContent(type="text", text=f"Successfully cleared fault on {dev_id}/{sig_id}")]
+        elif name == "run_test":
+            script = arguments.get("script", "")
+            if not script.strip():
+                return [types.TextContent(type="text", text="Error: No script provided.")]
+            te = get_system().test_engine
+            if te.is_test_running:
+                return [types.TextContent(type="text", text="Error: Another test is currently running. Please stop the current test before starting a new one.")]
+            token = te.claim_engine()
+            asyncio.create_task(te.run_jsonl_script(script, token=token))
+            return [types.TextContent(type="text", text=json.dumps({"status":"started", "token":token},indent=2))]
+        
+        elif name == "stop_test":
+            te = get_system().test_engine
+            if not te.is_test_running:
+                return [types.TextContent(type="text", text="Error: No test is currently running.")]
+            te.stop_test()
+            return [types.TextContent(type="text", text=json.dumps({"status":"stopped"},indent=2))]
+        
+        elif name == "get_test_status":
+            te = get_system().test_engine
+            status = {
+                "is_running": te.is_test_running,
+                "progress": te.progress,
+                "abort_requested": te._stop_requested
+            }
+            return [types.TextContent(type="text", text=json.dumps(status, indent=2))]
+        
+        elif name == "get_test_history":
+            te = get_system().test_engine
+            last_n = arguments.get("last_n", None)
+            history = te.get_test_history(last_n)
+            return [types.TextContent(type="text", text=json.dumps(history, indent=2))]
 
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]

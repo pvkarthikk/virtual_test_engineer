@@ -84,7 +84,7 @@ class EngineMock:
         # ----------------------------------------------------
         # User Request: Increase ~1.0 C / second
         # Use random range around 1.0 to feel "natural"
-        base_rate = random.uniform(0.8, 1.2) 
+        base_rate = random.uniform(1.9,2.1) 
         
         if self._engine_speed_rpm > 1000:
             # Heating: Targets 90.0 C

@@ -22,6 +22,26 @@ class TestEngine:
         self.on_step_complete: Optional[Callable[[TestResult], None]] = None
         self.history: List[TestResult] = []
         self._active_token: Optional[str] = None
+        self.current_step = 0
+        self.total_steps = 0
+
+    @property
+    def progress(self) -> float:
+        """
+        Returns the percentage of completion for the current test.
+        """
+        if self.total_steps == 0:
+            return 0.0
+        return round((self.current_step / self.total_steps) * 100, 2)
+
+    def get_test_history(self, last_n: Optional[int] = None) -> List[dict]:
+        """
+        Returns the history of test step results.
+        """
+        results = self.history
+        if last_n:
+            results = results[-last_n:]
+        return [r.model_dump() for r in results]
 
     def claim_engine(self) -> str:
         """
@@ -72,12 +92,16 @@ class TestEngine:
                     raise ValueError(f"Line {i+1}: Invalid step format: {e}")
 
             # 2. Sequential Execution
-            logger.info(f"Starting execution of {len(steps)} test steps...")
+            self.total_steps = len(steps)
+            self.current_step = 0
+            logger.info(f"Starting execution of {self.total_steps} test steps...")
+            
             for i, step in enumerate(steps):
                 if self._stop_requested:
                     logger.warning("Test execution aborted by user.")
                     break
                 
+                self.current_step = i + 1
                 result = await self._execute_step(i, step)
                 
                 # Report result via callback
@@ -92,6 +116,8 @@ class TestEngine:
 
         finally:
             self.is_test_running = False
+            self.current_step = 0
+            self.total_steps = 0
             self._active_token = None # Ensure token is always cleared
 
     async def _execute_step(self, index: int, step: TestStep) -> TestResult:
