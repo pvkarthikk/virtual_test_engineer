@@ -133,7 +133,7 @@ class EngineMock:
 
 class MockDevice(BaseDevice):
     def __init__(self):
-        self._engine = EngineMock()
+        self._engine = None
         self._connected = False
         self._enabled = True
         self._can_buffer = collections.deque(maxlen=100)
@@ -198,10 +198,12 @@ class MockDevice(BaseDevice):
     def connect(self, connection_params: dict) -> None:
         logger.info(f"MockDevice connecting with {connection_params}")
         self._connected = True
+        self._engine = EngineMock()
 
     def disconnect(self) -> None:
         logger.info("MockDevice disconnected")
         self._connected = False
+        self._engine = None
 
     def get_signals(self) -> List[SignalDefinition]:
         return self._signals

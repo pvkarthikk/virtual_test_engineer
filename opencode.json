@@ -1,0 +1,36 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "vte-ask": {
+      "description": "Quick Q&A about the test system - read channels, get info, simple writes",
+      "mode": "subagent",
+      "prompt": "{file:./agents/vte-ask/AGENTS.md}",
+      "permission": {
+        "test-bench_*": "allow"
+      }
+    },
+    "vte-plan": {
+      "description": "Generate JSONL test scripts by inspecting channel metadata - no live reads/writes",
+      "mode": "subagent",
+      "prompt": "{file:./agents/vte-plan/AGENTS.md}",
+      "permission": {
+        "test-bench_*": "deny",
+        "test-bench_connect_system": "allow",
+        "test-bench_disconnect_system": "allow",
+        "test-bench_get_system_summary": "allow",
+        "test-bench_list_channels": "allow",
+        "test-bench_get_channel_info": "allow",
+        "test-bench_get_test_history": "allow",
+        "test-bench_get_test_status": "allow"
+      }
+    },
+    "vte-agent": {
+      "description": "Full test execution agent - runs JSONL scripts, handles single and complex queries",
+      "mode": "subagent",
+      "prompt": "{file:./agents/vte-agent/AGENTS.md}",
+      "permission": {
+        "test-bench_*": "allow"
+      }
+    }
+  }
+}
