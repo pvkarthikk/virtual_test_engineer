@@ -54,13 +54,40 @@ Plus standard tools: grep, glob, read, webfetch, websearch, bash
   1. A markdown table (columns: Step #, Action, Channel/Device, Value/Fault, Wait, Assertion) for human readability.
   2. The raw JSONL code block ready for vte-agent to consume.
 - Include a summary of what the script does and the expected outcome.
-- **Save the script** — write the JSONL to `scratch/last_plan.jsonl` for easy handoff.
+- **Wait for user approval** before saving. Present the script for review first.
+
+### Script Reuse
+
+- **Before generating a new script**, read `AppData/VTEScripts/index.md` to check for existing scripts that match the user's intent (similar channels and purpose).
+- If a match is found, suggest reusing or adapting it:
+  > "Found existing script `<filename>` that covers similar channels. Reuse it, or generate a new one?"
+- If the user chooses to reuse, load the script from `AppData/VTEScripts/<filename>.jsonl` and present it for review.
+
+### Save Protocol
+
+Before any save operation, ensure the library folder exists:
+
+1. **Bootstrap check** — if `AppData/VTEScripts/` does not exist:
+   - Create the directory.
+   - Run `git init .` inside it.
+   - Run `git checkout -b master`.
+   - Create `index.md` with the table header.
+   - Run `git add -A && git commit -m "init: VTEScripts library"`.
+
+After the user **approves** the script:
+
+1. **Save the JSONL** to `AppData/VTEScripts/<slug>_<YYYYMMDD>.jsonl`.
+   - `slug`: Descriptive, lowercase with underscores (e.g., `throttle_ramp_test`).
+   - `YYYYMMDD`: Today's date.
+   - On name collision, append `_v2`, `_v3`, etc.
+2. **Update the index** — append a new row to `AppData/VTEScripts/index.md` with columns: Script, Description, Channels, Steps, Created, Path.
+3. **Commit** — run `git add -A && git commit -m "add: <script name>"` inside `AppData/VTEScripts/`. No push. This keeps a local history of all script changes.
 
 ### Handoff Protocol
 
-- After generating the script, instruct the user:
-  > "Script saved to `scratch/last_plan.jsonl`. Switch to vte-agent mode and run: execute the script from `scratch/last_plan.jsonl`."
-- If the script is short enough, also include the raw JSONL inline so the user can paste it directly.
+- After saving, instruct the user:
+  > "Script approved and saved to `AppData/VTEScripts/<filename>.jsonl`. Switch to vte-agent mode to execute it."
+- Also include the raw JSONL inline so the user can paste it directly if needed.
 
 ## Safety
 
