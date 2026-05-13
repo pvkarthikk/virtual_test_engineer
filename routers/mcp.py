@@ -137,7 +137,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get_test_status",
-            description="Get the current status of the test engine (whethere a test is running and if an abort was requested).",
+            description="Get the current status of the test engine (whether a test is running and if an abort was requested).",
             inputSchema={"type": "object", "properties": {}},
         ),
         types.Tool(
@@ -213,9 +213,9 @@ The `run_test` tool accepts a **JSONL** (JSON Lines) string where each line is a
 
 ### 1. Write - Set a channel value
 ```json
-{"action": "write", "channel_id": "Throttle_Command", "value": 50.0}
+{"action": "write", "channel": "Throttle_Command", "value": 50.0}
 ```
-- `channel`: The channel ID to write to.
+- `channel`: The channel ID to write to (must match a channel from `list_channels`).
 - `value`: Numeric value within the channel's valid range.
 
 ### 2. Wait - Pause the execution
@@ -232,6 +232,15 @@ The `run_test` tool accepts a **JSONL** (JSON Lines) string where each line is a
 - `condition`: The condition to assert ("==", "!=", ">", "<", ">=", "<=").
 - `value`: The value to compare against.
 
+### 4. Fault - Inject a hardware fault
+```json
+{"action": "fault", "device": "mock", "signal": "Throttle_Sensor", "fault_id": "short_to_ground", "duration_ms": 2000}
+```
+- `device`: The device ID (e.g. from `get_system_summary`).
+- `signal`: The signal/channel to inject the fault on.
+- `fault_id`: Fault type identifier (e.g. `short_to_ground`, `open_circuit`).
+- `duration_ms`: Optional. Duration in ms before auto-clearing. If omitted, the fault persists until manually cleared.
+
 ## Example Script
 
 A 3-step script that sets the throttle to 50%, waits for 1 second, and then asserts that the engine speed is greater than or equal to 800 RPM.
@@ -246,7 +255,7 @@ A 3-step script that sets the throttle to 50%, waits for 1 second, and then asse
 
 1. Call `run_test` with the script. It returns a token and runs in the background.
 2. Poll `get_test_status` to check if the test is still running.
-3. Call `get_test_history` to see per-setp pass/fail/error results.
+3. Call `get_test_history` to see per-step pass/fail/error results.
 4. Use `stop_test` to abort the test sequence if needed.
 
 ## Notes

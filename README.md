@@ -87,18 +87,16 @@ The server will start on `http://localhost:8000`. You can access the UI at `http
 | [AGENTS.md](AGENTS.md) | Guide for AI agents and agentic automation |
 | [opencode.json](opencode.json) | Configuration for specialized OpenCode AI agents |
 
-
 ## MCP Integration
 
 SDTB includes a built-in **Model Context Protocol (MCP)** server. This allows AI assistants (like Claude) to directly interact with your hardware bench using natural language.
 
 ### Available Tools
 
-- `list_channels`: Discover all available sensors and actuators.
-- `read_channel`: Fetch the current value of a specific signal.
-- `write_channel`: Command a specific value to an output.
-- `connect_system` / `disconnect_system`: Manage the hardware lifecycle.
-- `get_system_summary`: Get an overview of bench health and connected devices.
+- **Lifecycle**: `connect_system`, `disconnect_system`, `get_system_summary`.
+- **Instrumentation**: `list_channels`, `get_channel_info`, `read_channel`, `read_channels`, `write_channel`, `write_channels`.
+- **Test Execution**: `run_test` (JSONL), `stop_test`, `get_test_status`, `get_test_history`.
+- **Bus Monitoring**: `list_can_interfaces`, `read_can_log`.
 
 ### Sample Client Configuration
 
@@ -122,9 +120,9 @@ SDTB is built for an **Agent-Native** future. Through the **OpenCode** framework
 
 ### Specialized Agents
 
-- **`vte-ask`**: A research and Q&A agent. It can read channel values, retrieve logs, and explain hardware states in natural language. Use it for quick status checks and bench discovery.
-- **`vte-plan`**: A test architect. It inspects channel metadata and system capabilities to generate structured JSONL test scripts without interacting with live hardware.
-- **`vte-agent`**: The execution engine. It handles complex test sequences, executes JSONL scripts, and manages long-running validation tasks with autonomous error handling.
+- **`vte-ask` (The Observer)**: Focused on quick Q&A and diagnostics. Implements **Atomic Write-Verify** for safety and handles single-query research tasks.
+- **`vte-plan` (The Architect)**: Purely introspective. It analyzes channel metadata to generate validated **JSONL Test Scripts** with range enforcement. It saves plans to `scratch/` for execution handoff.
+- **`vte-agent` (The Executor)**: The high-privilege execution agent. It runs complex sequences, and implements automatic **Rollback/Cleanup** on test failures.
 
 ### Configuration & Connectivity
 
@@ -132,8 +130,6 @@ The [`opencode.json`](opencode.json) configuration orchestrates the entire agent
 
 - **Connectivity**: Defines the remote MCP server endpoints (e.g., `test-bench`) that agents use to communicate with the hardware.
 - **Agent Roles**: Specifies the roles, prompts, and specific tool permissions (allow/deny) for each specialized agent.
-
-
 
 ## Extending the Bench
 
