@@ -1,5 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "test-bench": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8000/mcp/sse",
+      "enabled": true
+    }
+  },
   "agent": {
     "vte-ask": {
       "description": "Quick Q&A about the test system - read channels, get info, simple writes",

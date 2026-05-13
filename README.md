@@ -85,6 +85,8 @@ The server will start on `http://localhost:8000`. You can access the UI at `http
 | [spec.md](docs/spec.md) | System specifications and protocol definitions |
 | [design.md](docs/design.md) | Architectural design and implementation details |
 | [AGENTS.md](AGENTS.md) | Guide for AI agents and agentic automation |
+| [opencode.json](opencode.json) | Configuration for specialized OpenCode AI agents |
+
 
 ## MCP Integration
 
@@ -113,6 +115,25 @@ To connect SDTB to **Claude Desktop**, add the following to your `claude_desktop
 ```
 
 *Note: The SDTB server (`python main.py`) must be running for the MCP connection to work.*
+
+## Agentic Automation (OpenCode)
+
+SDTB is built for an **Agent-Native** future. Through the **OpenCode** framework, the system exposes specialized AI agents designed to handle different phases of the hardware validation lifecycle.
+
+### Specialized Agents
+
+- **`vte-ask`**: A research and Q&A agent. It can read channel values, retrieve logs, and explain hardware states in natural language. Use it for quick status checks and bench discovery.
+- **`vte-plan`**: A test architect. It inspects channel metadata and system capabilities to generate structured JSONL test scripts without interacting with live hardware.
+- **`vte-agent`**: The execution engine. It handles complex test sequences, executes JSONL scripts, and manages long-running validation tasks with autonomous error handling.
+
+### Configuration & Connectivity
+
+The [`opencode.json`](opencode.json) configuration orchestrates the entire agentic layer:
+
+- **Connectivity**: Defines the remote MCP server endpoints (e.g., `test-bench`) that agents use to communicate with the hardware.
+- **Agent Roles**: Specifies the roles, prompts, and specific tool permissions (allow/deny) for each specialized agent.
+
+
 
 ## Extending the Bench
 
