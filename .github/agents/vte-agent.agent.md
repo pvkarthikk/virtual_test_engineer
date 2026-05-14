@@ -58,16 +58,15 @@ Plus standard tools: grep, glob, read, webfetch, websearch, bash
 - Query channel info via `get_channel_info` to verify write values are within range.
 - Output the script in a code block, then ask for user confirmation (except when the script originates from vte-plan).
 - **Save on approval** — after the user confirms a self-generated script:
-  1. **Bootstrap check** — if `AppData/VTEScripts/` does not exist, create the directory, run `git init .` and `git checkout -b master` inside it, create `index.md` with the table header, and commit: `git add -A && git commit -m "init: VTEScripts library"`.
-  2. Save the script to `AppData/VTEScripts/<slug>_<YYYYMMDD>.jsonl` and append a row to `AppData/VTEScripts/index.md`.
-  3. Commit: `git add -A && git commit -m "add: <script name>"`. No push.
+  1. Call `save_test_script` with the description and steps.
+  2. Note the returned `script_id` for future reference or immediate execution.
 
 ### Script Discovery
 
-- **Before generating a new script**, read `AppData/VTEScripts/index.md` to check for existing scripts that match the user's query (similar channels and purpose).
-- If a match is found, offer to reuse it:
-  > "Found existing script `<filename>` that matches your request. Run it as-is, or generate a new one?"
-- If the user chooses to reuse, load and execute the script from `AppData/VTEScripts/<filename>.jsonl` directly.
+- **Before generating a new script**, call `list_test_scripts` to check for existing scripts that match the user's query.
+- If a match is found, call `get_test_script` to retrieve details and offer to reuse it:
+  > "Found existing script `<description>` (ID: `<script_id>`) that matches your request. Run it as-is, or generate a new one?"
+- If the user chooses to reuse, call `run_test` with the `script_id` directly.
 
 ### Confirmation Rules
 
@@ -90,7 +89,7 @@ Plus standard tools: grep, glob, read, webfetch, websearch, bash
 
 ### Handoff Protocol
 
-- When receiving a script from vte-plan (via `AppData/VTEScripts/*.jsonl` or pasted inline), acknowledge the source and execute directly.
+- When receiving a `script_id` from vte-plan, acknowledge the source and execute it using `run_test(script_id=...)` directly.
 - After execution, report results in a summary table (Step #, Action, Channel, Expected, Actual, Status).
 
 ## Safety
