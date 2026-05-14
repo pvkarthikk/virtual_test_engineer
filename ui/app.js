@@ -80,6 +80,7 @@ const state = {
         frames: [],
         fixedFrames: {} // Map for Fixed Mode: ID -> frame
     },
+    testScripts: [],
     testProgressInterval: null
 };
 
@@ -732,7 +733,8 @@ async function refreshAllData() {
     await Promise.all([
         refreshChannels(),
         refreshDevices(),
-        refreshUIConfig()
+        refreshUIConfig(),
+        refreshScriptLibrary()
     ]);
     await cacheSignalDirections();
     try {
@@ -980,7 +982,106 @@ function setupTestEditor() {
             addLog(`Test failed to start: ${e.message}`, 'error');
         }
     };
+
+    // --- Script Library Management ---
+    const btnLoad = document.getElementById('btn-load-script');
+    const btnSave = document.getElementById('btn-save-script-modal');
+    const btnClear = document.getElementById('btn-clear-test');
+    const btnConfirmSave = document.getElementById('btn-confirm-save-script');
+
+    if (btnLoad) btnLoad.onclick = async () => {
+        const id = document.getElementById('select-test-script').value;
+        if (!id) {
+            alert('Please select a script from the library first.');
+            return;
+        }
+        try {
+            const script = await apiGet(`/test/retrieve/${id}`);
+            state.testSteps = script.steps.map(step => {
+                const cmd = step.action.toUpperCase();
+                let value = '';
+                if (cmd === 'WAIT') value = step.duration_ms;
+                else value = step.value;
+
+                return {
+                    cmd: cmd,
+                    channel: step.channel || '',
+                    value: value,
+                    condition: step.condition || '=='
+                };
+            });
+            renderTestTable();
+            addLog(`Loaded script: ${script.description}`, 'success');
+        } catch (e) {
+            addLog(`Failed to load script: ${e.message}`, 'error');
+        }
+    };
+
+    if (btnSave) btnSave.onclick = () => {
+        if (state.testSteps.length === 0) {
+            alert('Cannot save an empty test sequence.');
+            return;
+        }
+        const modal = document.getElementById('modal-save-test-script');
+        if (modal) modal.classList.add('active');
+    };
+
+    if (btnConfirmSave) btnConfirmSave.onclick = async () => {
+        const desc = document.getElementById('save-script-description').value;
+        if (!desc.trim()) {
+            alert('Please provide a description for the test script.');
+            return;
+        }
+
+        const steps = state.testSteps.map(step => {
+            if (step.cmd === 'WRITE') return { action: 'write', channel: step.channel, value: parseFloat(step.value) || 0 };
+            if (step.cmd === 'WAIT') return { action: 'wait', duration_ms: parseInt(step.value) || 0 };
+            if (step.cmd === 'ASSERT') return { action: 'assert', channel: step.channel, condition: step.condition || '==', value: parseFloat(step.value) || 0 };
+            return null;
+        }).filter(s => s !== null);
+
+        try {
+            const res = await apiPost('/test/save', JSON.stringify({ description: desc, steps: steps }));
+            addLog(`Script saved successfully with ID: ${res.id}`, 'success');
+            closeModal('modal-save-test-script');
+            document.getElementById('save-script-description').value = '';
+            refreshScriptLibrary(); // Refresh the list
+        } catch (e) {
+            addLog(`Save failed: ${e.message}`, 'error');
+        }
+    };
+
+    if (btnClear) btnClear.onclick = () => {
+        if (state.testSteps.length > 0 && confirm('Are you sure you want to clear the current test editor?')) {
+            state.testSteps = [];
+            renderTestTable();
+        }
+    };
+
+    refreshScriptLibrary();
     renderTestTable();
+}
+
+async function refreshScriptLibrary() {
+    const select = document.getElementById('select-test-script');
+    if (!select) return;
+
+    try {
+        const scripts = await apiGet('/test/retrieve');
+        state.testScripts = scripts;
+        
+        const currentVal = select.value;
+        select.innerHTML = '<option value="">Select a script...</option>';
+        scripts.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.text = s.description;
+            if (s.id === currentVal) opt.selected = true;
+            select.appendChild(opt);
+        });
+    } catch (e) {
+        console.warn('Failed to refresh script library', e);
+    }
 }
 
 async function checkTestStatus() {

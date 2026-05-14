@@ -26,18 +26,6 @@
       "max": null
     },
     {
-      "id": "w1778558327181",
-      "type": "bar",
-      "channel": "engine_speed",
-      "label": "engine_speed",
-      "position": {
-        "row": 0,
-        "col": 0
-      },
-      "min": null,
-      "max": null
-    },
-    {
       "id": "w1778558368821",
       "type": "toggle",
       "channel": "eco_mode",
@@ -75,7 +63,7 @@
     },
     {
       "id": "w1778558401611",
-      "type": "oscilloscope",
+      "type": "numeric",
       "channel": "coolant_temp",
       "label": "coolant_temp",
       "position": {

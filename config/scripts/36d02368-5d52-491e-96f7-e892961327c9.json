@@ -1,0 +1,26 @@
+{
+  "id": "36d02368-5d52-491e-96f7-e892961327c9",
+  "description": "Throttle and Engine Speed Check",
+  "steps": [
+    {
+      "action": "write",
+      "channel": "throttle",
+      "value": 25.0
+    },
+    {
+      "action": "wait",
+      "duration_ms": 2000
+    },
+    {
+      "action": "assert",
+      "channel": "engine_speed",
+      "condition": ">=",
+      "value": 1500.0
+    },
+    {
+      "action": "write",
+      "channel": "throttle",
+      "value": 0.0
+    }
+  ]
+}

@@ -230,24 +230,46 @@
             </div>
 
             <div id="view-test-editor" class="view">
-                <div class="view-header">
-                    <div class="view-actions">
-                        <button id="btn-add-test-step" class="btn btn-outline btn-sm">
-                            <i data-lucide="plus"></i> Add Step
-                        </button>
-                        <button id="btn-test-history" class="btn btn-outline btn-sm">
-                            <i data-lucide="history"></i> History
-                        </button>
-                        <button id="btn-run-test" class="btn btn-primary btn-sm" disabled>
-                            <i data-lucide="play"></i> Run Test
-                        </button>
-                        <button onclick="showTestLogModal()" class="btn btn-outline btn-sm">
-                            <i data-lucide="terminal"></i> Logs
-                        </button>
-                        <button id="btn-stop-test" class="btn btn-outline btn-sm text-danger border-danger" disabled>
-                            <i data-lucide="square"></i> Stop
-                        </button>
-                        <span id="test-final-status" class="badge hidden ml-10"></span>
+                <div class="view-header flex-col gap-3">
+                    <div class="view-actions align-center w-full justify-between">
+                        <!-- Script Library Group -->
+                        <div class="flex-row align-center gap-2">
+                            <label for="select-test-script" class="text-sm font-medium">Script Library:</label>
+                            <select id="select-test-script" class="table-input" style="min-width: 180px; height: 28px;">
+                                <option value="">Select a script...</option>
+                            </select>
+                            <button id="btn-load-script" class="btn btn-outline btn-sm" title="Load selected script">
+                                <i data-lucide="download"></i> Load
+                            </button>
+                            <button id="btn-save-script-modal" class="btn btn-outline btn-sm" title="Save current sequence">
+                                <i data-lucide="save"></i> Save
+                            </button>
+                             <button id="btn-clear-test" class="btn btn-outline btn-sm text-muted" title="Clear editor">
+                                <i data-lucide="eraser"></i> Clear
+                            </button>
+                        </div>
+
+                        <!-- Editor Actions Group -->
+                        <div class="flex-row gap-2">
+                            <button id="btn-add-test-step" class="btn btn-outline btn-sm">
+                                <i data-lucide="plus"></i> Add Step
+                            </button>
+                            <button id="btn-test-history" class="btn btn-outline btn-sm">
+                                <i data-lucide="history"></i> History
+                            </button>
+                            <button id="btn-run-test" class="btn btn-primary btn-sm" disabled>
+                                <i data-lucide="play"></i> Run Test
+                            </button>
+                            <button onclick="showTestLogModal()" class="btn btn-outline btn-sm">
+                                <i data-lucide="terminal"></i> Logs
+                            </button>
+                            <button id="btn-stop-test" class="btn btn-outline btn-sm text-danger border-danger" disabled>
+                                <i data-lucide="square"></i> Stop
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex-row align-center">
+                        <span id="test-final-status" class="badge hidden"></span>
                         <div class="flex-row align-center gap-3 ml-10 hidden" id="test-progress-container">
                             <div class="progress-bar-container" style="width: 120px; height: 10px;">
                                 <div id="test-progress-bar" class="progress-bar" style="--progress: 0%"></div>
@@ -644,6 +666,25 @@
             </div>
         </div>
     </div>
+    <!-- SAVE TEST SCRIPT MODAL -->
+    <div id="modal-save-test-script" class="modal">
+        <div class="modal-content card">
+            <div class="flex-row align-center gap-3 mb-15">
+                <i data-lucide="save" class="text-primary"></i>
+                <h2 class="m-0">Save Test Script</h2>
+            </div>
+            <div class="form-group">
+                <label for="save-script-description">Description</label>
+                <input type="text" id="save-script-description" class="table-input full-width" placeholder="e.g. Engine Overheat Protection Test">
+                <p class="text-xs text-muted mt-5">Briefly describe what this test sequence validates.</p>
+            </div>
+            <div class="flex-row gap-2 mt-20 justify-end">
+                <button class="btn btn-outline" onclick="closeModal('modal-save-test-script')">Cancel</button>
+                <button id="btn-confirm-save-script" class="btn btn-primary">Save to Library</button>
+            </div>
+        </div>
+    </div>
+
     <!-- QUICK WAVEFORM MODAL -->
     <div id="modal-quick-oscilloscope" class="modal">
         <div class="modal-content card max-w-800 w-90pc">

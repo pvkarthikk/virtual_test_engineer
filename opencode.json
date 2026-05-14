@@ -11,7 +11,7 @@
     "vte-ask": {
       "description": "Quick Q&A about the test system - read channels, get info, simple writes",
       "mode": "subagent",
-      "prompt": "{file:./.github/agents/vte-ask/AGENTS.md}",
+      "prompt": "{file:./.github/agents/vte-ask.agent.md}",
       "permission": {
         "test-bench_*": "allow"
       }
@@ -19,7 +19,7 @@
     "vte-plan": {
       "description": "Generate JSONL test scripts by inspecting channel metadata - no live reads/writes",
       "mode": "subagent",
-      "prompt": "{file:./.github/agents/vte-plan/AGENTS.md}",
+      "prompt": "{file:./.github/agents/vte-plan.agent.md}",  
       "permission": {
         "test-bench_*": "deny",
         "test-bench_connect_system": "allow",
@@ -34,7 +34,7 @@
     "vte-agent": {
       "description": "Full test execution agent - runs JSONL scripts, handles single and complex queries",
       "mode": "subagent",
-      "prompt": "{file:./.github/agents/vte-agent/AGENTS.md}",
+      "prompt": "{file:./.github/agents/vte-agent.agent.md}",
       "permission": {
         "test-bench_*": "allow"
       }
