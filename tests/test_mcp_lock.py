@@ -9,7 +9,7 @@ if source_path not in sys.path:
     sys.path.append(source_path)
 
 from core.system import SDTBSystem
-from routers.mcp import handle_call_tool
+from mcp_server.server import handle_call_tool
 import mcp.types as types
 
 async def test_mcp_lock():

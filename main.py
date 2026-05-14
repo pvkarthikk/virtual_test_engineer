@@ -12,7 +12,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     await sdtb_system.shutdown()
 
-from routers import system, device, channel, test, ui, mcp, flash, can
+from routers import system, device, channel, test, ui, flash, can
+from mcp_server.handlers import mcp_routes
 
 # Access the singleton system instance via call
 sdtb_system = system.get_system()
@@ -33,7 +34,7 @@ app.include_router(can.router)
 app.include_router(ui.router)
 
 # Special handling for MCP routes to avoid ASGI response conflicts
-for route in mcp.mcp_routes:
+for route in mcp_routes:
     app.router.routes.append(route)
 
 # Mount the UI static files
@@ -49,6 +50,8 @@ async def ping():
 
 if __name__ == "__main__":
     import os
-    # Ensure uvicorn uses the right module path if run directly
+    import sys
+    
+    # Run as standard FastAPI web server
     config = sdtb_system.system_config.server
     uvicorn.run(app, host=config.host, port=config.port)

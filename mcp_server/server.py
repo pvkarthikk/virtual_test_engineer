@@ -1,28 +1,21 @@
 import asyncio
 import json
 import logging
-from typing import List, Optional
-from fastapi import APIRouter, Request, Response
-from mcp.server import Server, NotificationOptions
-from mcp.server.models import InitializationOptions
+from typing import List
+from mcp.server import Server
 import mcp.types as types
-from mcp.server.sse import SseServerTransport
 
-from core.system import SDTBSystem
-
-# Access the singleton system instance via call to ensure we always have the current instance
-# (Crucial for testing where the singleton may be reset)
-def get_system():
-    return SDTBSystem()
+import httpx
+from mcp_server.client import SDTBRestClient
 
 logger = logging.getLogger("sdtb_mcp")
-router = APIRouter(prefix="/mcp", tags=["MCP"])
 
 # Initialize MCP Server
 mcp_server = Server("sdtb-commander")
 
-# Define the SSE transport
-sse = SseServerTransport("/mcp/messages")
+# Initialize the REST client
+# In a production environment, this URL could be configurable
+client = SDTBRestClient("http://localhost:8000")
 
 @mcp_server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
@@ -128,7 +121,6 @@ async def handle_list_tools() -> list[types.Tool]:
                     "script": {"type": "string", "description": "Optional. The raw JSONL test script content. Each line is a JSON object with an 'action' field ('write','wait','assert')"},
                     "script_id": {"type": "string", "description": "Optional. The ID of a saved test script to execute."}
                 },
-                # No longer strictly required if script_id is provided
             },
         ),
         types.Tool(
@@ -312,7 +304,6 @@ A 3-step script that sets the throttle to 50%, waits for 1 second, and then asse
 """
     raise ValueError(f"Resource not found: {uri}")
 
-
 @mcp_server.call_tool()
 async def handle_call_tool(
     name: str, arguments: dict | None
@@ -320,12 +311,12 @@ async def handle_call_tool(
     """Handle tool execution requests."""
     try:
         if name == "list_channels":
-            channels = get_system().channel_manager.get_all_channels()
+            channels = await client.list_channels()
             channel_list = [
                 {
-                    "id": c.channel_id,
-                    "unit": c.properties.unit,
-                    "range": [c.properties.min, c.properties.max]
+                    "id": c["channel_id"],
+                    "unit": c["properties"]["unit"],
+                    "range": [c["properties"]["min"], c["properties"]["max"]]
                 }
                 for c in channels
             ]
@@ -333,59 +324,43 @@ async def handle_call_tool(
 
         elif name == "get_channel_info":
             ch_id = arguments.get("channel_id")
-            info = get_system().channel_manager.get_channel_info(ch_id)
-            if not info:
-                return [types.TextContent(type="text", text=f"Error: Channel '{ch_id}' not found.")]
-            return [types.TextContent(type="text", text=json.dumps(info.model_dump(), indent=2))]
+            info = await client.get_channel_info(ch_id)
+            return [types.TextContent(type="text", text=json.dumps(info, indent=2))]
 
         elif name == "read_channel":
             ch_id = arguments.get("channel_id")
-            value = await get_system().channel_manager.read_channel(ch_id)
-            info = get_system().channel_manager.get_channel_info(ch_id)
-            unit = info.properties.unit if info else ""
-            return [types.TextContent(type="text", text=f"Channel '{ch_id}' current value: {value:.2f} {unit}")]
+            data = await client.read_channel(ch_id)
+            value = data["value"]
+            # We don't easily have unit here without another call or refactoring REST
+            return [types.TextContent(type="text", text=f"Channel '{ch_id}' current value: {value:.2f}")]
 
         elif name == "write_channel":
-            if get_system().test_engine.is_test_running:
-                return [types.TextContent(type="text", text="Error: Cannot perform manual write: A test sequence is currently running.")]
             ch_id = arguments.get("channel_id")
             value = arguments.get("value")
-            await get_system().channel_manager.write_channel(ch_id, value)
-            return [types.TextContent(type="text", text=f"Successfully set channel '{ch_id}' to {value}")]
+            result = await client.write_channel(ch_id, value)
+            return [types.TextContent(type="text", text=result.get("message", "Success"))]
 
         elif name == "get_system_summary":
-            system = get_system()
-            devices = system.device_manager.get_all_devices()
-            channels = system.channel_manager.get_all_channels()
-            can_interfaces = system.can_manager.get_interfaces()
-            summary = {
-                "status": "online" if any(d.is_connected for d in devices.values()) else "offline",
-                "device_count": len(devices),
-                "channel_count": len(channels),
-                "can_interfaces": [f"{iface['device_id']}:{iface['bus']}" for iface in can_interfaces],
-                "connected_devices": [f"{dev_id} ({d.vendor} {d.model})" for dev_id, d in devices.items() if d.is_connected]
-            }
+            summary = await client.get_system_summary()
             return [types.TextContent(type="text", text=json.dumps(summary, indent=2))]
 
         elif name == "connect_system":
-            await get_system().device_manager.connect_all()
-            return [types.TextContent(type="text", text="Hardware connection sequence completed successfully.")]
+            result = await client.connect_system()
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
         elif name == "disconnect_system":
-            await get_system().device_manager.disconnect_all()
-            return [types.TextContent(type="text", text="Hardware disconnection sequence completed.")]
+            result = await client.disconnect_system()
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
         elif name == "read_channels":
             ch_ids = arguments.get("channel_ids", [])
             results = []
             for ch_id in ch_ids:
                 try:
-                    value = await get_system().channel_manager.read_channel(ch_id)
-                    info = get_system().channel_manager.get_channel_info(ch_id)
+                    data = await client.read_channel(ch_id)
                     results.append({
                         "id": ch_id,
-                        "value": round(value, 2),
-                        "unit": info.properties.unit if info else "",
+                        "value": round(data["value"], 2),
                         "status": "success"
                     })
                 except Exception as e:
@@ -393,15 +368,13 @@ async def handle_call_tool(
             return [types.TextContent(type="text", text=json.dumps(results, indent=2))]
 
         elif name == "write_channels":
-            if get_system().test_engine.is_test_running:
-                return [types.TextContent(type="text", text="Error: Cannot perform manual write: A test sequence is currently running.")]
             writes = arguments.get("writes", [])
             results = []
             for w in writes:
                 ch_id = w.get("channel_id")
                 val = w.get("value")
                 try:
-                    await get_system().channel_manager.write_channel(ch_id, val)
+                    await client.write_channel(ch_id, val)
                     results.append({"id": ch_id, "status": "success"})
                 except Exception as e:
                     results.append({"id": ch_id, "status": "error", "message": str(e)})
@@ -410,142 +383,55 @@ async def handle_call_tool(
         elif name == "run_test":
             script = arguments.get("script", "")
             script_id = arguments.get("script_id", "")
-            system = get_system()
-            te = system.test_engine
-
-            if te.is_test_running:
-                return [types.TextContent(type="text", text="Error: Another test is currently running. Please stop the current test before starting a new one.")]
-
-            if script_id:
-                saved_script = system.script_manager.get_script(script_id)
-                if not saved_script:
-                    return [types.TextContent(type="text", text=f"Error: Script ID '{script_id}' not found.")]
-                token = te.claim_engine()
-                asyncio.create_task(te.run_test_steps(saved_script.steps, token=token))
-                return [types.TextContent(type="text", text=json.dumps({"status":"started", "script_id": script_id, "token":token},indent=2))]
-            elif script.strip():
-                token = te.claim_engine()
-                asyncio.create_task(te.run_jsonl_script(script, token=token))
-                return [types.TextContent(type="text", text=json.dumps({"status":"started", "token":token},indent=2))]
-            else:
-                return [types.TextContent(type="text", text="Error: Either 'script' or 'script_id' must be provided.")]
+            result = await client.run_test(script=script, script_id=script_id)
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
         elif name == "list_test_scripts":
-            scripts = get_system().script_manager.list_scripts()
-            return [types.TextContent(type="text", text=json.dumps([s.model_dump() for s in scripts], indent=2))]
+            scripts = await client.list_test_scripts()
+            return [types.TextContent(type="text", text=json.dumps(scripts, indent=2))]
 
         elif name == "get_test_script":
             script_id = arguments.get("script_id")
-            script = get_system().script_manager.get_script(script_id)
-            if not script:
-                return [types.TextContent(type="text", text=f"Error: Script ID '{script_id}' not found.")]
-            return [types.TextContent(type="text", text=json.dumps(script.model_dump(), indent=2))]
+            script = await client.get_test_script(script_id)
+            return [types.TextContent(type="text", text=json.dumps(script, indent=2))]
 
         elif name == "save_test_script":
             description = arguments.get("description")
-            steps_data = arguments.get("steps", [])
-            
-            # Validate steps using Pydantic
-            from pydantic import TypeAdapter
-            from models.test import TestStep
-            try:
-                adapter = TypeAdapter(List[TestStep])
-                steps = adapter.validate_python(steps_data)
-                script_id = get_system().script_manager.save_script(description, steps)
-                return [types.TextContent(type="text", text=json.dumps({"status": "success", "id": script_id}, indent=2))]
-            except Exception as e:
-                return [types.TextContent(type="text", text=f"Error validating steps: {str(e)}")]
+            steps = arguments.get("steps", [])
+            result = await client.save_test_script(description, steps)
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
         
         elif name == "stop_test":
-            te = get_system().test_engine
-            if not te.is_test_running:
-                return [types.TextContent(type="text", text="Error: No test is currently running.")]
-            te.stop_test()
-            return [types.TextContent(type="text", text=json.dumps({"status":"stopped"},indent=2))]
+            result = await client.stop_test()
+            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
         
         elif name == "get_test_status":
-            te = get_system().test_engine
-            status = {
-                "is_running": te.is_test_running,
-                "progress": te.progress,
-                "abort_requested": te._stop_requested
-            }
+            status = await client.get_test_status()
             return [types.TextContent(type="text", text=json.dumps(status, indent=2))]
         
         elif name == "get_test_history":
-            te = get_system().test_engine
-            last_n = arguments.get("last_n", None)
-            history = te.get_test_history(last_n)
+            history = await client.get_test_history()
             return [types.TextContent(type="text", text=json.dumps(history, indent=2))]
 
         elif name == "list_can_interfaces":
-            interfaces = get_system().can_manager.get_interfaces()
+            interfaces = await client.list_can_interfaces()
             return [types.TextContent(type="text", text=json.dumps(interfaces, indent=2))]
 
         elif name == "read_can_log":
             dev_id = arguments.get("device_id")
             bus = arguments.get("bus")
             count = arguments.get("count", 50)
-            arb_id_hex = arguments.get("arb_id")
+            arb_id = arguments.get("arb_id")
             
-            arb_id_filter = None
-            if arb_id_hex:
-                try:
-                    arb_id_filter = int(arb_id_hex, 16)
-                except ValueError:
-                    return [types.TextContent(type="text", text="Error: Invalid 'arb_id' format. Use hex (e.g. '0x100').")]
-
-            frames = get_system().can_manager.get_frames(dev_id, bus, count, arb_id_filter=arb_id_filter)
-            serialized = [
-                {
-                    "timestamp": f.timestamp,
-                    "id": f"0x{f.arbitration_id:X}",
-                    "dlc": f.dlc,
-                    "data": f.data.hex(),
-                    "flags": f"{'EXT ' if f.is_extended else ''}{'ERR ' if f.is_error else ''}{'RTR' if f.is_remote else ''}".strip()
-                }
-                for f in frames
-            ]
-            return [types.TextContent(type="text", text=json.dumps(serialized, indent=2))]
+            frames = await client.read_can_log(dev_id, bus, count, arb_id)
+            return [types.TextContent(type="text", text=json.dumps(frames, indent=2))]
 
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
 
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error during tool {name}: {e.response.text}")
+        return [types.TextContent(type="text", text=f"Error (HTTP {e.response.status_code}): {e.response.text}")]
     except Exception as e:
         logger.error(f"Error executing tool {name}: {str(e)}")
         return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-
-# To avoid "Unexpected ASGI message" and "NoneType is not callable" errors,
-# we use a NoOpResponse that tells Starlette the response is already handled.
-class NoOpResponse(Response):
-    async def __call__(self, scope, receive, send):
-        return
-
-async def handle_sse(request: Request):
-    """Handle the SSE connection for MCP."""
-    async with sse.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
-        await mcp_server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="sdtb-commander",
-                server_version=get_system().version,
-                capabilities=mcp_server.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
-                ),
-            ),
-        )
-    return NoOpResponse()
-
-async def handle_messages(request: Request):
-    """Handle incoming MCP messages over the SSE transport."""
-    await sse.handle_post_message(request.scope, request.receive, request._send)
-    return NoOpResponse()
-
-# We expose the sub-app or the routes to be mounted in main.py
-from starlette.routing import Route
-mcp_routes = [
-    Route("/mcp/sse", endpoint=handle_sse, methods=["GET"]),
-    Route("/mcp/messages", endpoint=handle_messages, methods=["POST"]),
-]

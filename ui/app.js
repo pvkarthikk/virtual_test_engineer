@@ -1012,6 +1012,7 @@ function setupTestEditor() {
             });
             renderTestTable();
             addLog(`Loaded script: ${script.description}`, 'success');
+            closeModal('modal-script-library');
         } catch (e) {
             addLog(`Failed to load script: ${e.message}`, 'error');
         }
@@ -1061,6 +1062,50 @@ function setupTestEditor() {
     refreshScriptLibrary();
     renderTestTable();
 }
+
+window.showScriptLibraryModal = () => {
+    refreshScriptLibrary();
+    document.getElementById('script-preview-body').innerHTML = '<tr><td colspan="5" style="text-align: center; opacity: 0.5;">Select a script to preview</td></tr>';
+    document.getElementById('select-test-script').value = '';
+    const modal = document.getElementById('modal-script-library');
+    if (modal) modal.classList.add('active');
+};
+
+window.previewSelectedScript = async () => {
+    const id = document.getElementById('select-test-script').value;
+    const tbody = document.getElementById('script-preview-body');
+    if (!id) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; opacity: 0.5;">Select a script to preview</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; opacity: 0.5;"><i data-lucide="loader-2" class="animate-spin" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 8px;"></i> Loading preview...</td></tr>';
+    lucide.createIcons(tbody);
+
+    try {
+        const script = await apiGet(`/test/retrieve/${id}`);
+        if (!script || !script.steps || script.steps.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; opacity: 0.5;">Script is empty</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = script.steps.map((step, idx) => {
+            const cmd = step.action.toUpperCase();
+            let val = step.value !== undefined && step.value !== null ? step.value : (step.duration_ms || '');
+            let cond = step.condition || 'N/A';
+            let chan = step.channel || 'N/A';
+            return `<tr>
+                <td>${idx + 1}</td>
+                <td style="font-weight: 600;">${cmd}</td>
+                <td>${chan}</td>
+                <td>${val}</td>
+                <td>${cond}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--accent-danger);">Failed to load preview: ${e.message}</td></tr>`;
+    }
+};
 
 async function refreshScriptLibrary() {
     const select = document.getElementById('select-test-script');
@@ -1122,25 +1167,38 @@ function updateTestProgressUI(status) {
     const btnStop = document.getElementById('btn-stop-test');
     const statusBadge = document.getElementById('test-final-status');
     const container = document.getElementById('test-progress-container');
+    const globalWrapper = document.getElementById('global-test-status');
     const bar = document.getElementById('test-progress-bar');
     const text = document.getElementById('test-progress-text');
 
     if (btnRun) btnRun.disabled = status.is_running || state.status !== 'online';
     if (btnStop) btnStop.disabled = !status.is_running;
 
+    let hasVisibleContent = false;
+
     if (statusBadge) {
         if (!status.is_running && status.last_run_status) {
             statusBadge.classList.remove('hidden');
             statusBadge.innerText = status.last_run_status.toUpperCase();
-            statusBadge.className = `badge ml-10 ${status.last_run_status === 'pass' ? 'badge-success' : 'badge-danger'}`;
-        } else if (status.is_running) {
+            statusBadge.className = `badge ${status.last_run_status === 'pass' ? 'badge-success' : 'badge-danger'}`;
+            hasVisibleContent = true;
+        } else {
             statusBadge.classList.add('hidden');
         }
     }
     
     if (container) {
-        if (status.is_running) container.classList.remove('hidden');
-        else container.classList.add('hidden');
+        if (status.is_running) {
+            container.classList.remove('hidden');
+            hasVisibleContent = true;
+        } else {
+            container.classList.add('hidden');
+        }
+    }
+
+    if (globalWrapper) {
+        if (hasVisibleContent) globalWrapper.classList.remove('hidden');
+        else globalWrapper.classList.add('hidden');
     }
 
     if (bar) bar.style.setProperty('--progress', `${status.progress}%`);
@@ -1279,7 +1337,7 @@ function renderTestTable() {
             </select>` :
             `<select class="table-input" disabled><option>N/A</option></select>`;
         const actionsHtml = `<button class="btn-icon" onclick="removeTestStep(${index})"><i data-lucide="trash-2" style="color: #ef4444"></i></button>`;
-        row.innerHTML = `<td>${cmdHtml}</td><td>${chanHtml}</td><td>${valHtml}</td><td>${condHtml}</td><td><div class="flex-row">${actionsHtml}</div></td>`;
+        row.innerHTML = `<td>${index + 1}</td><td>${cmdHtml}</td><td>${chanHtml}</td><td>${valHtml}</td><td>${condHtml}</td><td><div class="flex-row">${actionsHtml}</div></td>`;
         tbody.appendChild(row);
     });
     lucide.createIcons();

@@ -110,6 +110,16 @@
                 <i data-lucide="git-branch"></i>
                 <span id="status-channels">0 Channels</span>
             </div>
+            <!-- Test Status & Progress (Global) -->
+            <div class="status-group" id="global-test-status" style="border-left: 1px solid var(--border-color); padding-left: 15px; margin-left: 5px;">
+                <span id="test-final-status" class="badge hidden"></span>
+                <div id="test-progress-container" class="flex-row align-center hidden">
+                    <div class="progress-bar-container" style="width: 100px; height: 8px; margin: 0 10px;">
+                        <div id="test-progress-bar" class="progress-bar" style="--progress: 0%"></div>
+                    </div>
+                    <span id="test-progress-text" class="text-xs font-mono" style="min-width: 35px;">0%</span>
+                </div>
+            </div>
             <div class="status-group min-w-80">
                 <i data-lucide="clock"></i>
                 <span id="status-time">--:--:--</span>
@@ -234,12 +244,8 @@
                     <div class="view-actions align-center w-full justify-between">
                         <!-- Script Library Group -->
                         <div class="flex-row align-center gap-2">
-                            <label for="select-test-script" class="text-sm font-medium">Script Library:</label>
-                            <select id="select-test-script" class="table-input" style="min-width: 180px; height: 28px;">
-                                <option value="">Select a script...</option>
-                            </select>
-                            <button id="btn-load-script" class="btn btn-outline btn-sm" title="Load selected script">
-                                <i data-lucide="download"></i> Load
+                            <button class="btn btn-outline btn-sm" onclick="showScriptLibraryModal()">
+                                <i data-lucide="library"></i> Script Library
                             </button>
                             <button id="btn-save-script-modal" class="btn btn-outline btn-sm" title="Save current sequence">
                                 <i data-lucide="save"></i> Save
@@ -268,26 +274,19 @@
                             </button>
                         </div>
                     </div>
-                    <div class="flex-row align-center">
-                        <span id="test-final-status" class="badge hidden"></span>
-                        <div class="flex-row align-center gap-3 ml-10 hidden" id="test-progress-container">
-                            <div class="progress-bar-container" style="width: 120px; height: 10px;">
-                                <div id="test-progress-bar" class="progress-bar" style="--progress: 0%"></div>
-                            </div>
-                            <span id="test-progress-text" class="text-sm font-mono" style="min-width: 40px;">0%</span>
-                        </div>
-                    </div>
+                    <!-- Progress bar removed from here and moved to footer -->
                 </div>
                 <div class="test-editor-container flex-col gap-4">
-                    <div class="card flex-1 overflow-y-auto p-15">
+                    <div class="card flex-1 overflow-y-auto p-15" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.1);">
                         <table class="table table-compact" id="test-table">
                             <thead>
                                 <tr>
-                                    <th class="w-100">CMD</th>
-                                    <th>Channel</th>
-                                    <th class="w-240">Value</th>
-                                    <th class="w-80">Assert</th>
-                                    <th class="w-50"></th>
+                                    <th style="width: 50px;">Step</th>
+                                    <th style="width: 120px;">Command</th>
+                                    <th style="width: 200px;">Channel</th>
+                                    <th>Value</th>
+                                    <th style="width: 100px;">Condition</th>
+                                    <th style="width: 60px;"></th>
                                 </tr>
                             </thead>
                             <tbody id="test-table-body">
@@ -574,6 +573,46 @@
             </div>
             <div class="flex-1 debug-window" id="test-log-content" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; font-family: monospace; font-size: 0.8rem; overflow-y: auto; padding: 15px;">
                 <!-- Live logs injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT LIBRARY MODAL -->
+    <div id="modal-script-library" class="modal">
+        <div class="modal-content card max-w-800 w-90pc flex-col" style="height: 600px;">
+            <div class="flex-row justify-between align-center mb-20">
+                <h2 class="m-0"><i data-lucide="library" class="mr-2"></i>Script Library</h2>
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modal-script-library')">Close</button>
+            </div>
+            
+            <div class="mb-15">
+                <select id="select-test-script" class="table-input full-width" style="height: 32px;" onchange="previewSelectedScript()">
+                    <option value="">Select a script...</option>
+                </select>
+            </div>
+
+            <div class="section-label mt-10">Script Preview</div>
+            <div class="flex-1 overflow-y-auto card p-0 mt-2 mb-15" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.1);">
+                <table class="table table-compact">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">Step</th>
+                            <th style="width: 120px;">Command</th>
+                            <th style="width: 200px;">Channel</th>
+                            <th>Value</th>
+                            <th style="width: 100px;">Condition</th>
+                        </tr>
+                    </thead>
+                    <tbody id="script-preview-body">
+                        <tr><td colspan="5" style="text-align: center; opacity: 0.5;">Select a script to preview</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex-row justify-end">
+                <button id="btn-load-script" class="btn btn-primary" title="Load selected script">
+                    <i data-lucide="download"></i> Load into Editor
+                </button>
             </div>
         </div>
     </div>

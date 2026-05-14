@@ -1611,7 +1611,12 @@ i[data-lucide]>svg {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+.test-editor-container > .card {
+    min-height: 0;
 }
 
 #test-content {

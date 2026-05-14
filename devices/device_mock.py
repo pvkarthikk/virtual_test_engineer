@@ -16,6 +16,7 @@ class EngineMock:
     def __init__(self):
         self._throttle_pwm = 0 # 0 - 255 PWM
         self._engine_speed = 0 # 0 - 4095 volt
+        self._engine_speed_pwm = 0 # 0 - 255 PWM
         self._throttle_percent = 0 # 0 - 100 %
         self._engine_speed_rpm = 0 # 0 - 5000 rpm
         self._idle_rpm = 800
@@ -49,6 +50,10 @@ class EngineMock:
     @property
     def engine_speed(self) -> int:
         return self._engine_speed
+    
+    @property
+    def engine_speed_pwm(self) -> int:
+        return self._engine_speed_pwm
 
     @property
     def temperature_raw(self) -> int:
@@ -80,6 +85,10 @@ class EngineMock:
         # convert engine rpm to 12-bit ADC counts (0-5V range where 4095 = 5000 RPM)
         raw_val = (self._engine_speed_rpm / 5000.0) * 4095.0
         self._engine_speed = max(0, min(4095, round(raw_val)))
+
+        # Convert RPM to 8-bit PWM (0-255)
+        self._engine_speed_pwm = round((self._engine_speed_rpm / 5000.0) * 255)
+        self._engine_speed_pwm = max(0, min(255, self._engine_speed_pwm))
 
         # ----------------------------------------------------
         # Simulate Coolant Temperature (Warms up as engine runs)
@@ -168,6 +177,12 @@ class MockDevice(BaseDevice):
                 name="Eco Mode Switch",
                 direction="output",
                 description="Binary switch to toggle Engine Eco Mode (1=On, 0=Off)."
+            ),
+            SignalPWM(
+                signal_id="J1_06",
+                name="Engine Speed Feedback 2",
+                direction="input",
+                description="8-bit PWM feedback from engine speed sensor. J1 pin 06."
             ),
         ]
 
@@ -260,6 +275,7 @@ class MockDevice(BaseDevice):
         self.get_signal("J1_01").value = self._engine.engine_speed
         self.get_signal("J1_03").value = self._engine.temperature_raw
         self.get_signal("J1_04").value = self._engine.map_raw
+        self.get_signal("J1_06").value = self._engine.engine_speed_pwm
         
         # 4. Generate CAN frames (Simulated background traffic)
         # 0x100: Engine telemetry
