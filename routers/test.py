@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Body
 from core.system import SDTBSystem
+from models.test import TestScriptSaveRequest, TestScript, TestScriptMetadata
+from typing import List
 
 router = APIRouter(prefix="/test", tags=["Test Execution"])
 
@@ -77,3 +79,31 @@ async def clear_test_history():
     """
     get_system().test_engine.history.clear()
     return {"message": "Test history cleared"}
+
+@router.post("/save", response_model=dict)
+async def save_test_script(request: TestScriptSaveRequest):
+    """
+    Stores a JSONL test script and returns its unique ID.
+    """
+    system = get_system()
+    script_id = system.script_manager.save_script(request.description, request.steps)
+    return {"id": script_id}
+
+@router.get("/retrieve", response_model=List[TestScriptMetadata])
+async def retrieve_test_scripts():
+    """
+    Returns a list of all saved test scripts and their descriptions.
+    """
+    system = get_system()
+    return system.script_manager.list_scripts()
+
+@router.get("/retrieve/{script_id}", response_model=TestScript)
+async def retrieve_test_script(script_id: str):
+    """
+    Returns the full content and metadata for a specific test script.
+    """
+    system = get_system()
+    script = system.script_manager.get_script(script_id)
+    if not script:
+        raise HTTPException(status_code=404, detail=f"Script with ID {script_id} not found")
+    return script

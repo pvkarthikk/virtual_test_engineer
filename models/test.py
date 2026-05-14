@@ -42,3 +42,16 @@ class TestRun(BaseModel):
     timestamp: float
     results: List[TestResult]
     logs: List[str] = []
+
+class TestScriptMetadata(BaseModel):
+    id: str
+    description: str
+
+class TestScript(BaseModel):
+    id: str
+    description: str
+    steps: List[TestStep]
+
+class TestScriptSaveRequest(BaseModel):
+    description: str
+    steps: List[TestStep]

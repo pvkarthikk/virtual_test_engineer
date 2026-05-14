@@ -13,6 +13,7 @@ from core.test_engine import TestEngine
 from core.stream_manager import StreamManager, SSELogHandler
 from core.flash_manager import FlashManager
 from core.can_manager import CANManager
+from core.script_manager import ScriptManager
 from models.config import SystemConfig, ChannelConfig, UIConfig
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ class SDTBSystem:
         self.can_manager = CANManager(self.stream_manager, self.system_config.can_buffer_size)
         self.channel_manager = ChannelManager(self.device_manager, self.stream_manager)
         self.test_engine = TestEngine(self.channel_manager, self.device_manager)
+        self.script_manager = ScriptManager(os.path.join(self.config_dir, "scripts"))
         
         # Redirect all standard logging to the SSE stream
         root_logger = logging.getLogger()

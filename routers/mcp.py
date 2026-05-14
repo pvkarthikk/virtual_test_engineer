@@ -121,13 +121,59 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="run_test",
-            description="Run a JSONL test script against the hardware. Each line is a test step (write, wait, assert). The test runs in the background; use get_test_status and get_test_history to monitor progress",
+            description="Run a test script against the hardware. You can provide either a raw JSONL script string OR a saved script_id. Each line in a raw script is a test step (write, wait, assert). The test runs in the background; use get_test_status and get_test_history to monitor progress.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "script": {"type": "string", "description": "The JSONL test script content. Each line is a JSON object with an 'action' field ('write','wait','assert')"},
+                    "script": {"type": "string", "description": "Optional. The raw JSONL test script content. Each line is a JSON object with an 'action' field ('write','wait','assert')"},
+                    "script_id": {"type": "string", "description": "Optional. The ID of a saved test script to execute."}
                 },
-                "required": ["script"],
+                # No longer strictly required if script_id is provided
+            },
+        ),
+        types.Tool(
+            name="list_test_scripts",
+            description="List all saved test scripts and their descriptions.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="get_test_script",
+            description="Retrieve the full content (steps) of a specific test script by its ID.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "script_id": {"type": "string", "description": "The unique ID of the test script."}
+                },
+                "required": ["script_id"],
+            },
+        ),
+        types.Tool(
+            name="save_test_script",
+            description="Save a new test script for future use.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string", "description": "A human-readable description of what the test does."},
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "action": {"type": "string", "enum": ["write", "wait", "assert", "fault"]},
+                                "channel": {"type": "string"},
+                                "value": {"type": "number"},
+                                "duration_ms": {"type": "integer"},
+                                "condition": {"type": "string", "enum": [">", ">=", "<", "<=", "==", "!="]},
+                                "device": {"type": "string"},
+                                "signal": {"type": "string"},
+                                "fault_id": {"type": "string"}
+                            },
+                            "required": ["action"]
+                        },
+                        "description": "List of test steps."
+                    }
+                },
+                "required": ["description", "steps"],
             },
         ),
         types.Tool(
@@ -363,14 +409,52 @@ async def handle_call_tool(
 
         elif name == "run_test":
             script = arguments.get("script", "")
-            if not script.strip():
-                return [types.TextContent(type="text", text="Error: No script provided.")]
-            te = get_system().test_engine
+            script_id = arguments.get("script_id", "")
+            system = get_system()
+            te = system.test_engine
+
             if te.is_test_running:
                 return [types.TextContent(type="text", text="Error: Another test is currently running. Please stop the current test before starting a new one.")]
-            token = te.claim_engine()
-            asyncio.create_task(te.run_jsonl_script(script, token=token))
-            return [types.TextContent(type="text", text=json.dumps({"status":"started", "token":token},indent=2))]
+
+            if script_id:
+                saved_script = system.script_manager.get_script(script_id)
+                if not saved_script:
+                    return [types.TextContent(type="text", text=f"Error: Script ID '{script_id}' not found.")]
+                token = te.claim_engine()
+                asyncio.create_task(te.run_test_steps(saved_script.steps, token=token))
+                return [types.TextContent(type="text", text=json.dumps({"status":"started", "script_id": script_id, "token":token},indent=2))]
+            elif script.strip():
+                token = te.claim_engine()
+                asyncio.create_task(te.run_jsonl_script(script, token=token))
+                return [types.TextContent(type="text", text=json.dumps({"status":"started", "token":token},indent=2))]
+            else:
+                return [types.TextContent(type="text", text="Error: Either 'script' or 'script_id' must be provided.")]
+
+        elif name == "list_test_scripts":
+            scripts = get_system().script_manager.list_scripts()
+            return [types.TextContent(type="text", text=json.dumps([s.model_dump() for s in scripts], indent=2))]
+
+        elif name == "get_test_script":
+            script_id = arguments.get("script_id")
+            script = get_system().script_manager.get_script(script_id)
+            if not script:
+                return [types.TextContent(type="text", text=f"Error: Script ID '{script_id}' not found.")]
+            return [types.TextContent(type="text", text=json.dumps(script.model_dump(), indent=2))]
+
+        elif name == "save_test_script":
+            description = arguments.get("description")
+            steps_data = arguments.get("steps", [])
+            
+            # Validate steps using Pydantic
+            from pydantic import TypeAdapter
+            from models.test import TestStep
+            try:
+                adapter = TypeAdapter(List[TestStep])
+                steps = adapter.validate_python(steps_data)
+                script_id = get_system().script_manager.save_script(description, steps)
+                return [types.TextContent(type="text", text=json.dumps({"status": "success", "id": script_id}, indent=2))]
+            except Exception as e:
+                return [types.TextContent(type="text", text=f"Error validating steps: {str(e)}")]
         
         elif name == "stop_test":
             te = get_system().test_engine

@@ -93,6 +93,35 @@ class TestEngine:
                     raise ValueError(f"Line {i+1}: Invalid step format: {e}")
 
             # 2. Sequential Execution
+            await self.run_test_steps(steps, internal_lock=True)
+
+        except Exception as e:
+            self._log(f"Test execution FAILED: {str(e)}", "error")
+            raise
+        finally:
+            if token is None: # Only clear if we didn't use a token (if we did, run_test_steps handled it or we failed before)
+                 self.is_test_running = False
+            self.current_step = 0
+            self.total_steps = 0
+            self._active_token = None
+
+    async def run_test_steps(self, steps: List[TestStep], token: Optional[str] = None, internal_lock: bool = False):
+        """
+        Executes a list of test steps.
+        """
+        try:
+            if not internal_lock:
+                if token is not None:
+                    if token != self._active_token:
+                        raise RuntimeError("Invalid or expired execution token.")
+                    self._active_token = None 
+                else:
+                    if self.is_test_running:
+                        raise RuntimeError("A test is already running. Concurrency is not allowed.")
+                    self.is_test_running = True
+                
+                self._stop_requested = False
+
             self.total_steps = len(steps)
             self.current_step = 0
             logger.info(f"Starting execution of {self.total_steps} test steps...")
@@ -134,7 +163,7 @@ class TestEngine:
             self.is_test_running = False
             self.current_step = 0
             self.total_steps = 0
-            self._active_token = None # Ensure token is always cleared
+            self._active_token = None 
 
     async def _execute_step(self, index: int, step: TestStep) -> TestResult:
         """
