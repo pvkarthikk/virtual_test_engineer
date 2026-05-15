@@ -72,6 +72,42 @@
       },
       "min": null,
       "max": null
+    },
+    {
+      "id": "w1778764187034",
+      "type": "toggle",
+      "channel": "ignition_switch",
+      "label": "ignition_switch",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1778764315817",
+      "type": "button",
+      "channel": "throttle",
+      "label": "throttle",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "w1778764564352",
+      "type": "oscilloscope",
+      "channel": "coolant_temp",
+      "label": "coolant_temp",
+      "position": {
+        "row": 0,
+        "col": 0
+      },
+      "min": null,
+      "max": null
     }
   ]
 }

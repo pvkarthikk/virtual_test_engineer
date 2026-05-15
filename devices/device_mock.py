@@ -14,6 +14,7 @@ def generate_mock_value(signal: SignalDefinition):
 
 class EngineMock:
     def __init__(self):
+        self._ignition_switch = False # 0 - 12V
         self._throttle_pwm = 0 # 0 - 255 PWM
         self._engine_speed = 0 # 0 - 4095 volt
         self._engine_speed_pwm = 0 # 0 - 255 PWM
@@ -36,6 +37,14 @@ class EngineMock:
     @eco_mode.setter
     def eco_mode(self, value: bool):
         self._eco_mode = value
+
+    @property
+    def ignition_switch(self) -> bool:
+        return self._ignition_switch
+    
+    @ignition_switch.setter
+    def ignition_switch(self, value: bool):
+        self._ignition_switch = value
 
     @property
     def throttle_pwm(self) -> int:
@@ -68,7 +77,7 @@ class EngineMock:
         now = time.time()
         dt = now - self._last_update
         self._last_update = now
-
+        
         # calculate engine rpm based on the throttle percent
         # Eco Mode reduces available power by 20%
         power_multiplier = 0.8 if self._eco_mode else 1.0
@@ -89,22 +98,46 @@ class EngineMock:
         # Convert RPM to 8-bit PWM (0-255)
         self._engine_speed_pwm = round((self._engine_speed_rpm / 5000.0) * 255)
         self._engine_speed_pwm = max(0, min(255, self._engine_speed_pwm))
-
+        
+        # ----------------------------------------------------
+        # Simulate MAP Sensor (Manifold Absolute Pressure)
+        # ----------------------------------------------------
+        if not self._ignition_switch:
+            self._engine_speed = 0
+            self._engine_speed_pwm = 0
+            self._engine_speed_rpm = 0
+            # Engine off = Atmospheric pressure
+            pressure_kpa = 101.3
+        else:
+            # Engine running: Higher throttle = less vacuum, Higher RPM = more vacuum
+            pressure_kpa = 30.0 + (self._throttle_percent * 0.7) - ((self._engine_speed_rpm - 800) * 0.005)
+            # Add slight pressure fluctuations
+            pressure_kpa += random.uniform(-1.0, 1.0)
+            
+        pressure_kpa = max(10.0, min(105.0, pressure_kpa))
+        
+        # Real-world 1-bar GM MAP Sensor is linear: P(kPa) = 10.0 + 0.023199 * raw
+        # Inverse mapping to get 12-bit ADC raw value (0-4095)
+        raw_val = (pressure_kpa - 10.0) / 0.023199
+        self._map_raw = max(0, min(4095, round(raw_val)))
         # ----------------------------------------------------
         # Simulate Coolant Temperature (Warms up as engine runs)
         # ----------------------------------------------------
-        # User Request: Increase ~1.0 C / second
-        # Use random range around 1.0 to feel "natural"
-        base_rate = random.uniform(1.9,2.1) 
+        # Calculate an RPM-based load factor (0.0 at idle, 1.0 at max RPM)
+        load_factor = max(0.0, (self._engine_speed_rpm - self._idle_rpm) / (self._max_rpm - self._idle_rpm))
         
-        if self._engine_speed_rpm > 1000:
+        # Dynamic heating rate: ~0.5 C/sec at idle, scaling up to ~3.0 C/sec at redline
+        heating_rate = (0.5 + (2.5 * load_factor)) * random.uniform(1.9, 2.1)
+        
+        if self._engine_speed_rpm > 400: # Engine is running
             # Heating: Targets 90.0 C
             if self._temperature_c < 90.0:
-                self._temperature_c += base_rate * dt
+                self._temperature_c += heating_rate * dt
         else:
-            # Cooling: Very slowly drops toward ambient 20.0 C
+            # Cooling: Engine is off, drops toward ambient 20.0 C
             if self._temperature_c > 20.0:
-                self._temperature_c -= (base_rate * 0.5) * dt
+                cooling_rate = 0.3 * random.uniform(1.9, 2.1)
+                self._temperature_c -= cooling_rate * dt
 
         # Add slight thermal noise so it visibly updates in the UI
         temp_with_noise = self._temperature_c + random.uniform(-0.1, 0.1)
@@ -121,24 +154,7 @@ class EngineMock:
             self._temperature_raw = 100
         self._temperature_raw = max(0, min(4095, round(self._temperature_raw)))
 
-        # ----------------------------------------------------
-        # Simulate MAP Sensor (Manifold Absolute Pressure)
-        # ----------------------------------------------------
-        # Higher throttle = less vacuum = higher pressure
-        pressure_kpa = 30.0 + (self._throttle_percent * 0.7) - ((self._engine_speed_rpm - 800) * 0.005)
-        # Add slight pressure fluctuations
-        pressure_kpa += random.uniform(-1.0, 1.0)
-        pressure_kpa = max(10.0, min(105.0, pressure_kpa))
-        
-        # Sensor curve: P(kPa) = 10.0 + 0.015*raw + 0.000002*(raw^2)
-        import math
-        a, b, c = 0.000002, 0.015, 10.0 - pressure_kpa
-        discriminant = b**2 - 4*a*c
-        if discriminant >= 0:
-            r = (-b + math.sqrt(discriminant)) / (2*a)
-            self._map_raw = max(0, min(4095, round(r)))
-        else:
-            self._map_raw = 0
+
 
 class MockDevice(BaseDevice):
     def __init__(self):
@@ -183,6 +199,12 @@ class MockDevice(BaseDevice):
                 name="Engine Speed Feedback 2",
                 direction="input",
                 description="8-bit PWM feedback from engine speed sensor. J1 pin 06."
+            ),
+            SignalSwitch(
+                signal_id="J1_07",
+                name="Ignition Switch",
+                direction="output",
+                description="Binary switch to toggle Engine Ignition (1=On, 0=Off). J1 pin 07."
             ),
         ]
 
@@ -267,6 +289,7 @@ class MockDevice(BaseDevice):
         # 1. Read commands from system
         self._engine.throttle_pwm = self.get_signal("J1_02").value
         self._engine.eco_mode = bool(self.get_signal("J1_05").value)
+        self._engine.ignition_switch = bool(self.get_signal("J1_07").value)
         
         # 2. Update engine state
         self._engine.update()

@@ -61,6 +61,7 @@ class TestEngine:
         """
         Parses and executes a JSONL test script.
         """
+        execution_started = False
         try:
             # If a token is provided, verify it matches the active reservation.
             # If no token is provided, attempt a fresh lock.
@@ -93,13 +94,14 @@ class TestEngine:
                     raise ValueError(f"Line {i+1}: Invalid step format: {e}")
 
             # 2. Sequential Execution
+            execution_started = True
             await self.run_test_steps(steps, internal_lock=True)
 
         except Exception as e:
             self._log(f"Test execution FAILED: {str(e)}", "error")
             raise
         finally:
-            if token is None: # Only clear if we didn't use a token (if we did, run_test_steps handled it or we failed before)
+            if not execution_started: 
                  self.is_test_running = False
             self.current_step = 0
             self.total_steps = 0

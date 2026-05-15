@@ -13,7 +13,7 @@
         "resolution": 1.221,
         "offset": 0.0
       },
-      "value": 1920.633
+      "value": 0.0
     }
   },
   {
@@ -30,7 +30,7 @@
         "resolution": 0.00305,
         "offset": 0.0
       },
-      "value": 33.60749057898669
+      "value": 0.0
     }
   },
   {
@@ -63,7 +63,7 @@
           ]
         ]
       },
-      "value": 89.95882352941176
+      "value": 28.5235294117647
     }
   },
   {
@@ -76,20 +76,34 @@
       "min": 10.0,
       "max": 105.0,
       "conversion": {
-        "type": "polynomial",
-        "coefficients": [
-          10.0,
-          0.015,
-          2e-06
-        ]
+        "type": "linear",
+        "resolution": 0.023199,
+        "offset": 10.0
       },
-      "value": 47.632512
+      "value": 101.31126400000001
     }
   },
   {
     "channel_id": "eco_mode",
     "device_id": "mock_1",
     "signal_id": "J1_05",
+    "properties": {
+      "signal_type": null,
+      "unit": "",
+      "min": 0.0,
+      "max": 100.0,
+      "conversion": {
+        "type": "linear",
+        "resolution": 1.0,
+        "offset": 0.0
+      },
+      "value": 0.0
+    }
+  },
+  {
+    "channel_id": "ignition_switch",
+    "device_id": "mock_1",
+    "signal_id": "J1_07",
     "properties": {
       "signal_type": null,
       "unit": "",

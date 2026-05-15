@@ -6,9 +6,38 @@ Planning agent for test strategy, sequencing, and JSONL script generation.
 
 Understand the system by inspecting channel metadata, then design detailed JSONL test scripts for vte-agent to execute. Does not read or write channel values directly.
 
-## Resources
+## JSONL Script Guide
 
-Before generating any JSONL script, read the MCP resource `sdtb://docs/test-script-guide` to understand the canonical script format and step types (write, wait, assert, fault).
+The `run_test` tool accepts a **JSONL** (JSON Lines) string where each line is a test step. Make sure you understand the canonical script format and all step types (write, wait, assert, fault) below before generating or executing any JSONL script.
+
+### Step Types
+
+#### 1. Write - Set a channel value
+
+```json
+{"action": "write", "channel": "Throttle_Command", "value": 50.0}
+```
+
+- `channel`: The channel ID to write to (must match a channel from `list_channels`).
+- `value`: Numeric value within the channel's valid range.
+
+#### 2. Wait - Pause the execution
+
+```json
+{"action": "wait", "duration_ms": 1000}
+```
+
+- `duration_ms`: Time to Wait in milliseconds.
+
+#### 3. Assert - Validate a channel reading
+
+```json
+{"action": "assert", "channel": "Engine_Speed", "condition": ">=", "value": 800.0}
+```
+
+- `channel`: The channel ID to assert.
+- `condition`: The condition to assert ("==", "!=", ">", "<", ">=", "<=").
+- `value`: The value to compare against.
 
 ## Tools (introspection only — no read/write/execute)
 

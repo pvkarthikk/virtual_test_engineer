@@ -13,7 +13,7 @@
         "resolution": 1.221,
         "offset": 0.0
       },
-      "value": 1925.517
+      "value": 1920.633
     }
   },
   {
@@ -63,7 +63,7 @@
           ]
         ]
       },
-      "value": 90.08571428571429
+      "value": 89.95882352941176
     }
   },
   {
@@ -76,14 +76,28 @@
       "min": 10.0,
       "max": 105.0,
       "conversion": {
-        "type": "polynomial",
-        "coefficients": [
-          10.0,
-          0.015,
-          2e-06
-        ]
+        "type": "linear",
+        "resolution": 0.023199,
+        "offset": 10.0
       },
-      "value": 47.128887999999996
+      "value": 101.3
+    }
+  },
+  {
+    "channel_id": "eco_mode",
+    "device_id": "mock_1",
+    "signal_id": "J1_05",
+    "properties": {
+      "signal_type": null,
+      "unit": "",
+      "min": 0.0,
+      "max": 100.0,
+      "conversion": {
+        "type": "linear",
+        "resolution": 1.0,
+        "offset": 0.0
+      },
+      "value": 0.0
     }
   }
 ]
