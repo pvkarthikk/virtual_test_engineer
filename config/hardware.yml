@@ -1,0 +1,34 @@
+# Hardware Registry Specification
+# Physical Layer Definition - maps logical resource IDs to physical pins
+# Reference: spec.md Section 3.1.2
+
+board_metadata:
+  target_mcu: Arduino_Uno
+  v_ref: 5.0
+  architecture: AVR
+
+resources:
+  HW_ADC_THROTTLE:
+    pin: A0
+    type: ANALOG_IN
+    bit_depth: 10
+
+  HW_ADC_TACHO:
+    pin: A1
+    type: ANALOG_IN
+    bit_depth: 10
+
+  HW_PWM_MOTOR:
+    pin: 9
+    type: PWM_OUT
+    timer: 1
+
+  HW_DIG_MODE_A:
+    pin: 2
+    type: DIGITAL_IN
+    pull: UP
+
+  HW_DIG_MODE_B:
+    pin: 3
+    type: DIGITAL_IN
+    pull: UP

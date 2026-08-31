@@ -1,0 +1,14 @@
+# DUT (Device Under Test) Limits Configuration
+# Defines acceptable electrical ranges for each channel based on DUT specifications
+# Reference: SPECIFICATION.md Section 3.2.2
+
+dut:
+  hardware_type: arduino_uno
+  channels:
+    brake_temp_sensor:
+      physical_pin: A0
+      signal_type: analog_input
+      voltage_range: [0, 3.3]       # DUT can only tolerate 0-3.3V
+      expected_range: [0.5, 2.5]    # Normal operating range
+      resolution_bits: 10
+      sampling_rate: 1000
